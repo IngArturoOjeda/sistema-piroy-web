@@ -1,0 +1,135 @@
+<!Doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8"></meta>
+    <meta name="viewport" content="width=device-width initial-scale=1.0">
+    <title>Rancho Piro'y - Bienvenidos</title>
+    <!-- 🌟 ESTA ES LA LÍNEA MÁGICA PARA EL ICONO DE LA PESTAÑA -->
+    <link rel="icon" type="image/png" href="/frontend/assets/images/favicon.png">
+    <link rel="stylesheet" href="/frontend/css/styles.css">
+</head>
+<body>
+        <header>
+            <!-- Colocamos la fila de navegación ADENTRO del header -->
+            <div class="fila-navegacion">
+                <!-- 1. El Logo de la Ferretería -->
+                  <div class="contenedor-logo">
+                    <img src="/frontend/assets/images/logo-vete.jpg" alt="Logo Ferretería"  class="logo-busqueda">
+                  </div>
+            
+                    <!-- Barra de búsqueda mejorada y más grande -->
+                    <div class="contenedor-busqueda">
+                        <div class="caja-buscar-wrapper">
+                            <input type="text" id="txt-buscar" placeholder="Buscar productos...">
+                            <span class="icono-lupa">🔍</span>
+                        </div>
+                    </div>  
+
+                    <!-- 3. 🌟 NUEVO: Botón "Ver Carrito" con contador dinámico -->
+                    <button id="btn-ver-carrito" class="btn-carrito-cabecera">
+                        <span class="icono-carrito-nav">🛒</span>
+                        <span class="texto-carrito-nav">Ver Carrito</span>
+                        <!-- Este numerito cambiará solo gracias a JavaScript -->
+                        <span id="contador-carrito" class="contador-burbuja">0</span>
+                    </button>
+            </div>        
+        </header>
+
+        <div class="sub-cabecera">
+
+            <h1><h2>Nuestros Articulos</h2></h1>
+        </div>
+
+        <div class="contenedor-principal">
+
+            <!-- Menú Lateral de Categorías -->
+             <aside class="menu-lateral">
+                <h2>Categorias</h2>
+                <ul id="lista-categorias">
+                    <!-- JS cargará las categorías aquí adentro -->
+                </ul>
+             </aside>
+            
+            <!-- Sección Principal de Productos -->
+             <main class="contenido-productos">
+                
+                <div id="contenedor-cards" class="cuadricula-productos">
+                    <!-- JS cargará las "cards" de los productos aquí adentro -->
+                </div>
+
+                
+             </main>
+        </div>
+
+                <!-- 🌟 VENTANA EMERGENTE DEL CARRITO (Oculta por defecto) -->
+        <div id="modal-carrito" class="modal-fondo">
+            <div class="modal-contenido">
+                
+                <!-- Botón para cerrar la ventana -->
+                <span id="btn-cerrar-modal" class="btn-cerrar">&times;</span>
+                
+                <h2>🛒 Resumen de tu Pedido</h2>
+                <hr>
+                
+                <!-- Aquí JavaScript listará los productos agregados -->
+                <ul id="lista-productos-carrito" class="lista-carrito-emergente">
+                    <!-- Se llenará con JS -->
+                </ul>
+                
+                <!-- Total acumulado en guaraníes -->
+                <div class="total-pedido">
+                    <h3>Total a Pagar: <span id="total-carrito">PYG 0</span></h3>
+                </div>
+
+                <hr>
+
+                <h2>🚚 Datos para la Entrega</h2>
+                
+                <!-- Formulario único para capturar los datos del cliente una sola vez -->
+                <form id="form-pedido">
+                    <div class="campo-formulario">
+                        <label for="txt-cliente-nombre">Nombre y Apellido:</label>
+                        <input type="text" id="txt-cliente-nombre" placeholder="Ej. Juan Pérez" required>
+                    </div>
+
+                    <div class="campo-formulario">
+                        <label for="txt-cliente-direccion">Dirección de Entrega:</label>
+                        <input type="text" id="txt-cliente-direccion" placeholder="Ej. Avda. Mariscal López 1234" required>
+                    </div>
+
+                    <div class="campo-formulario">
+                        <label for="txt-cliente-telefono">Teléfono de Contacto:</label>
+                        <input type="tel" id="txt-cliente-telefono" placeholder="Ej. 0981 123 456" required>
+                    </div>
+
+                    <button type="submit" id="btn-enviar-pedido" class="btn-comprar">
+                        🚀 CONFIRMAR Y ENVIAR PEDIDO
+                    </button>
+                </form>
+
+            </div>
+        </div>
+                <!-- 🌟 VENTANA EMERGENTE DE ÉXITO (Oculta por defecto) -->
+        <div id="modal-exito" class="modal-fondo">
+            <div class="modal-contenido-exito">
+                <div class="icono-exito">🎉</div>
+                <h2>¡Pedido Recibido con Éxito!</h2>
+                <p>Tu orden ha sido registrada en nuestro sistema y está lista para ser procesada.</p>
+                
+                <div class="caja-numero-orden">
+                    <span>Número de Orden</span>
+                    <h1 id="txt-orden-confirmada">0</h1>
+                </div>
+                
+                <p class="nota-formulario">Nos pondremos en contacto contigo al teléfono provisto para coordinar la entrega.</p>
+                
+                <button id="btn-entendido-exito" class="btn-comprar">
+                    ¡ENTENDIDO, MUCHAS GRACIAS!
+                </button>
+            </div>
+        </div>
+
+        <script src="/frontend/js/api.js"></script>
+        <script src="/frontend/js/main.js"></script>
+</body>
+</html>

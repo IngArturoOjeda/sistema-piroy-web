@@ -1,0 +1,9 @@
+# Bloquear el entorno virtual para que no se suba a internet
+backend/.venv/
+
+# Bloquear archivos basura de Python
+**/__pycache__/
+**/*.pyc
+
+# Bloquear carpetas ocultas de editores
+.vscode/

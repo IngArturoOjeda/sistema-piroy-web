@@ -1,0 +1,567 @@
+/* 1. Configuración General (Reset) */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: white; /*#f4f6f9*/
+    color: #333;
+}
+
+/* 2. Cabecera */
+header {
+    background-color: white; /* #2c3e50 Un color azul oscuro profesional */
+    color: white;
+    padding: 5px 0;
+    text-align: center;
+    width: 100%;
+}
+
+/* 3. El Contenedor Padre (Layout en paralelo) */
+.contenedor-principal {
+    display: flex; /* Activa Flexbox para poner elementos en línea */
+    min-height: calc(100vh - 80px); /* Ocupa el resto de la pantalla */
+}
+
+/* 4. Menú Lateral */
+.menu-lateral {
+    width: 250px; /* Ancho fijo para el menú */
+    background-color: white; /*#ffffff*/
+    padding: 20px;
+    border-right: 1px solid #e0e0e0;
+}
+
+.menu-lateral h2 {
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    color: #2c3e50;
+}
+
+.menu-lateral ul {
+    list-style: none; /* Quita los puntitos negros de la lista */
+}
+
+/* 5. Sección de Productos (Derecha) */
+.contenido-productos {
+    flex: 1; /* Ocupa todo el espacio restante a la derecha */
+    padding: 20px;
+}
+
+.contenido-productos h2 {
+    margin-bottom: 20px;
+}
+
+/* 6. La Cuadrícula de Cards (Grid) */
+.cuadricula-productos {
+    display: grid;
+    /* Crea columnas automáticas que se adaptan si la pantalla se achica */
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px; /* Espacio de separación entre cada card */
+    
+}
+
+/* 7. Diseño de las CARDS (Los cuadritos) */
+.card-producto {
+    background-color: rgb(255,255,255);
+    border-radius: 8px; /* Bordes redondeados */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Sombrita suave */
+    padding: 15px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.card-producto img {
+    max-width: 100%;
+    height: 150px;
+    object-fit: contain; /* Evita que la foto del producto se deforme */
+    margin-bottom: 15px;
+}
+
+.card-producto h3 {
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.card-producto .precio {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #e67e22; /* Color naranja llamativo para el precio */
+}
+
+/* Estilos para los botones de las categorías */
+.btn-categoria {
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 10px 15px;
+    text-align: left;
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    transition: background 0.2s;
+}
+
+/* Efecto cuando pasas el mouse por arriba */
+.btn-categoria:hover {
+    background-color: #e2e8f0;
+    color: #2c3e50;
+    font-weight: bold;
+}
+
+/*Estilo para el botón de la categoría que está actualmente seleccionada */
+.btn-categoria.activo {
+    background-color: #2c3e50; /* El mismo azul oscuro de la cabecera */
+    color: white;              /* Letras blancas para que contraste */
+    font-weight: bold;         /* Letras en negrita */
+}
+
+/* 🌟 NUEVO ESTILO EN AZUL OSCURO E IMPONENTE */
+.btn-comprar {
+    background-color: #6e3106dc; /* Azul marino intenso e institucional como tu imagen */
+    color: white;
+    border: none;
+    width: 100%;               /* Hace que ocupe todo el ancho de la tarjeta */
+    height: 50px;              /* 🌟 Le da una altura más grande y cómoda para hacer clic */
+    margin-top: 15px;
+    border-radius: 4px;        /* Bordes sutiles iguales a los de tu captura */
+    font-size: 1rem;
+    font-weight: bold;         /* Letras en negrita */
+    letter-spacing: 0.5px;     /* Separa un milímetro las letras para mayor elegancia */
+    cursor: pointer;
+    display: flex;
+    align-items: center;       /* Centra verticalmente el texto y el carrito */
+    justify-content: center;    /* Centra horizontalmente todo el contenido */
+    gap: 10px;                 /* Deja una linda separación fija entre el carrito y las letras */
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+/* Efecto cuando el usuario pasa el mouse por arriba */
+.btn-comprar:hover {
+    background-color: #41250b; /* Un azul todavía un poco más oscuro al pasar el cursor */
+}
+
+/* Efecto opcional de feedback táctil cuando el usuario hace clic */
+.btn-comprar:active {
+    transform: scale(0.98);    /* Achica un milímetro el botón simulando que se hunde */
+}
+
+
+/* Contenedor principal para centrar la barra en la pantalla */
+.contenedor-busqueda {
+    margin: 30px auto;
+    width: 95%;
+    max-width: 800px; /* La hacemos más ancha como en tu imagen */
+}
+
+/* Caja envolvente que junta el input y la lupa en un solo bloque visual */
+.caja-buscar-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background-color: white;
+    border: 1px solid #e2e8f0; /* Un borde sutil como tu ejemplo */
+    border-radius: 4px; /* Bordes ligeramente suavizados, no redondos */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+/* El cuadro de texto ahora es más alto y ocupa todo el ancho */
+#txt-buscar {
+    width: 100%;
+    height: 55px; /* 🌟 AQUÍ LE DAMOS EL TAMAÑO GRANDE EN ALTURA */
+    padding: 0 50px 0 20px; /* Espacio a la derecha para que el texto no pise la lupa */
+    font-size: 1.2rem; /* Letra más grande y legible */
+    color: #2c3e50;
+    border: none; /* Le quitamos el borde interno */
+    outline: none; /* Evita el recuadro azul por defecto del navegador */
+    background: transparent;
+}
+
+/* Posicionamiento absoluto del icono de la lupa a la derecha */
+.icono-lupa {
+    position: absolute;
+    right: 20px;
+    font-size: 1.3rem;
+    color: #1e3a8a; /* Un tono azul oscuro para la lupa */
+    pointer-events: none; /* Hace que si haces clic en la lupa, el clic pase directo al input */
+}
+
+/* Efecto visual cuando el usuario está escribiendo */
+.caja-buscar-wrapper:focus-within {
+    border-color: #1e3a8a;
+    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.1);
+}
+
+/* Controla el tamaño del logo al costado de la búsqueda */
+.logo-busqueda {
+    height: 110px;    /* 🔑 AJUSTADO: Reducido para que coincida con la altura (height) de tu input */          
+    width: auto;               /* Evita que la imagen se deforme */
+    object-fit: contain;
+    display: block;
+}
+
+/* Reajustamos el contenedor de búsqueda para que ocupe todo el espacio restante */
+.contenedor-busqueda {
+    flex: 1; 
+    margin: 0;                 /* Le quitamos los márgenes viejos para que se alinee bien */
+    max-width: 750px;          /* 🔑 AGREGADO: Evita que el buscador se estire infinitamente hacia la derecha */
+}
+
+/* 🌟 LA CLAVE: Hace que el logo y el buscador se pongan en la misma fila */
+.fila-navegacion {
+    display: flex;
+    align-items: center;       /* Alinea verticalmente los centros del logo y la barra */
+    justify-content: flex-start; /* 🔑 CAMBIADO: Los pega hacia la izquierda en lugar de separarlos */
+    margin: 0 auto;            /* Centra la fila si la pantalla es gigante */
+    width: 100%;               /* 🌟 Obliga a la fila a usar todo el ancho disponible */
+    max-width: 1400px;         /* 🌟 Permite que se estire casi hasta los bordes del monitor */
+    padding: 0 10px;           /* 🌟 Deja un respiro de 10px en los extremos para que no toque el borde del vidrio */
+    gap: 15px;                 /* Separa el logo de la barra de búsqueda */
+}
+
+.sub-cabecera{
+    background-color: #20aa1cb5;
+    color: white;
+    padding: 0 250px;
+}
+
+/* Estilo base para el botón del carrito en la barra de navegación */
+.btn-carrito-cabecera {
+    background-color: #ffffff;
+    color: #000c66;             /* El mismo azul corporativo de tus botones */
+    border: 2px solid #000c66;
+    padding: 10px 20px;
+    font-size: 1rem;
+    font-weight: bold;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;         /* Permite posicionar la burbuja roja encima */
+    transition: background-color 0.2s, color 0.2s;
+}
+
+/* Efecto Hover */
+.btn-carrito-cabecera:hover {
+    background-color: #000c66;
+    color: #ffffff;
+}
+
+/* 🌟 LA BURBUJA ROJA: El contador de productos */
+.contador-burbuja {
+    background-color: #e74c3c;  /* Un rojo intenso de alerta */
+    color: white;
+    font-size: 0.8rem;
+    font-weight: bold;
+    padding: 2px 7px;
+    border-radius: 50%;         /* Lo hace perfectamente redondo */
+    position: absolute;
+    top: -10px;                 /* Lo eleva un poquito por encima del botón */
+    right: -10px;               /* Lo empuja hacia la esquina derecha */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+/* El fondo negro translúcido que cubre toda la pantalla */
+.modal-fondo {
+    display: none;             /* 🌟 CLAVE: Empieza oculta en la pantalla */
+    position: fixed;
+    z-index: 1000;             /* Se asegura de flotar por encima de todo */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Fondo oscuro semitransparente */
+    align-items: center;
+    justify-content: center;
+}
+
+/* La tarjeta blanca central que contiene el formulario */
+.modal-contenido {
+    background-color: white;
+    padding: 30px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 550px;          /* Un tamaño cómodo y prolijo */
+    max-height: 85vh;          /* Si la lista es muy larga, no se sale de la pantalla */
+    overflow-y: auto;          /* Agrega barra de scroll interna si es necesario */
+    position: relative;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+
+/* El botón 'X' para cerrar arriba a la derecha */
+.btn-cerrar {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 2rem;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+}
+.btn-cerrar:hover {
+    color: #333;
+}
+
+/* Estilos básicos para las cajitas del formulario */
+.campo-formulario {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.campo-formulario label {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 0.9rem;
+}
+.campo-formulario input {
+    padding: 10px;
+    font-size: 1rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    outline: none;
+}
+.campo-formulario input:focus {
+    border-color: #000c66;
+}
+
+
+/* 🌟 ESTILOS PARA EL RENGLÓN DEL CARRITO (ESTILO BRISTOL/TRADICIONAL) */
+
+/* La lista contenedora elimina los puntitos por defecto de HTML */
+.lista-carrito-emergente {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+}
+
+/* Cada fila horizontal de producto */
+.renglon-carrito {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Empuja el bloque izquierdo al inicio y el derecho al final */
+    padding: 15px 0;
+    border-bottom: 1px solid #f1f5f9; /* Línea divisoria gris clara igual a tu imagen */
+}
+
+/* Bloque Izquierdo: Foto y Textos juntos */
+.carrito-bloque-izq {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex: 1;
+}
+
+/* Miniatura pequeña de la imagen del producto */
+.miniatura-carrito {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 2px;
+}
+
+/* Textos informativos agrupados de forma vertical */
+.carrito-detalles h4 {
+    margin: 0 0 4px 0;
+    font-size: 0.95rem;
+    color: #2c3e50;
+    font-weight: 500;
+}
+
+.codigo-articulo {
+    font-size: 0.8rem;
+    color: #94a3b8; /* Gris suave para el código de artículo (Art. 7434) */
+}
+
+/* Bloque Derecho: Controles de cantidad, precio y tachito */
+.carrito-bloque-der {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    justify-content: flex-end;
+}
+
+/* El cuadro selector de cantidad (- 1 +) */
+.control-cantidad {
+    display: flex;
+    align-items: center;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background-color: #f8fafc;
+}
+
+.control-cantidad button {
+    background: none;
+    border: none;
+    width: 25px;
+    height: 25px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    color: #64748b;
+    transition: background-color 0.1s;
+}
+
+.control-cantidad button:hover {
+    background-color: #e2e8f0;
+}
+
+.cantidad-numero {
+    font-size: 0.95rem;
+    font-weight: bold;
+    color: #2c3e50;
+    padding: 0 8px;
+    min-width: 20px;
+    text-align: center;
+}
+
+/* Precio destacado del renglón */
+.precio-renglon {
+    font-size: 0.95rem;
+    font-weight: bold;
+    color: #475569;
+    margin: 0;
+    min-width: 110px;
+    text-align: right;
+}
+
+/* Botón transparente para el tacho de basura */
+.btn-eliminar-item {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    cursor: pointer;
+    color: #94a3b8;
+    padding: 5px;
+    transition: color 0.1s, transform 0.1s;
+}
+
+.btn-eliminar-item:hover {
+    color: #ef4444; /* Cambia a rojo cuando pasas el mouse para dar feedback visual */
+    transform: scale(1.1);
+}
+
+/* El bloque del Importe Total abajo de los productos */
+.total-pedido {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 20px 0;
+    padding-top: 10px;
+}
+
+.total-pedido h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #2c3e50;
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+}
+
+#total-carrito {
+    font-size: 1.2rem;
+    font-weight: 800; /* Letras bien gruesas como en tu captura */
+    color: #000000;
+}
+
+
+/* Tarjeta blanca para la confirmación de éxito */
+.modal-contenido-exito {
+    background-color: white;
+    padding: 40px 30px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 450px;
+    text-align: center; /* Centra todos los textos e iconos */
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    animation: aparecerSuave 0.3s ease-out; /* Pequeño efecto visual al aparecer */
+}
+
+/* Animación de entrada sutil */
+@keyframes aparecerSuave {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+/* Icono gigante de celebración */
+.icono-exito {
+    font-size: 4rem;
+    margin-bottom: 15px;
+}
+
+.modal-contenido-exito h2 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+    font-size: 1.6rem;
+}
+
+.modal-contenido-exito p {
+    color: #64748b;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 20px;
+}
+
+/* Caja destacada gris para el número de orden en guaraníes/sistema */
+.caja-numero-orden {
+    background-color: #f1f5f9;
+    border: 2px dashed #cbd5e1;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.caja-numero-orden span {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #94a3b8;
+    font-weight: bold;
+}
+
+#txt-orden-confirmada {
+    margin: 5px 0 0 0;
+    color: #000c66; /* Tu azul corporativo */
+    font-size: 2.2rem;
+    font-weight: 800;
+}
+
+.nota-formulario {
+    font-style: italic;
+    font-size: 0.85rem !important;
+    color: #94a3b8 !important;
+}
+
+/* 🌟 DISEÑO PARA CUANDO EL BUSCADOR NO ENCUENTRA COINCIDENCIAS */
+.mensaje-sin-resultados {
+    grid-column: 1 / -1; /* Ocupa todo el ancho de la cuadrícula de productos */
+    text-align: center;
+    padding: 60px 20px;
+    color: #64748b; /* Un gris suave y elegante */
+}
+
+.mensaje-sin-resultados .icono-vacio {
+    font-size: 3.5rem;
+    margin-bottom: 15px;
+}
+
+.mensaje-sin-resultados h3 {
+    margin: 0 0 8px 0;
+    color: #2c3e50;
+    font-size: 1.3rem;
+}
+
+.mensaje-sin-resultados p {
+    margin: 0;
+    font-size: 0.95rem;
+}
