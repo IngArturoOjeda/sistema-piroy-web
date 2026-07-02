@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 # Importamos únicamente el router de categorías
 from backend.app.routers.categories import router as categorias_router
 from backend.app.routers.items import router as articulos_router
+from backend.app.routers.promos import router as promos_router
 app = FastAPI()
 
 # 1. CONFIGURACIÓN DE RUTAS LOCALES
@@ -17,9 +18,16 @@ app.mount("/frontend", StaticFiles(directory=RUTA_FRONTEND), name="frontend")
 # Le agregamos el prefijo '/api' aquí de forma global para que coincida con tu main.js
 app.include_router(categorias_router, prefix="/api")
 app.include_router(articulos_router, prefix="/api")
+app.include_router(promos_router,prefix="/api")
 
 # 4. ENDPOINT PARA MOSTRAR LA PÁGINA WEB PRINCIPAL
 @app.get("/")
 async def read_index():
     ruta_index = f"{RUTA_FRONTEND}/index.html"
     return FileResponse(ruta_index)
+
+# 5. ENDPOINT PARA MOSTRAR LA PÁGINA DE PROMOCIONES
+@app.get("/promos")
+async def read_promos():
+    ruta_promos = f"{RUTA_FRONTEND}/promos-Exclusivos.html"
+    return FileResponse(ruta_promos)
