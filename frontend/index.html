@@ -25,6 +25,12 @@
                         </div>
                     </div>  
 
+                    <!-- 🌟 NUEVO: Botón de Promociones Animado -->
+                    <button id="btn-ver-promos" class="btn-promos-cabecera">
+                        <span class="icono-promos-nav">🔥</span>
+                        <span class="texto-promos-nav">Ver Promos</span>
+                    </button>
+
                     <!-- 3. 🌟 NUEVO: Botón "Ver Carrito" con contador dinámico -->
                     <button id="btn-ver-carrito" class="btn-carrito-cabecera">
                         <span class="icono-carrito-nav">🛒</span>
@@ -35,10 +41,48 @@
             </div>        
         </header>
 
-        <div class="sub-cabecera">
-
-            <h1><h2>Nuestros Articulos</h2></h1>
+                <!-- 🌟 NUEVO: BANNER DINÁMICO (CARRUSEL MODERNO) -->
+        <div class="contenedor-banner">
+            <div class="carrusel-deslizable" id="carrusel-imagenes">
+                <!-- Imagen 1: Promoción Herramientas -->
+                <div class="banner-slide activo">
+                    <img src="/frontend/assets/images/banner1.jpg" alt="Herramientas Profesionales">
+                    <div class="banner-texto">
+                        <h2>Herramientas de Alta Calidad</h2>
+                        <p>Equípate con lo mejor para tus proyectos y construcciones.</p>
+                    </div>
+                </div>
+                <!-- Imagen 2: Promoción Pinturas o Temporada -->
+                <div class="banner-slide">
+                    <img src="/frontend/assets/images/banner2.jpg" alt="Todo en Pinturas">
+                    <div class="banner-texto">
+                        <h2>Renueva tus Espacios</h2>
+                        <p>Gran variedad de colores y marcas con los mejores precios del país.</p>
+                    </div>
+                </div>
+                <!-- Imagen 3: Ofertas Especiales -->
+                <div class="banner-slide">
+                    <img src="/frontend/assets/images/banner3.jpg" alt="Ofertas de la Semana">
+                    <div class="banner-texto">
+                        <h2>Ofertas Imperdibles</h2>
+                        <p>Descuentos exclusivos en materiales eléctricos y de plomería.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Indicadores puntitos (opcional pero muy moderno) -->
+            <div class="carrusel-indicadores" id="carrusel-indicadores">
+                <span class="punto activo" data-slide="0"></span>
+                <span class="punto" data-slide="1"></span>
+                <span class="punto" data-slide="2"></span>
+            </div>
         </div>
+
+        <!-- Mantenemos el título de tus artículos pero estilizado -->
+        <div class="sub-cabecera">
+            <h2>Nuestros Artículos</h2>
+        </div>
+
 
         <div class="contenedor-principal">
 
@@ -51,13 +95,29 @@
              </aside>
             
             <!-- Sección Principal de Productos -->
-             <main class="contenido-productos">
+             <main class="contenido-productos" id="vista-catalogo">
                 
                 <div id="contenedor-cards" class="cuadricula-productos">
                     <!-- JS cargará las "cards" de los productos aquí adentro -->
                 </div>
 
                 
+             </main>
+
+             <!-- 2. 🌟 NUEVA SECCIÓN DE PROMOCIONES (Oculta por defecto con display: none) -->
+             <main class="contenido-productos" id="vista-promociones" style="display: none;">
+                
+                <!-- Título interno decorativo para avisar al cliente que está en Ofertas -->
+                <div style="text-align: center; margin-bottom: 20px; width: 100%;">
+                    <h1 style="color: #e74c3c; font-size: 1.8rem;">🔥 ¡PROMOCIONES EXCLUSIVAS! 🔥</h1>
+                    <p>Aprovechá nuestras ofertas antes de que se agoten</p>
+                </div>
+
+                <!-- 🌟 Usamos tu misma clase cuadricula-productos para que las cards queden perfectas -->
+                <div id="contenedor-cards-promos" class="cuadricula-productos">
+                    <!-- JS cargará las "cards" de ofertas aquí adentro -->
+                </div>
+
              </main>
         </div>
 
@@ -99,7 +159,15 @@
 
                     <div class="campo-formulario">
                         <label for="txt-cliente-telefono">Teléfono de Contacto:</label>
-                        <input type="tel" id="txt-cliente-telefono" placeholder="Ej. 0981 123 456" required>
+                        <input 
+                            type="tel"
+                            id="txt-cliente-telefono" 
+                            placeholder="Ej. 0981 123 456"
+                            pattern="^(09[6-9][1-9]\d{6}|\+5959[6-9][1-9]\d{6})$"
+                            inputmode="tel"
+                            title="Debe empezar con 09 y tener 9 dígitos en total (Ej: 0981123456) o formato +595" 
+                            required
+                        >
                     </div>
 
                     <button type="submit" id="btn-enviar-pedido" class="btn-comprar">

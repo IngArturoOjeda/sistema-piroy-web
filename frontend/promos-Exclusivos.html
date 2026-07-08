@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rancho Piro'y - Promociones Especiales</title>
+    <link rel="icon" type="image/png" href="/frontend/assets/images/favicon.png">
+    <link rel="stylesheet" href="/frontend/css/styles.css">
+</head>
+<body>
+    <header>
+        <div class="fila-navegacion">
+            <div class="contenedor-logo">
+                <!-- Al hacer clic en el logo, regresamos al inicio -->
+                <a href="/"><img src="/frontend/assets/images/logo-vete.jpg" alt="Logo" class="logo-busqueda"></a>
+            </div>
+            <div class="sub-cabecera-promos">
+                <h1>🔥 ¡OFERTAS IMPERDIBLES DE LA SEMANA! 🔥</h1>
+            </div>
+            <!-- Botón para volver atrás de manera cómoda -->
+            <button onclick="window.location.href='/'" class="btn-carrito-cabecera">
+                ⬅️ Volver al Inicio
+            </button>
+        </div>        
+    </header>
+
+    <div class="contenedor-principal">
+        <main class="contenido-productos" style="flex: 1;">
+            <!-- Aquí se cargarán únicamente las cards con descuento -->
+            <div id="contenedor-cards-promos" class="cuadricula-productos">
+                <!-- Se llenará dinámicamente con JS -->
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Lógica ultra rápida para leer la API de promociones y dibujar las tarjetas
+        const contenedorPromos = document.getElementById("contenedor-cards-promos");
+
+        async function cargarPromociones() {
+            try {
+                const respuesta = await fetch("/api/promos/");
+                if (!respuesta.ok) throw new Error("No se pudieron obtener las promociones.");
+                
+                const productosPromos = await respuesta.json();
+                contenedorPromos.innerHTML = "";
+
+                if (productosPromos.length === 0) {
+                    contenedorPromos.innerHTML = `<h3>⚠️ Por el momento no hay promociones activas. ¡Vuelve pronto!</h3>`;
+                    return;
+                }
+
+                productosPromos.forEach(articulo => {
+                    const divCard = document.createElement("div");
+                    divCard.className = "card-producto";
+                    // Calculamos el porcentaje de ahorro de forma visual si lo deseas
+                    divCard.innerHTML = `
+                        <div class="etiqueta-descuento">OFERTA</div>
+                        <img src="${articulo.imagen}" alt="${articulo.nombre}">
+                        <h3>${articulo.nombre}</h3>
+                        <p class="precio-anterior" style="text-decoration: line-through; color: #999; font-size: 0.9rem;">
+                            PYG ${articulo.precio_normal.toLocaleString('es-ES')}
+                        </p>
+                        <p class="precio" style="color: #e74c3c;">
+                            PYG ${articulo.precio_oferta.toLocaleString('es-ES')}
+                        </p>
+                        <button class="btn-comprar" onclick="agregarAlCarritoDesdePromos(${articulo.id})">
+                            🛒 AGREGAR AL CARRITO
+                        </button>
+                    `;
+                    contenedorPromos.appendChild(divCard);
+                });
+            } catch (error) {
+                contenedorPromos.innerHTML = `<p>Error al conectar con el servidor de ofertas.</p>`;
+            }
+        }
+
+        // Ejecutar al cargar la página
+        cargarPromociones();
+    </script>
+</body>
+</html>

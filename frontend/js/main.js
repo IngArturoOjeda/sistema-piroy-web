@@ -3,7 +3,10 @@ const listaCategoriasUI = document.getElementById("lista-categorias");
 const contenedorCardsUI = document.getElementById("contenedor-cards");
 const txtBuscarUI = document.getElementById("txt-buscar"); 
 const contadorCarritoUI = document.getElementById("contador-carrito"); 
-
+const vistaCatalogoUI = document.getElementById("vista-catalogo");
+const vistaPromocionesUI = document.getElementById("vista-promociones");
+const contenedorCardsPromosUI = document.getElementById("contenedor-cards-promos");
+const btnVerPromosUI = document.getElementById("btn-ver-promos");
 // Capturas de la Ventana Emergente (Modal)
 const btnVerCarritoUI = document.getElementById("btn-ver-carrito");
 const modalCarritoUI = document.getElementById("modal-carrito");
@@ -33,6 +36,7 @@ let paginaActual = 1;       // Empezamos siempre mostrando el primer lote (Pági
 let cargandoProductos = false; // Nos avisa si el sistema está ocupado hablando con FastAPI
 let finDeStock = false;     // Se volverá true cuando Python nos devuelva una lista vacía []
 let categoriaSeleccionadaActual = "Todos"; // 🌟 NUEVO: Sabe qué botón lateral está activo
+let promosGlobales = []; 
 
 // 2. CARGAR DATOS DESDE FASTAPI (SQL SERVER)
 async function cargarDatosDeLaAPI() {
@@ -45,7 +49,7 @@ async function cargarDatosDeLaAPI() {
         // Sección Categorías
         // 1. SECCIÓN CATEGORÍAS: Se cargan una sola vez al inicio
         if (categoriasGlobales.length === 0) {
-            const respuestaCategorias = await fetch("/api/categorias");
+            const respuestaCategorias = await fetch("/api/categorias/");
             if (!respuestaCategorias.ok) {
                 const errorData = await respuestaCategorias.json();
                 alert(`Error ${respuestaCategorias.status}: ${errorData.detail || 'No se pudieron cargar las categorías'}`);
@@ -57,7 +61,7 @@ async function cargarDatosDeLaAPI() {
             dibujarCategorias(categoriasGlobales);
         }    
         // 2. SECCIÓN ARTÍCULOS PAGINADOS: Le pasamos el número de página dinámico a FastAPI
-        const respuestaArticulos = await fetch(`/api/articulos?pagina=${paginaActual}&categoria=${categoriaSeleccionadaActual}`);
+        const respuestaArticulos = await fetch(`/api/articulos/?pagina=${paginaActual}&categoria=${categoriaSeleccionadaActual}`);
         
         if (!respuestaArticulos.ok) {
             const errorData = await respuestaArticulos.json();
@@ -108,6 +112,17 @@ function dibujarCategorias(listacategorias) {
         }
   
         boton.addEventListener("click", () => {
+            // 🌟 NUEVO: Si el usuario hace clic en una categoría, lo regresamos al catálogo regular
+            document.getElementById("vista-catalogo").style.display = "block";
+            document.getElementById("vista-promociones").style.display = "none";
+            
+            // Restablecemos el texto del botón enérgico de la cabecera
+            const btnVerPromosUI = document.getElementById("btn-ver-promos");
+            if (btnVerPromosUI) btnVerPromosUI.innerHTML = "🔥 Ver Promos";
+
+            // Regresamos la URL estéticamente al inicio sin recargar
+            window.history.pushState({}, "", "/");
+
             const todosLosBotones = document.querySelectorAll(".btn-categoria");
             todosLosBotones.forEach(btn => btn.classList.remove("activo"));
             boton.classList.add("activo");  
@@ -177,8 +192,15 @@ function comprarArticulo(idArticulo) {
     if (articuloEnCarrito) {
         articuloEnCarrito.cantidad++; // Si ya existía, simplemente aumentamos su cantidad
     } else {
+        // 2. 🌟 BUSQUEDA INTELIGENTE: Primero intentamos buscarlo en la lista de Ofertas
+        let articuloBaseDeDatos = promosGlobales.find(art => art.id === idArticulo);
+        // Si no estaba en las ofertas, significa que es un producto normal del inicio
+        if(!articuloBaseDeDatos){
+            articuloBaseDeDatos = articulosGlobales.find(art => art.id === idArticulo);
+        }
+
         // Si es nuevo, lo buscamos en el catálogo maestro que vino de SQL Server
-        const articuloBaseDeDatos = articulosGlobales.find(art => art.id === idArticulo);
+       // const articuloBaseDeDatos = articulosGlobales.find(art => art.id === idArticulo);
         if (articuloBaseDeDatos) {
             // Creamos una copia del producto inyectándole la cantidad inicial en 1
             const nuevoItem = { ...articuloBaseDeDatos, cantidad: 1 };
@@ -269,6 +291,51 @@ function actualizarBurbujaCabecera() {
     contadorCarritoUI.textContent = totalUnidades;
 }
 
+// Función para conectar el Frontend con tu endpoint corregido de FastAPI
+async function cargarPromocionesDeLaAPI() {
+    try {
+        // Conexión directa a tu endpoint con la barra '/' al final para evitar desvíos
+        const respuesta = await fetch("/api/promos/");
+        if (!respuesta.ok) throw new Error("Error en el servidor de ofertas");
+        
+        const productosPromos = await respuesta.json();
+        // 🌟 LA CLAVE: Guardamos las ofertas en la memoria global antes de vaciar la pantalla
+        promosGlobales = productosPromos; 
+        contenedorCardsPromosUI.innerHTML = "";
+
+        if (productosPromos.length === 0) {
+            contenedorCardsPromosUI.innerHTML = `<h3>⚠️ No hay promociones activas por el momento. ¡Vuelve pronto!</h3>`;
+            return;
+        }
+
+        // Dibujamos las tarjetas usando exactamente tu misma lógica de tarjetas de inicio
+        productosPromos.forEach(articulo => {
+            const divCard = document.createElement("div");
+            divCard.className = "card-producto"; // Tu misma clase CSS de tarjetas
+
+            divCard.innerHTML = `
+                <img src="${articulo.imagen}" alt="${articulo.nombre}">
+                <h3>${articulo.nombre}</h3>
+                <p class="precio" style="color: #e74c3c;">PYG ${articulo.precio.toLocaleString('es-ES', { maximumFractionDigits: 0 })}</p>
+                <button class="btn-comprar">🛒 AGREGAR AL CARRITO </button>
+            `;
+            
+            // Al hacer clic, ejecuta tu función comprarArticulo original (La que ya suma a la burbuja)
+            const botonComprar = divCard.querySelector(".btn-comprar");
+            botonComprar.addEventListener("click", () => {
+                comprarArticulo(articulo.id); 
+            });
+
+            contenedorCardsPromosUI.appendChild(divCard);
+        });
+
+        promosDescargadas = true; // Bloqueamos para no repetir la consulta si vuelve a hacer clic
+    } catch (error) {
+        console.error("Error crítico en la sección de promociones:", error);
+        contenedorCardsPromosUI.innerHTML = "<p>Error al conectar con el servidor de ofertas.</p>";
+    }
+}
+
 // ----------------------------------------------------
 // ESCUCHADORES DE EVENTOS PRINCIPALES
 // ----------------------------------------------------
@@ -301,6 +368,12 @@ window.addEventListener("click", (evento) => {
     if (evento.target === modalCarritoUI) {
         modalCarritoUI.style.display = "none";
     }
+});
+
+// 🌟 NUEVO: Limpia el texto del teléfono en tiempo real dejando solo números y el signo +
+txtClienteTelefonoUI.addEventListener("input", (evento) => {
+    // Reemplaza cualquier carácter que no sea un número o un signo más (+)
+    evento.target.value = evento.target.value.replace(/[^0-9+]/g, "");
 });
 
 
@@ -398,6 +471,75 @@ window.addEventListener("scroll", () => {
             
             cargarDatosDeLaAPI(); // Llamamos a la API de forma invisible
         }
+    }
+});
+
+// 🌟 LÓGICA DEL BANNER DINÁMICO AUTOMÁTICO
+document.addEventListener("DOMContentLoaded", () => {
+    const slides = document.querySelectorAll(".banner-slide");
+    const puntos = document.querySelectorAll(".punto");
+    let slideActual = 0;
+    const tiempoCambio = 5000; // 5000 milisegundos = 5 segundos
+
+    function cambiarSlide(indice) {
+        // Quitamos la clase activo de todos los slides y puntos
+        slides.forEach(slide => slide.classList.remove("activo"));
+        puntos.forEach(punto => punto.classList.remove("activo"));
+
+        // Activamos el slide y punto correspondiente
+        slides[indice].classList.add("activo");
+        puntos[indice].classList.add("activo");
+        slideActual = indice;
+    }
+
+    function siguienteSlide() {
+        let siguiente = slideActual + 1;
+        if (siguiente >= slides.length) {
+            siguiente = 0; // Si llega al final, vuelve al primero
+        }
+        cambiarSlide(siguiente);
+    }
+
+    // Iniciar el temporizador automático
+    let intervaloBanner = setInterval(siguienteSlide, tiempoCambio);
+
+    // Permitir hacer clic en los puntitos para saltar a una imagen
+    puntos.forEach((punto, index) => {
+        punto.addEventListener("click", () => {
+            cambiarSlide(index);
+            // Reiniciamos el temporizador para que no cambie de golpe justo después del clic
+            clearInterval(intervaloBanner);
+            intervaloBanner = setInterval(siguienteSlide, tiempoCambio);
+        });
+    });
+});
+
+// Variable de control para no saturar a SQL Server con llamadas repetidas
+let promosDescargadas = false;
+
+// Evento para el botón enérgico de Promociones
+btnVerPromosUI.addEventListener("click", async () => {
+    // Si la pantalla de ofertas está oculta, la encendemos y apagamos el catálogo normal
+    if (vistaPromocionesUI.style.display === "none") {
+        vistaCatalogoUI.style.display = "none";
+        vistaPromocionesUI.style.display = "block";
+        btnVerPromosUI.innerHTML = "⬅️ Ver Catálogo"; // Cambia el texto del botón temporalmente
+        
+        // Cambiamos la URL estéticamente a nivel profesional sin recargar el navegador
+        window.history.pushState({}, "", "/promos");
+        
+        // Si es la primera vez que hace clic, vamos a buscar los datos a SQL Server
+        if (!promosDescargadas) {
+            await cargarPromocionesDeLaAPI();
+        }
+    } else {
+        // Si ya estaba visible, el usuario quiere regresar a ver todos los artículos
+        vistaPromocionesUI.style.display = "none";
+        vistaCatalogoUI.style.display = "block";
+        btnVerPromosUI.innerHTML = "🔥 Ver Promos"; // Restablece el texto original del botón
+        
+        // Regresamos la URL al inicio estéticamente
+        window.history.pushState({}, "", "/");
     }
 });
 

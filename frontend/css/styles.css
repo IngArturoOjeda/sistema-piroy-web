@@ -338,8 +338,9 @@ header {
 /* La lista contenedora elimina los puntitos por defecto de HTML */
 .lista-carrito-emergente {
     list-style: none;
-    padding: 0;
-    margin: 20px 0;
+    max-height: 300px;
+    overflow-y: auto; /* Permite scroll interno si hay muchos productos */
+    padding-right: 5px;
 }
 
 /* Cada fila horizontal de producto */
@@ -347,7 +348,7 @@ header {
     display: flex;
     align-items: center;
     justify-content: space-between; /* Empuja el bloque izquierdo al inicio y el derecho al final */
-    padding: 15px 0;
+    padding: 12px 0;
     border-bottom: 1px solid #f1f5f9; /* Línea divisoria gris clara igual a tu imagen */
 }
 
@@ -564,4 +565,162 @@ header {
 .mensaje-sin-resultados p {
     margin: 0;
     font-size: 0.95rem;
+}
+
+/* 🌟 ESTILOS DEL BANNER DINÁMICO */
+.contenedor-banner {
+    position: relative;
+    width: 100%;
+    height: 350px; /* Altura ideal para pantallas de PC */
+    overflow: hidden;
+    background-color: #000;
+}
+
+.carrusel-deslizable {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.banner-slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 1s ease-in-out; /* Transición suave de desvanecido */
+    z-index: 1;
+}
+
+.banner-slide.activo {
+    opacity: 1;
+    z-index: 2;
+}
+
+.banner-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Ajusta la imagen sin deformarla */
+    filter: brightness(60%); /* Oscurece un poco la foto para que el texto blanco se lea perfecto */
+}
+
+.banner-texto {
+    position: absolute;
+    bottom: 20%;
+    left: 10%;
+    color: white;
+    z-index: 3;
+    animation: fadinTexto 0.8s ease-out;
+}
+
+.banner-texto h2 {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.banner-texto p {
+    font-size: 1.2rem;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* Indicadores (Puntitos) */
+.carrusel-indicadores {
+    position: absolute;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 4;
+}
+
+.punto {
+    width: 12px;
+    height: 12px;
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.punto.activo {
+    background-color: #ffffff;
+    transform: scale(1.2);
+}
+
+/* Animación para el texto del banner */
+@keyframes fadinTexto {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Corrección menor para tu sub-cabecera anterior */
+.sub-cabecera {
+    background-color: #20aa1cb5;
+    color: white;
+    padding: 15px 20px;
+    text-align: center;
+}
+
+/* 🔥 ESTILOS PARA EL BOTÓN DE PROMOCIONES ANIMADO */
+.btn-promos-cabecera {
+    background-color: #e74c3c; /* Rojo llamativo */
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 1rem;
+    font-weight: bold;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background-color 0.2s;
+    
+    /* 🌟 ANIMACIÓN CONTINUA: No se detiene nunca (ciclo de 1.5 segundos) */
+    animation: latidoVibratorio 1.5s infinite ease-in-out;
+}
+
+/* Efecto al pasar el mouse por encima */
+.btn-promos-cabecera:hover {
+    background-color: #c0392b; /* Rojo más oscuro */
+}
+
+/* 🔬 REGLA DE ANIMACIÓN: CRECE, VIBRA, ACHICA Y VUELVE A EMPEZAR */
+@keyframes latidoVibratorio {
+    0% {
+        transform: scale(1) rotate(0deg);
+    }
+    /* 1. EMPIEZA A CRECER Y TIEMBLA */
+    15% {
+        transform: scale(1.12) rotate(3deg);
+    }
+    30% {
+        transform: scale(1.15) rotate(-3deg);
+    }
+    45% {
+        transform: scale(1.12) rotate(3deg);
+    }
+    /* 2. LLEGA AL MÁXIMO TAMAÑO Y TIEMBLA UN POCO MÁS */
+    60% {
+        transform: scale(1.15) rotate(-3deg);
+    }
+    /* 3. BAJA DE TAMAÑO MIENTRAS SE ESTABILIZA */
+    75% {
+        transform: scale(1.05) rotate(1deg);
+    }
+    90% {
+        transform: scale(1) rotate(-1deg);
+    }
+    100% {
+        transform: scale(1) rotate(0deg);
+    }
 }

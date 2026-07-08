@@ -17,6 +17,7 @@ def trae_promos():
                 FROM articulos a 
                 INNER JOIN TIPOARTICULO t ON a.tipoart_cod = t.tipoart_cod
                 INNER JOIN PROMOCION p ON a.art_cod = p.art_cod
+                where cast(getdate() as date) > = p.fec_desde and cast(GETDATE() as date) < = p.fec_hasta
                 ORDER BY a.art_cod
         """
 
