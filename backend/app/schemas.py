@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List
 
 # 1. Definimos cómo luce un artículo individual dentro del carrito
@@ -14,5 +14,5 @@ class ItemCarrito(BaseModel):
 class PedidoEntrada(BaseModel):
     cliente_nombre: str
     cliente_direccion: str
-    cliente_telefono: str
+    cliente_telefono: str 
     productos: List[ItemCarrito] # Una lista que contiene objetos del tipo ItemCarrito

@@ -7,8 +7,8 @@ from backend.app.routers.items import router as articulos_router
 from backend.app.routers.promos import router as promos_router
 app = FastAPI()
 
-# 1. CONFIGURACIÓN DE RUTAS LOCALES
-RUTA_FRONTEND = "C:/Ferreteria_WEB/frontend"
+# 1. CONFIGURACIÓN DE RUTAS LOCALES 
+RUTA_FRONTEND = "C:/sistema-piroy-web/frontend"
 
 # 2. PUENTE DE ARCHIVOS ESTÁTICOS (CSS, JS, IMÁGENES)
 app.mount("/frontend", StaticFiles(directory=RUTA_FRONTEND), name="frontend")
