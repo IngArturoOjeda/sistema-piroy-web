@@ -26,6 +26,7 @@ def trae_articulos(
             sql = """select a.art_cod as id, a.art_nombre as nombre, a.art_preciobase as precio, t.TIPOART_DESC as tipo, a.art_foto as imagen
                 from articulos a inner join TIPOARTICULO t
                 on a.tipoart_cod = t.tipoart_cod
+                where a.art_estado<>'N'
                 ORDER BY a.art_cod -- Es indispensable ordenar por un campo para que la paginación sea exacta
                 OFFSET ? ROWS
                 FETCH NEXT ? ROWS ONLY """
@@ -37,6 +38,7 @@ def trae_articulos(
                 FROM articulos a 
                 INNER JOIN TIPOARTICULO t ON a.tipoart_cod = t.tipoart_cod
                 WHERE t.TIPOART_DESC = ? -- 🌟 FILTRO DE BASE DE DATOS STRICTO
+                and a.art_estado<>'N'
                 ORDER BY a.art_cod 
                 OFFSET ? ROWS
                 FETCH NEXT ? ROWS ONLY
