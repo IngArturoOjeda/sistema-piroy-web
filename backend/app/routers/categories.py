@@ -36,7 +36,7 @@ def listar_categorias():
     except Exception as e:
         print(e) # Para que puedas ver el error en la terminal si algo falla
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                            detail=f"Error en la base de datos: {str(e)}")
+                            detail=f"No se pudieron cargar las categorías")
     finally:
         # 4. Cerramos la conexión y devolvemos el resultado
         if cursor:
