@@ -6,13 +6,22 @@ from dotenv import load_dotenv
 # Carga las variables guardadas en el archivo .env
 load_dotenv()
 
+def obtener_variable(nombre):
+    valor = os.getenv(nombre)
+
+    if not valor:
+        raise RuntimeError(
+            f"Falta configurar la variable de entorno: {nombre}"
+        )
+
+    return valor
 
 # Configuración con tus credenciales de SQL Server
-DRIVER = os.getenv("DB_DRIVER")
-SERVER = os.getenv("DB_SERVER")
-DATABASE = os.getenv("DB_NAME")
-USER = os.getenv("DB_USER")
-PASSWORD = os.getenv("DB_PASSWORD")
+DRIVER = obtener_variable("DB_DRIVER")
+SERVER = obtener_variable("DB_SERVER")
+DATABASE = obtener_variable("DB_NAME")
+USER = obtener_variable("DB_USER")
+PASSWORD = obtener_variable("DB_PASSWORD")
 
 def obtener_conexion():
     str_conexion = (
