@@ -1,0 +1,14 @@
+# Variables de entorno y credenciales
+.env
+*.env
+
+# Entornos virtuales de Python
+.venv/
+venv/
+
+# Archivos generados por Python
+__pycache__/
+*.py[cod]
+
+# Configuración local de editores
+.vscode/

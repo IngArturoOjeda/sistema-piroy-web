@@ -1,3 +1,4 @@
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -7,8 +8,10 @@ from backend.app.routers.items import router as articulos_router
 from backend.app.routers.promos import router as promos_router
 app = FastAPI()
 
+RUTA_PROYECTO = Path(__file__).resolve().parents[2]  # Ruta del proyecto
+RUTA_FRONTEND = RUTA_PROYECTO / "frontend"  # Ruta del frontend
 # 1. CONFIGURACIÓN DE RUTAS LOCALES 
-RUTA_FRONTEND = "C:/sistema-piroy-web/frontend"
+#RUTA_FRONTEND = "C:/Landing/sistema-piroy-web/frontend" ##"C:/sistema-piroy-web/frontend"
 
 # 2. PUENTE DE ARCHIVOS ESTÁTICOS (CSS, JS, IMÁGENES)
 app.mount("/frontend", StaticFiles(directory=RUTA_FRONTEND), name="frontend")

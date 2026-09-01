@@ -1,15 +1,22 @@
+
+import os
 import pyodbc
+from dotenv import load_dotenv
+
+# Carga las variables guardadas en el archivo .env
+load_dotenv()
+
 
 # Configuración con tus credenciales de SQL Server
-DRIVER = "{ODBC Driver 18 for SQL Server}"
-SERVER = "localhost"  # O el nombre de tu instancia si no es localhost
-DATABASE = "piroy"  # ¡Recuerda cambiar esto por el nombre real de tu BD!
-USER = "sa"
-PASSWORD = "manager123*"
+DRIVER = os.getenv("DB_DRIVER")
+SERVER = os.getenv("DB_SERVER")
+DATABASE = os.getenv("DB_NAME")
+USER = os.getenv("DB_USER")
+PASSWORD = os.getenv("DB_PASSWORD")
 
 def obtener_conexion():
     str_conexion = (
-        f"DRIVER={DRIVER};"
+        f"DRIVER={{{DRIVER}}};"
         f"SERVER={SERVER};"
         f"DATABASE={DATABASE};"
         f"UID={USER};"
