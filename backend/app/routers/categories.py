@@ -6,6 +6,8 @@ router = APIRouter(prefix="/categorias", tags=["Categorias"])
 
 @router.get("/")
 def listar_categorias():
+    conn = None 
+    cursor = None
     try:
          # 1. Abrimos la conexión a SQL Server
         conn = obtener_conexion()
@@ -37,6 +39,8 @@ def listar_categorias():
                             detail=f"Error en la base de datos: {str(e)}")
     finally:
         # 4. Cerramos la conexión y devolvemos el resultado
-        if conn:
+        if cursor:
             cursor.close()
+
+        if conn:     
             conn.close()             
