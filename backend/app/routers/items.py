@@ -134,8 +134,13 @@ def confirmar_pedido(pedido: PedidoEntrada):
         raise HTTPException(status_code=500, detail=f"Error en la base de datos: {str(e)}")
     
     finally:
-        if conn:
+        if cursor:
             cursor.close()
+
+        if conn:
             conn.close()
+            
+
+
 
     
