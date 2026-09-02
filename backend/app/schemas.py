@@ -4,7 +4,7 @@ from typing import List
 # 1. Definimos cómo luce un artículo individual dentro del carrito
 # Coincide con lo que JavaScript tiene en memoria
 class ItemCarrito(BaseModel):
-    id: int
+    id: int = Field(gt=0)
     nombre: str
     precio: float
     cantidad: int = Field(gt=0, le=100)
