@@ -7,7 +7,7 @@ class ItemCarrito(BaseModel):
     id: int
     nombre: str
     precio: float
-    cantidad: int
+    cantidad: int = Field(gt=0, le=100)
 
 # 2. Definimos cómo luce el pedido completo que enviará el cliente
 # Incluye los datos únicos de entrega y la lista de sus productos
