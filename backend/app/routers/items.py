@@ -131,8 +131,11 @@ def confirmar_pedido(pedido: PedidoEntrada):
         if conn:
             conn.rollback() # Si falló a mitad de camino, deshace todo para no dejar basura
         print("Error en terminal SQL:", e)
-        raise HTTPException(status_code=500, detail=f"Error en la base de datos: {str(e)}")
-    
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo registrar el pedido"
+        )
+
     finally:
         if cursor:
             cursor.close()
