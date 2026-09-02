@@ -60,8 +60,15 @@ def trae_promos():
         raise
     except Exception as e:
         print(e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al obtener articulos")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudieron cargar las promociones"
+        )
+    
     finally:
-        if conn:
+        if cursor:
             cursor.close()
+
+        if conn:
             conn.close()
+
