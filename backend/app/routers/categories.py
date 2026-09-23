@@ -1,20 +1,20 @@
 from fastapi import APIRouter, HTTPException, status
-from backend.app.database import obtener_conexion
+from backend.app.database_postgres import obtener_conexion_postgres
 
 # Creamos el router para agrupar las rutas de categorías
 router = APIRouter(prefix="/categorias", tags=["Categorias"])
 
 @router.get("/")
 def listar_categorias():
-    conn = None 
+    conn = None
     cursor = None
     try:
-         # 1. Abrimos la conexión a SQL Server
-        conn = obtener_conexion()
+         # 1. Abrimos la conexión a PostgreSQL
+        conn = obtener_conexion_postgres()
         cursor = conn.cursor()
 
-        # 2. Hacemos la consulta a tu tabla (Asegúrate de que se llame TipoArticulo)
-        sql =  "select tipoart_cod, tipoart_desc from tipoarticulo"
+        # 2. Hacemos la consulta a la tabla tipo_articulo en PostgreSQL
+        sql =  "select tipoart_cod, tipoart_desc from tipo_articulo"
 
         cursor.execute(sql)
         filas = cursor.fetchall()
@@ -23,8 +23,8 @@ def listar_categorias():
         categorias = []
         for fila in filas:
             categorias.append({
-                "id":fila.tipoart_cod,
-                "nombre":fila.tipoart_desc
+                "id":fila[0],
+                "nombre":fila[1]
             })
 
         if not categorias:
