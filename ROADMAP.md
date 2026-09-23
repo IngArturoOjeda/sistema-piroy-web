@@ -8,7 +8,7 @@ Trabajar una etapa por vez.
 Estado: EN PROGRESO
 
 Ya confirmado:
-- el proyecto actual usa SQL Server desde FastAPI;
+- el proyecto actual nació usando SQL Server desde FastAPI;
 - existe conexión PostgreSQL preparada con `psycopg`;
 - Render es la plataforma cloud prevista;
 - la arquitectura objetivo separa backend web y SQL Server local.
@@ -17,9 +17,9 @@ Ya confirmado:
 Estado: REVISADO
 
 Confirmado:
-- `categories.py` usa SQL Server;
-- `items.py` usa SQL Server;
-- `promos.py` usa SQL Server;
+- `categories.py` ya fue migrado a PostgreSQL;
+- `items.py` todavía usa SQL Server;
+- `promos.py` todavía usa SQL Server;
 - `main.py` sirve frontend y monta routers;
 - `models.py` está vacío;
 - `frontend/js/api.js` está vacío.
@@ -33,7 +33,7 @@ Confirmado:
 - no confiar en nombre/precio recibidos desde el navegador.
 
 ### Fase 0.3 — Separar conexiones
-Estado: PENDIENTE
+Estado: EN PROGRESO
 
 Actualmente:
 
@@ -55,38 +55,57 @@ sincronizador/
 -> SQL Server
 ```
 
-Antes de mover archivos:
-1. buscar todos los imports de `backend.app.database`;
-2. migrar routers uno por uno;
-3. validar funcionamiento;
-4. recién después retirar SQL Server del backend web.
+Avance:
+- `categories.py` ya usa `database_postgres.py`;
+- `items.py` y `promos.py` siguen usando `database.py`.
+
+Antes de mover/eliminar archivos:
+1. migrar routers uno por uno;
+2. validar funcionamiento después de cada migración;
+3. recién después retirar SQL Server del backend web.
 
 ## Fase 1 — Diseñar tablas mínimas en PostgreSQL
-Estado: PENDIENTE
+Estado: COMPLETADA
 
-Diseñar, revisar y aprobar antes de crear:
+PostgreSQL fue creado en Render y ya existen en el esquema `public`:
 - `tipo_articulo`;
 - `articulos`;
 - `stock`;
 - `pedido_cabecera`;
 - `pedido_detalle`.
 
-No copiar columnas innecesarias de SQL Server.
+Decisiones aplicadas:
+- `tipoart_cod` conserva el valor de SQL Server y no es autoincremental en PostgreSQL;
+- `art_estado` acepta `S` (vigente) y `N` (inactivo);
+- `mostrar_web` pertenece a PostgreSQL;
+- precios definidos como `NUMERIC(14,0)`;
+- pedidos usan `BIGSERIAL`;
+- `estado_sync` admite `PENDIENTE` y `RECIBIDO`;
+- `fecha_sincronizacion` incluida en `pedido_cabecera`;
+- `pedido_detalle.cantidad` valida valores entre 1 y 100.
 
 ## Fase 2 — Migrar categorías a PostgreSQL
-Estado: PENDIENTE
+Estado: COMPLETADA
 
-- crear datos necesarios en PostgreSQL;
-- adaptar `categories.py`;
-- mantener mismo contrato JSON para el frontend;
-- probar antes de seguir.
+Realizado:
+- tabla `tipo_articulo` creada en PostgreSQL de Render;
+- 42 tipos de artículos cargados manualmente desde SQL Server;
+- `backend/app/routers/categories.py` migrado de SQL Server a PostgreSQL;
+- se mantiene el mismo contrato JSON del frontend: `[{"id": ..., "nombre": ...}]`;
+- endpoint `GET /api/categorias/` probado localmente contra PostgreSQL de Render con resultado correcto;
+- cambio commiteado y enviado a `main`.
 
 ## Fase 3 — Migrar artículos a PostgreSQL
 Estado: PENDIENTE
 
+Siguiente etapa.
+
+Objetivos:
+- cargar/sincronizar artículos necesarios en PostgreSQL;
 - mantener paginación;
 - mantener filtro por categoría;
 - usar `mostrar_web`;
+- respetar `art_estado`;
 - definir estrategia de imagen;
 - mantener contrato actual del frontend cuando sea posible.
 
@@ -167,9 +186,13 @@ Definir:
 - activo/inactivo.
 
 ## Fase 10 — Tipos de artículos
-Estado: PENDIENTE
+Estado: PARCIALMENTE COMPLETADA
 
-Sincronizar catálogo necesario hacia PostgreSQL.
+Ya realizado:
+- carga inicial manual de 42 tipos de artículos en PostgreSQL.
+
+Pendiente:
+- automatizar la sincronización futura de tipos desde SQL Server hacia PostgreSQL.
 
 ## Fase 11 — Pedidos web hacia SQL Server
 Estado: PENDIENTE
@@ -205,16 +228,22 @@ Estado: PENDIENTE
 Ejecutar sincronizador automáticamente en el servidor local.
 
 ## Fase 15 — Producción en Render
-Estado: PENDIENTE
+Estado: EN PROGRESO
 
-Validar:
+Ya realizado:
+- PostgreSQL creado en Render;
+- tablas base creadas en esquema `public`;
+- conexión externa probada con `psql`;
+- `DATABASE_URL` utilizada localmente para validar categorías contra Render.
+
+Pendiente:
 - FastAPI en Render;
-- variables de entorno;
-- PostgreSQL de Render;
+- variables de entorno de producción;
+- mismo regionamiento entre FastAPI y PostgreSQL;
 - HTTPS;
 - autenticación del sincronizador;
 - logs;
-- backups.
+- backups/plan persistente para producción.
 
 ## Versión 2
 
