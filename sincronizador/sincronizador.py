@@ -11,7 +11,7 @@ TIMEOUT_SEGUNDOS = 15
 MAX_FALLOS_CONEXION_SEGUIDOS = 3
 
 SQL_PENDIENTES = """
-    SELECT
+    SELECT TOP 5
         C.art_cod,
         C.version_actual,
         C.version_enviada,
