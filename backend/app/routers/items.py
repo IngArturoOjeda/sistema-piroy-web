@@ -1,4 +1,5 @@
 from backend.app.database import obtener_conexion
+from backend.app.database_postgres import obtener_conexion_postgres
 from fastapi import HTTPException, status, APIRouter, Query
 # Subimos un nivel para buscar en la app global e importar el esquema
 from backend.app.schemas import PedidoEntrada
@@ -15,48 +16,41 @@ def trae_articulos(
     conn = None
     cursor = None
     try:
-        conn = obtener_conexion()
+        conn = obtener_conexion_postgres()
         cursor = conn.cursor()
 
-        # MATEMÁTICA DE SQL: Calculamos cuántos registros debemos saltearnos
-        #  Ejemplo: Si estamos en la página 2 con límite 50, nos salteamos (2-1)*50 = 50 registros.
         registros_a_saltear = (pagina - 1) * limite
 
-        if categoria == "Todos":
-            sql = """select a.art_cod as id, a.art_nombre as nombre, a.art_preciobase as precio, t.TIPOART_DESC as tipo, a.art_foto as imagen
-                from articulos a inner join TIPOARTICULO t
-                on a.tipoart_cod = t.tipoart_cod
-                where a.art_estado<>'N'
-                ORDER BY a.art_cod -- Es indispensable ordenar por un campo para que la paginación sea exacta
-                OFFSET ? ROWS
-                FETCH NEXT ? ROWS ONLY """
-            
-            cursor.execute(sql, (int(registros_a_saltear), int(limite)))
-        else:
-            sql = """
-                SELECT a.art_cod as id, a.art_nombre as nombre, a.art_preciobase as precio, t.TIPOART_DESC as tipo, a.art_foto as imagen
-                FROM articulos a 
-                INNER JOIN TIPOARTICULO t ON a.tipoart_cod = t.tipoart_cod
-                WHERE t.TIPOART_DESC = ? -- 🌟 FILTRO DE BASE DE DATOS STRICTO
-                and a.art_estado<>'N'
-                ORDER BY a.art_cod 
-                OFFSET ? ROWS
-                FETCH NEXT ? ROWS ONLY
-            """
-            cursor.execute(sql, (categoria, registros_a_saltear, limite))
+        filtro_categoria = ""
+        parametros = []
+        if categoria != "Todos":
+            filtro_categoria = "AND t.tipoart_desc = %s"
+            parametros.append(categoria)
+        parametros.extend([limite, registros_a_saltear])
+
+        sql = f"""
+            SELECT a.art_cod, a.art_nombre, a.art_preciobase, t.tipoart_desc, a.art_foto
+            FROM articulos a
+            INNER JOIN tipo_articulo t ON a.tipoart_cod = t.tipoart_cod
+            WHERE a.art_estado = 'S'
+              AND a.llevar_web = TRUE
+              AND a.mostrar_web = TRUE
+              {filtro_categoria}
+            ORDER BY a.art_cod
+            LIMIT %s OFFSET %s
+        """
+        cursor.execute(sql, parametros)
             
         articulos = cursor.fetchall()
         if not articulos:
             return []
-       # if not articulos:
-       #     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Articulos no encontrado")
-        
+
         lista_articulos = []
-        for row in articulos:
+        for art_cod, nombre, precio, tipo, foto in articulos:
             url_imagen = ""
-            if row.imagen:
+            if foto:
                 # 1. Borramos los espacios en blanco invisibles que FoxPro deja al final
-                ruta_limpia = row.imagen.strip()
+                ruta_limpia = foto.strip()
 
                 # 2. Convertimos las barras de Windows (\) a barras de red (/)
                 ruta_limpia = ruta_limpia.replace("\\", "/")
@@ -69,16 +63,16 @@ def trae_articulos(
                     url_imagen = f"/{parte_relativa}"
                 else:
                     # Si tiene un texto raro que no incluye 'frontend/', ponemos una de prueba
-                    url_imagen = f"https://picsum.photos{row.id}"
+                    url_imagen = f"https://picsum.photos{art_cod}"
             else:
                 # 🌟 TRUCO DE IMAGEN: Si en la BD la imagen viene vacía o rota, le ponemos una de internet
-                url_imagen =  f"https://picsum.photos{row.id}"
+                url_imagen =  f"https://picsum.photos{art_cod}"
 
             lista_articulos.append({
-                "id": row.id,
-                "nombre": row.nombre,
-                "precio": row.precio,  
-                "tipo": row.tipo,
+                "id": art_cod,
+                "nombre": nombre,
+                "precio": int(precio),
+                "tipo": tipo,
                 "imagen": url_imagen
             })
         return lista_articulos
