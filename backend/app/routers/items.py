@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from backend.app.database import obtener_conexion
 from backend.app.database_postgres import obtener_conexion_postgres
 from fastapi import HTTPException, status, APIRouter, Query
@@ -7,6 +9,28 @@ from backend.app.schemas import PedidoEntrada
 
 # Creamos el router para agrupar las rutas de categorías
 router = APIRouter(prefix="/articulos", tags=["Articulos"])
+
+RUTA_FRONTEND = Path(__file__).resolve().parents[3] / "frontend"
+IMAGEN_SIN_FOTO = "/frontend/assets/images/sin-imagen.svg"
+
+
+def url_imagen_articulo(foto):
+    if not foto:
+        return IMAGEN_SIN_FOTO
+
+    ruta_limpia = foto.strip().replace("\\", "/")
+    posicion = ruta_limpia.lower().find("frontend/")
+    if posicion == -1:
+        return IMAGEN_SIN_FOTO
+
+    parte_relativa = ruta_limpia[posicion:]
+    archivo = (RUTA_FRONTEND.parent / parte_relativa).resolve()
+    if not archivo.is_relative_to(RUTA_FRONTEND) or not archivo.is_file():
+        return IMAGEN_SIN_FOTO
+
+    return f"/{parte_relativa}"
+
+
 @router.get("/")
 def trae_articulos(
     pagina: int = Query(1, description="Número de página (empieza en 1)"),
@@ -47,33 +71,12 @@ def trae_articulos(
 
         lista_articulos = []
         for art_cod, nombre, precio, tipo, foto in articulos:
-            url_imagen = ""
-            if foto:
-                # 1. Borramos los espacios en blanco invisibles que FoxPro deja al final
-                ruta_limpia = foto.strip()
-
-                # 2. Convertimos las barras de Windows (\) a barras de red (/)
-                ruta_limpia = ruta_limpia.replace("\\", "/")
-
-                # 3. Buscamos la palabra 'frontend/' para recortar la ruta local del disco C
-                if "frontend/" in ruta_limpia.lower():
-                    posicion = ruta_limpia.lower().find("frontend/")
-                    parte_relativa = ruta_limpia[posicion:]
-                    # Queda armado como: /frontend/assets/images/ladrillo.jpg
-                    url_imagen = f"/{parte_relativa}"
-                else:
-                    # Si tiene un texto raro que no incluye 'frontend/', ponemos una de prueba
-                    url_imagen = f"https://picsum.photos{art_cod}"
-            else:
-                # 🌟 TRUCO DE IMAGEN: Si en la BD la imagen viene vacía o rota, le ponemos una de internet
-                url_imagen =  f"https://picsum.photos{art_cod}"
-
             lista_articulos.append({
                 "id": art_cod,
                 "nombre": nombre,
                 "precio": int(precio),
                 "tipo": tipo,
-                "imagen": url_imagen
+                "imagen": url_imagen_articulo(foto)
             })
         return lista_articulos
 
