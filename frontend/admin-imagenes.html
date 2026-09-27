@@ -13,16 +13,16 @@
     <h1>Panel de Imágenes</h1>
   </header>
 
-  <section class="admin-buscador">
-    <div class="caja-buscar-wrapper">
-      <input type="text" id="txt-buscar-admin" placeholder="Buscar por código o nombre...">
-      <span class="icono-lupa">🔍</span>
-    </div>
-  </section>
-
   <main class="admin-contenido">
     <aside class="admin-resultados">
-      <ul id="lista-resultados"></ul>
+      <div class="buscador-lateral">
+        <div class="caja-buscar-wrapper">
+          <input type="text" id="txt-buscar-admin" placeholder="Buscar por código o nombre...">
+          <span class="icono-lupa">🔍</span>
+        </div>
+      </div>
+
+      <ul id="lista-resultados" class="lista-resultados-scroll"></ul>
     </aside>
 
     <section class="admin-detalle" id="panel-detalle">

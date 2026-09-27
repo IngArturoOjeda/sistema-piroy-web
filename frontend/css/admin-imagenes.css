@@ -30,10 +30,27 @@ body {
     color: #2c3e50;
 }
 
-.admin-buscador {
-    max-width: 700px;
-    margin: 20px auto;
-    padding: 0 20px;
+/* ---------- Layout de dos columnas (escritorio) ---------- */
+
+.admin-contenido {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+    align-items: start;
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.admin-resultados {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 140px);
+}
+
+.buscador-lateral {
+    flex-shrink: 0;
+    margin-bottom: 15px;
 }
 
 .caja-buscar-wrapper {
@@ -70,31 +87,27 @@ body {
     pointer-events: none;
 }
 
-.admin-contenido {
-    display: flex;
-    gap: 20px;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 20px 40px;
-}
+/* ---------- Lista de resultados (scroll propio) ---------- */
 
-.admin-resultados {
-    width: 320px;
-    flex-shrink: 0;
-}
-
-#lista-resultados {
+.lista-resultados-scroll {
     list-style: none;
     display: flex;
     flex-direction: column;
     gap: 10px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 5px;
 }
 
 .resultado-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     background-color: white;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.06);
-    padding: 12px 15px;
+    padding: 10px 12px;
     cursor: pointer;
     border: 2px solid transparent;
     transition: border-color 0.15s;
@@ -108,24 +121,49 @@ body {
     border-color: #000c66;
 }
 
-.resultado-item .resultado-codigo {
-    font-size: 0.8rem;
+.resultado-miniatura {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 2px;
+    background-color: #f8fafc;
+    flex-shrink: 0;
+}
+
+.resultado-textos {
+    min-width: 0;
+    flex: 1;
+}
+
+.resultado-codigo {
+    font-size: 0.75rem;
     color: #94a3b8;
 }
 
-.resultado-item .resultado-nombre {
+.resultado-nombre {
     font-weight: 600;
     color: #2c3e50;
     margin: 2px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.resultado-item .resultado-estado {
+.resultado-precio {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: #e67e22;
+    margin-bottom: 4px;
+}
+
+.resultado-estado {
     display: inline-block;
     font-size: 0.7rem;
     font-weight: bold;
     padding: 2px 8px;
     border-radius: 10px;
-    margin-top: 4px;
 }
 
 .estado-publicado {
@@ -138,12 +176,17 @@ body {
     color: #64748b;
 }
 
+/* ---------- Panel de detalle (columna derecha, sticky) ---------- */
+
 .admin-detalle {
-    flex: 1;
     background-color: white;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.06);
     padding: 25px;
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
 }
 
 .admin-detalle-vacio {
@@ -156,8 +199,8 @@ body {
     display: flex;
     gap: 25px;
     flex-wrap: wrap;
-    margin-bottom: 25px;
-    padding-bottom: 25px;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
     border-bottom: 1px solid #f1f5f9;
 }
 
@@ -185,6 +228,44 @@ body {
     font-weight: bold;
     font-size: 1.1rem;
 }
+
+.fila-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.badge {
+    font-size: 0.75rem;
+    font-weight: bold;
+    padding: 4px 10px;
+    border-radius: 10px;
+}
+
+.badge-vigente {
+    background-color: #dcfce7;
+    color: #16a34a;
+}
+
+.badge-inactivo {
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+
+.badge-si {
+    background-color: #dcfce7;
+    color: #16a34a;
+}
+
+.badge-no {
+    background-color: #f1f5f9;
+    color: #64748b;
+}
+
+/* ---------- Formulario de subida ---------- */
 
 .form-imagen {
     display: flex;
@@ -260,11 +341,26 @@ body {
     color: #dc2626;
 }
 
+/* ---------- Móvil: una sola columna ---------- */
+
 @media (max-width: 900px) {
     .admin-contenido {
-        flex-direction: column;
+        grid-template-columns: 1fr;
+        padding: 15px;
     }
+
     .admin-resultados {
-        width: 100%;
+        max-height: 50vh;
+    }
+
+    .admin-detalle {
+        position: static;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .btn-subir-imagen {
+        padding: 16px;
+        font-size: 1.05rem;
     }
 }

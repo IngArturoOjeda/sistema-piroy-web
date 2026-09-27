@@ -3,11 +3,17 @@ const txtBuscarAdminUI = document.getElementById("txt-buscar-admin");
 const listaResultadosUI = document.getElementById("lista-resultados");
 const panelDetalleUI = document.getElementById("panel-detalle");
 
+const ANCHURA_MOVIL = 900;
+
 // 2. CLAVE DE ADMINISTRADOR: solo en memoria, nunca en sessionStorage/localStorage
 // Solución temporal hasta implementar login administrativo real.
 let claveAdminEnMemoria = null;
 let articuloSeleccionado = null;
 let temporizadorBusqueda = null;
+
+function esVistaMovil() {
+    return window.innerWidth <= ANCHURA_MOVIL;
+}
 
 function obtenerClaveAdmin() {
     if (!claveAdminEnMemoria) {
@@ -75,13 +81,18 @@ function dibujarResultados(articulos) {
         const li = document.createElement("li");
         li.className = "resultado-item";
         const publicado = articulo.art_estado === "S" && articulo.llevar_web && articulo.mostrar_web;
+        const imagenMiniatura = articulo.art_foto || "/frontend/assets/images/sin-imagen.svg";
 
         li.innerHTML = `
-            <div class="resultado-codigo">Art. ${articulo.art_cod}</div>
-            <div class="resultado-nombre">${articulo.art_nombre}</div>
-            <span class="resultado-estado ${publicado ? "estado-publicado" : "estado-no-publicado"}">
-                ${publicado ? "Publicado" : "No publicado"}
-            </span>
+            <img class="resultado-miniatura" src="${imagenMiniatura}" alt="${articulo.art_nombre}">
+            <div class="resultado-textos">
+                <div class="resultado-codigo">Art. ${articulo.art_cod}</div>
+                <div class="resultado-nombre">${articulo.art_nombre}</div>
+                <div class="resultado-precio">PYG ${articulo.art_preciobase.toLocaleString("es-ES")}</div>
+                <span class="resultado-estado ${publicado ? "estado-publicado" : "estado-no-publicado"}">
+                    ${publicado ? "Publicado" : "No publicado"}
+                </span>
+            </div>
         `;
 
         li.addEventListener("click", () => seleccionarArticulo(articulo, li));
@@ -109,6 +120,18 @@ function seleccionarArticulo(articulo, elementoLi) {
             </div>
         </div>
 
+        <div class="fila-badges">
+            <span class="badge ${articulo.art_estado === "S" ? "badge-vigente" : "badge-inactivo"}">
+                ${articulo.art_estado === "S" ? "Vigente" : "Inactivo"}
+            </span>
+            <span class="badge ${articulo.llevar_web ? "badge-si" : "badge-no"}">
+                llevar_web: ${articulo.llevar_web ? "Sí" : "No"}
+            </span>
+            <span class="badge ${articulo.mostrar_web ? "badge-si" : "badge-no"}">
+                mostrar_web: ${articulo.mostrar_web ? "Sí" : "No"}
+            </span>
+        </div>
+
         <form id="form-imagen" class="form-imagen">
             <input type="file" id="input-archivo" accept="image/jpeg,image/png,image/webp" required>
             <img id="img-preview" class="preview-nueva-imagen" alt="Vista previa">
@@ -119,6 +142,10 @@ function seleccionarArticulo(articulo, elementoLi) {
 
     document.getElementById("input-archivo").addEventListener("change", mostrarPreviewLocal);
     document.getElementById("form-imagen").addEventListener("submit", subirImagen);
+
+    if (esVistaMovil()) {
+        panelDetalleUI.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
 }
 
 function mostrarPreviewLocal(evento) {
