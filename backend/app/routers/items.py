@@ -15,10 +15,17 @@ IMAGEN_SIN_FOTO = "/frontend/assets/images/sin-imagen.svg"
 
 
 def url_imagen_articulo(foto):
-    if not foto:
+    if not foto or not foto.strip():
         return IMAGEN_SIN_FOTO
 
-    ruta_limpia = foto.strip().replace("\\", "/")
+    foto = foto.strip()
+
+    if foto.startswith("https://"):
+        return foto
+    if foto.startswith("http://"):
+        return IMAGEN_SIN_FOTO
+
+    ruta_limpia = foto.replace("\\", "/")
     posicion = ruta_limpia.lower().find("frontend/")
     if posicion == -1:
         return IMAGEN_SIN_FOTO
