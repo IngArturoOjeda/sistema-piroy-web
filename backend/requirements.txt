@@ -3,3 +3,4 @@ uvicorn
 pyodbc
 python-dotenv
 psycopg[binary]
+cloudinary
