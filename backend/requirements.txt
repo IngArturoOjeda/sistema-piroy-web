@@ -4,3 +4,4 @@ pyodbc
 python-dotenv
 psycopg[binary]
 cloudinary
+python-multipart
