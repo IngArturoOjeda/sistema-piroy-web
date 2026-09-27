@@ -7,6 +7,7 @@ import cloudinary.uploader
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile, status
 
 from backend.app.database_postgres import obtener_conexion_postgres
+from backend.app.schemas import MostrarWebEntrada
 
 router = APIRouter(prefix="/admin", tags=["Administracion"])
 
@@ -123,6 +124,45 @@ def buscar_articulos_admin(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No se pudo buscar articulos",
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@router.patch("/articulos/{art_cod}/mostrar-web", dependencies=[Depends(verificar_admin)])
+def actualizar_mostrar_web(art_cod: int, datos: MostrarWebEntrada):
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "UPDATE articulos SET mostrar_web = %s WHERE art_cod = %s",
+            (datos.mostrar_web, art_cod),
+        )
+        if cursor.rowcount == 0:
+            conn.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"art_cod {art_cod} no existe",
+            )
+        conn.commit()
+
+        return {"status": "ok", "art_cod": art_cod, "mostrar_web": datos.mostrar_web}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("Error actualizando mostrar_web:", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo actualizar mostrar_web",
         )
     finally:
         if cursor:

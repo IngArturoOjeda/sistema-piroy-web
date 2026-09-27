@@ -35,3 +35,7 @@ class ArticuloSync(BaseModel):
     art_estado: str = Field(pattern="^[SN]$")
     llevar_web: bool
     version_actual: int = Field(gt=0)
+
+# 4. Cambio de visibilidad web de un articulo (panel administrativo)
+class MostrarWebEntrada(BaseModel):
+    mostrar_web: bool

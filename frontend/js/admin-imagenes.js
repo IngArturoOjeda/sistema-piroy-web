@@ -80,6 +80,7 @@ function dibujarResultados(articulos) {
     articulos.forEach(articulo => {
         const li = document.createElement("li");
         li.className = "resultado-item";
+        li.dataset.artCod = articulo.art_cod;
         const publicado = articulo.art_estado === "S" && articulo.llevar_web && articulo.mostrar_web;
         const imagenMiniatura = articulo.art_foto || "/frontend/assets/images/sin-imagen.svg";
 
@@ -98,6 +99,18 @@ function dibujarResultados(articulos) {
         li.addEventListener("click", () => seleccionarArticulo(articulo, li));
         listaResultadosUI.appendChild(li);
     });
+}
+
+function actualizarBadgeListaResultado(articulo) {
+    const li = listaResultadosUI.querySelector(`[data-art-cod="${articulo.art_cod}"]`);
+    if (!li) return;
+
+    const publicado = articulo.art_estado === "S" && articulo.llevar_web && articulo.mostrar_web;
+    const badge = li.querySelector(".resultado-estado");
+    if (!badge) return;
+
+    badge.className = `resultado-estado ${publicado ? "estado-publicado" : "estado-no-publicado"}`;
+    badge.textContent = publicado ? "Publicado" : "No publicado";
 }
 
 // 5. SELECCIÓN Y PANEL DE DETALLE
@@ -132,6 +145,20 @@ function seleccionarArticulo(articulo, elementoLi) {
             </span>
         </div>
 
+        ${!articulo.llevar_web ? '<p class="aviso-advertencia">Este artículo está deshabilitado para ecommerce desde el sistema local.</p>' : ""}
+        ${articulo.art_estado === "N" ? '<p class="aviso-advertencia">Este artículo está inactivo.</p>' : ""}
+
+        <div class="control-mostrar-web">
+            <label class="fila-switch">
+                <span>Mostrar en web</span>
+                <span class="switch">
+                    <input type="checkbox" id="switch-mostrar-web" ${articulo.mostrar_web ? "checked" : ""}>
+                    <span class="switch-slider"></span>
+                </span>
+            </label>
+            <p id="estado-mostrar-web" class="estado-mostrar-web"></p>
+        </div>
+
         <form id="form-imagen" class="form-imagen">
             <input type="file" id="input-archivo" accept="image/jpeg,image/png,image/webp" required>
             <img id="img-preview" class="preview-nueva-imagen" alt="Vista previa">
@@ -142,6 +169,7 @@ function seleccionarArticulo(articulo, elementoLi) {
 
     document.getElementById("input-archivo").addEventListener("change", mostrarPreviewLocal);
     document.getElementById("form-imagen").addEventListener("submit", subirImagen);
+    document.getElementById("switch-mostrar-web").addEventListener("change", alternarMostrarWeb);
 
     if (esVistaMovil()) {
         panelDetalleUI.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -200,5 +228,47 @@ async function subirImagen(evento) {
         estadoUI.className = "estado-subida visible estado-error";
         estadoUI.textContent = error.message;
         btnSubir.disabled = false;
+    }
+}
+
+// 7. CAMBIO DE mostrar_web (switch "Mostrar en web")
+async function alternarMostrarWeb(evento) {
+    const checkbox = evento.target;
+    const estadoUI = document.getElementById("estado-mostrar-web");
+    const nuevoValor = checkbox.checked; // el navegador ya lo cambio visualmente
+    const valorAnterior = !nuevoValor;   // por eso guardamos el opuesto como "anterior"
+
+    checkbox.disabled = true;
+    estadoUI.textContent = "Guardando...";
+    estadoUI.className = "estado-mostrar-web guardando";
+
+    try {
+        const respuesta = await fetchAdmin(
+            `/api/admin/articulos/${articuloSeleccionado.art_cod}/mostrar-web`,
+            {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mostrar_web: nuevoValor }),
+            }
+        );
+        const resultado = await respuesta.json();
+
+        if (!respuesta.ok) {
+            checkbox.checked = valorAnterior;
+            estadoUI.textContent = resultado.detail || "No se pudo actualizar.";
+            estadoUI.className = "estado-mostrar-web error";
+            return;
+        }
+
+        articuloSeleccionado.mostrar_web = resultado.mostrar_web;
+        actualizarBadgeListaResultado(articuloSeleccionado);
+        estadoUI.textContent = "";
+        estadoUI.className = "estado-mostrar-web";
+    } catch (error) {
+        checkbox.checked = valorAnterior;
+        estadoUI.textContent = error.message;
+        estadoUI.className = "estado-mostrar-web error";
+    } finally {
+        checkbox.disabled = false;
     }
 }
