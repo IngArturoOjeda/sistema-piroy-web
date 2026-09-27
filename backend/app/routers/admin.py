@@ -4,7 +4,7 @@ from io import BytesIO
 
 import cloudinary
 import cloudinary.uploader
-from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile, status
 
 from backend.app.database_postgres import obtener_conexion_postgres
 
@@ -70,6 +70,65 @@ def configurar_cloudinary():
         api_secret=api_secret,
         secure=True,
     )
+
+
+@router.get("/articulos", dependencies=[Depends(verificar_admin)])
+def buscar_articulos_admin(
+    buscar: str = Query(..., min_length=1, description="Texto o codigo a buscar")
+):
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        buscar_limpio = buscar.strip()
+        parametros = [f"%{buscar_limpio}%"]
+
+        filtro_codigo = ""
+        if buscar_limpio.isdigit():
+            filtro_codigo = "OR a.art_cod = %s"
+            parametros.append(int(buscar_limpio))
+
+        sql = f"""
+            SELECT a.art_cod, a.art_nombre, a.art_preciobase, t.tipoart_desc,
+                   a.art_foto, a.art_estado, a.llevar_web, a.mostrar_web
+            FROM articulos a
+            INNER JOIN tipo_articulo t ON a.tipoart_cod = t.tipoart_cod
+            WHERE a.art_nombre ILIKE %s
+              {filtro_codigo}
+            ORDER BY a.art_cod
+            LIMIT 20
+        """
+        cursor.execute(sql, parametros)
+        filas = cursor.fetchall()
+
+        return [
+            {
+                "art_cod": r[0],
+                "art_nombre": r[1],
+                "art_preciobase": int(r[2]),
+                "tipoart_desc": r[3],
+                "art_foto": r[4],
+                "art_estado": r[5],
+                "llevar_web": r[6],
+                "mostrar_web": r[7],
+            }
+            for r in filas
+        ]
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("Error buscando articulos (admin):", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo buscar articulos",
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
 @router.post("/articulos/{art_cod}/imagen", dependencies=[Depends(verificar_admin)])

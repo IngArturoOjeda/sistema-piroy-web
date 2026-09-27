@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgroVetzo - Panel de Imágenes</title>
+  <link rel="icon" type="image/png" href="/frontend/assets/images/favicon.png">
+  <link rel="stylesheet" href="/frontend/css/admin-imagenes.css">
+</head>
+<body>
+  <header class="admin-header">
+    <img src="/frontend/assets/images/logo-vete.jpg" alt="AgroVetzo" class="admin-logo">
+    <h1>Panel de Imágenes</h1>
+  </header>
+
+  <section class="admin-buscador">
+    <div class="caja-buscar-wrapper">
+      <input type="text" id="txt-buscar-admin" placeholder="Buscar por código o nombre...">
+      <span class="icono-lupa">🔍</span>
+    </div>
+  </section>
+
+  <main class="admin-contenido">
+    <aside class="admin-resultados">
+      <ul id="lista-resultados"></ul>
+    </aside>
+
+    <section class="admin-detalle" id="panel-detalle">
+      <p class="admin-detalle-vacio">Buscá un artículo para ver su imagen.</p>
+    </section>
+  </main>
+
+  <script src="/frontend/js/admin-imagenes.js"></script>
+</body>
+</html>
