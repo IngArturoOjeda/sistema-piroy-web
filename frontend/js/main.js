@@ -172,12 +172,15 @@ function dibujarArticulos(listaArticulos) {
             <img src="${articulo.imagen}" alt="${articulo.nombre}">
             <h3>${articulo.nombre}</h3>
             <p class="precio">PYG ${articulo.precio.toLocaleString('es-ES', { maximumFractionDigits: 0 })}</p>
+            <p class="stock-info ${articulo.stock_disponible > 0 ? 'disponible' : 'agotado'}">
+                ${articulo.stock_disponible > 0 ? `Stock disponible: ${articulo.stock_disponible}` : 'Sin stock'}
+            </p>
             <button class="btn-comprar">🛒 AGREGAR AL CARRITO </button>
         `;
-        
+
         const botonComprar = divCard.querySelector(".btn-comprar");
         botonComprar.addEventListener("click", () => {
-            comprarArticulo(articulo.id); 
+            comprarArticulo(articulo.id);
         });
 
         contenedorCardsUI.appendChild(divCard);

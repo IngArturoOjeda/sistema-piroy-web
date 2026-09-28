@@ -94,6 +94,20 @@ header {
     color: #e67e22; /* Color naranja llamativo para el precio */
 }
 
+.card-producto .stock-info {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.card-producto .stock-info.disponible {
+    color: #16a34a;
+}
+
+.card-producto .stock-info.agotado {
+    color: #dc2626;
+}
+
 /* Estilos para los botones de las categorías */
 .btn-categoria {
     width: 100%;
