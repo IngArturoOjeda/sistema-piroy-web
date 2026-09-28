@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, status
 from psycopg.errors import ForeignKeyViolation
 
 from backend.app.database_postgres import obtener_conexion_postgres
-from backend.app.schemas import ArticuloSync, ArticulosKitSync
+from backend.app.schemas import ArticuloSync, ArticulosKitSync, StockSync
 
 router = APIRouter(prefix="/sync", tags=["Sincronizacion"])
 
@@ -176,6 +176,67 @@ def sincronizar_articulos_kit(datos: ArticulosKitSync):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No se pudo sincronizar la composicion del kit",
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+SQL_OBTENER_ART_KIT = "SELECT art_kit FROM articulos WHERE art_cod = %s"
+
+SQL_UPSERT_STOCK = """
+    INSERT INTO stock (art_cod, cantidad)
+    VALUES (%s, %s)
+    ON CONFLICT (art_cod) DO UPDATE SET
+        cantidad = EXCLUDED.cantidad
+    RETURNING art_cod
+"""
+
+
+@router.post("/stock", dependencies=[Depends(verificar_sincronizador)])
+def sincronizar_stock(datos: StockSync):
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        cursor.execute(SQL_OBTENER_ART_KIT, (datos.art_cod,))
+        fila = cursor.fetchone()
+        if fila is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"art_cod {datos.art_cod} no existe en articulos",
+            )
+        if fila[0]:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"art_cod {datos.art_cod} es un kit, no tiene stock fisico propio",
+            )
+
+        cursor.execute(SQL_UPSERT_STOCK, (datos.art_cod, datos.cantidad))
+        art_cod_guardado = cursor.fetchone()[0]
+        conn.commit()
+
+        return {
+            "status": "ok",
+            "art_cod": art_cod_guardado,
+            "version_actual": datos.version_actual,
+        }
+
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("Error sincronizando stock:", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo sincronizar el stock",
         )
     finally:
         if cursor:

@@ -383,6 +383,140 @@ def procesar_pendientes_kits(conn, cursor, pendientes, url, api_key):
     return resumen
 
 
+SQL_PENDIENTES_STOCK = """
+    SELECT
+        C.art_cod,
+        C.version_actual,
+        C.version_enviada,
+        ISNULL(S.sto_cantidad, 0) AS sto_cantidad
+    FROM CAMBIOS_STOCK C
+    INNER JOIN ARTICULOS A
+        ON A.art_cod = C.art_cod
+    LEFT JOIN STOCK S
+        ON S.art_cod = C.art_cod
+    WHERE C.version_actual > C.version_enviada
+      AND A.art_kit = 0
+      AND A.llevar_web = 1
+    ORDER BY C.art_cod
+"""
+
+SQL_CONFIRMAR_VERSION_STOCK = """
+    UPDATE CAMBIOS_STOCK
+    SET version_enviada = ?,
+        fecha_sincronizacion = GETDATE()
+    WHERE art_cod = ?
+      AND version_enviada < ?
+"""
+
+
+def leer_pendientes_stock(cursor):
+    cursor.execute(SQL_PENDIENTES_STOCK)
+    return cursor.fetchall()
+
+
+def construir_payload_stock(fila_stock):
+    return {
+        "art_cod": int(fila_stock.art_cod),
+        "cantidad": cantidad_para_json(fila_stock.sto_cantidad),
+        "version_actual": int(fila_stock.version_actual),
+    }
+
+
+def validar_respuesta_stock(respuesta, payload):
+    if not isinstance(respuesta, dict):
+        raise ErrorSincronizacion(f"Respuesta inesperada de FastAPI: {respuesta}")
+    if respuesta.get("status") != "ok":
+        raise ErrorSincronizacion(f"FastAPI no confirmó status ok: {respuesta}")
+    if respuesta.get("art_cod") != payload["art_cod"]:
+        raise ErrorSincronizacion(
+            f"art_cod devuelto ({respuesta.get('art_cod')}) distinto del enviado ({payload['art_cod']})"
+        )
+    if respuesta.get("version_actual") != payload["version_actual"]:
+        raise ErrorSincronizacion(
+            f"version_actual devuelta ({respuesta.get('version_actual')}) distinta de la enviada ({payload['version_actual']})"
+        )
+
+
+def confirmar_version_stock(conn, cursor, payload):
+    version = payload["version_actual"]
+    try:
+        cursor.execute(SQL_CONFIRMAR_VERSION_STOCK, (version, payload["art_cod"], version))
+        filas_actualizadas = cursor.rowcount
+        conn.commit()
+    except pyodbc.Error as e:
+        raise ErrorConfirmacionLocal(
+            f"FastAPI confirmó art_cod={payload['art_cod']} versión {version}, "
+            f"pero SQL Server no pudo registrar version_enviada en CAMBIOS_STOCK: {e}"
+        )
+    return filas_actualizadas
+
+
+def sincronizar_un_stock(conn, cursor, fila_stock, url, api_key):
+    payload = construir_payload_stock(fila_stock)
+    respuesta = enviar_articulo(url, api_key, payload)
+    validar_respuesta_stock(respuesta, payload)
+    return confirmar_version_stock(conn, cursor, payload)
+
+
+def procesar_pendientes_stock(conn, cursor, pendientes, url, api_key):
+    total = len(pendientes)
+    resumen = {
+        "encontrados": total,
+        "ok": 0,
+        "errores": [],
+        "sin_procesar": 0,
+        "motivo_aborto": None,
+    }
+    fallos_conexion_seguidos = 0
+
+    for indice, fila_stock in enumerate(pendientes, start=1):
+        etiqueta = f"[{indice}/{total}] art_cod={fila_stock.art_cod} version={fila_stock.version_actual}"
+        try:
+            filas_actualizadas = sincronizar_un_stock(conn, cursor, fila_stock, url, api_key)
+            resumen["ok"] += 1
+            fallos_conexion_seguidos = 0
+            aviso = "" if filas_actualizadas else " (version_enviada ya estaba actualizada)"
+            print(f"{etiqueta} OK{aviso}")
+        except ErrorConfiguracion as e:
+            rollback_seguro(conn)
+            resumen["motivo_aborto"] = str(e)
+            resumen["sin_procesar"] = total - indice + 1
+            print(f"{etiqueta} ERROR FATAL: {e}")
+            break
+        except ErrorConfirmacionLocal as e:
+            rollback_seguro(conn)
+            resumen["errores"].append(int(fila_stock.art_cod))
+            resumen["motivo_aborto"] = (
+                "SQL Server no puede registrar version_enviada "
+                "(no se envía más stock)"
+            )
+            resumen["sin_procesar"] = total - indice
+            print(f"{etiqueta} ERROR FATAL: {e}")
+            break
+        except ErrorConexion as e:
+            rollback_seguro(conn)
+            resumen["errores"].append(int(fila_stock.art_cod))
+            fallos_conexion_seguidos += 1
+            print(f"{etiqueta} ERROR: {e}")
+            if fallos_conexion_seguidos >= MAX_FALLOS_CONEXION_SEGUIDOS:
+                resumen["motivo_aborto"] = (
+                    f"{MAX_FALLOS_CONEXION_SEGUIDOS} fallos de conexión seguidos con FastAPI"
+                )
+                resumen["sin_procesar"] = total - indice
+                break
+        except ErrorSincronizacion as e:
+            rollback_seguro(conn)
+            resumen["errores"].append(int(fila_stock.art_cod))
+            fallos_conexion_seguidos = 0
+            print(f"{etiqueta} ERROR: {e}")
+        except Exception as e:
+            rollback_seguro(conn)
+            resumen["errores"].append(int(fila_stock.art_cod))
+            print(f"{etiqueta} ERROR inesperado: {e}")
+
+    return resumen
+
+
 def main():
     conn = None
     cursor = None
@@ -403,7 +537,7 @@ def main():
             error_articulos = False
 
         if error_articulos:
-            # No se procesan kits: pueden depender de articulos que no llegaron a Postgres.
+            # No se procesan kits ni stock: pueden depender de articulos que no llegaron a Postgres.
             raise SystemExit(1)
 
         pendientes_kits = leer_pendientes_kits(cursor)
@@ -416,7 +550,19 @@ def main():
             print("No hay kits pendientes")
             error_kits = False
 
-        if error_kits:
+        # Los errores de kits NO impiden procesar stock: el stock fisico
+        # no depende de la composicion del kit.
+        pendientes_stock = leer_pendientes_stock(cursor)
+        if pendientes_stock:
+            url_stock = obtener_variable("SYNC_API_URL_STOCK")
+            resumen_stock = procesar_pendientes_stock(conn, cursor, pendientes_stock, url_stock, api_key)
+            imprimir_resumen(resumen_stock)
+            error_stock = bool(resumen_stock["errores"] or resumen_stock["motivo_aborto"])
+        else:
+            print("No hay stock pendiente")
+            error_stock = False
+
+        if error_kits or error_stock:
             raise SystemExit(1)
     except Exception as e:
         print(f"Error en el sincronizador: {e}")

@@ -63,3 +63,9 @@ class ArticulosKitSync(BaseModel):
                 raise ValueError(f"art_cod {c.art_cod} esta repetido en componentes")
             vistos.add(c.art_cod)
         return valor
+
+# 6. Stock de un articulo (SQL Server -> PostgreSQL)
+class StockSync(BaseModel):
+    art_cod: int = Field(gt=0, lt=10**18)
+    cantidad: Decimal = Field(ge=0, max_digits=9, decimal_places=3)
+    version_actual: int = Field(gt=0)
