@@ -65,10 +65,13 @@ def trae_articulos(
                 CASE
                     WHEN a.art_kit THEN COALESCE(kit.stock_disponible, 0)
                     ELSE COALESCE(s.cantidad, 0)
-                END AS stock_disponible
+                END AS stock_disponible,
+                um.uni_nombre AS unidad_venta,
+                COALESCE(um.fraccionable, FALSE) AS fraccionable
             FROM articulos a
             INNER JOIN tipo_articulo t ON a.tipoart_cod = t.tipoart_cod
             LEFT JOIN stock s ON s.art_cod = a.art_cod
+            LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
             LEFT JOIN LATERAL (
                 SELECT GREATEST(
                     MIN(
@@ -97,14 +100,16 @@ def trae_articulos(
             return []
 
         lista_articulos = []
-        for art_cod, nombre, precio, tipo, foto, stock_disponible in articulos:
+        for art_cod, nombre, precio, tipo, foto, stock_disponible, unidad_venta, fraccionable in articulos:
             lista_articulos.append({
                 "id": art_cod,
                 "nombre": nombre,
                 "precio": int(precio),
                 "tipo": tipo,
                 "imagen": url_imagen_articulo(foto),
-                "stock_disponible": float(stock_disponible)
+                "stock_disponible": float(stock_disponible),
+                "unidad_venta": unidad_venta,
+                "fraccionable": bool(fraccionable)
             })
         return lista_articulos
 
