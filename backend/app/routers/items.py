@@ -60,9 +60,29 @@ def trae_articulos(
         parametros.extend([limite, registros_a_saltear])
 
         sql = f"""
-            SELECT a.art_cod, a.art_nombre, a.art_preciobase, t.tipoart_desc, a.art_foto
+            SELECT
+                a.art_cod, a.art_nombre, a.art_preciobase, t.tipoart_desc, a.art_foto,
+                CASE
+                    WHEN a.art_kit THEN COALESCE(kit.stock_disponible, 0)
+                    ELSE COALESCE(s.cantidad, 0)
+                END AS stock_disponible
             FROM articulos a
             INNER JOIN tipo_articulo t ON a.tipoart_cod = t.tipoart_cod
+            LEFT JOIN stock s ON s.art_cod = a.art_cod
+            LEFT JOIN LATERAL (
+                SELECT GREATEST(
+                    MIN(
+                        CASE
+                            WHEN ak.art_cantidad <= 0 THEN 0
+                            ELSE FLOOR(COALESCE(sc.cantidad, 0) / ak.art_cantidad)
+                        END
+                    ),
+                    0
+                ) AS stock_disponible
+                FROM articulos_kit ak
+                LEFT JOIN stock sc ON sc.art_cod = ak.art_cod
+                WHERE ak.art_codkit = a.art_cod
+            ) kit ON a.art_kit = TRUE
             WHERE a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
@@ -77,13 +97,14 @@ def trae_articulos(
             return []
 
         lista_articulos = []
-        for art_cod, nombre, precio, tipo, foto in articulos:
+        for art_cod, nombre, precio, tipo, foto, stock_disponible in articulos:
             lista_articulos.append({
                 "id": art_cod,
                 "nombre": nombre,
                 "precio": int(precio),
                 "tipo": tipo,
-                "imagen": url_imagen_articulo(foto)
+                "imagen": url_imagen_articulo(foto),
+                "stock_disponible": float(stock_disponible)
             })
         return lista_articulos
 
