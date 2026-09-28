@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, status
 from psycopg.errors import ForeignKeyViolation
 
 from backend.app.database_postgres import obtener_conexion_postgres
-from backend.app.schemas import ArticuloSync
+from backend.app.schemas import ArticuloSync, ArticulosKitSync
 
 router = APIRouter(prefix="/sync", tags=["Sincronizacion"])
 
@@ -105,6 +105,77 @@ def sincronizar_articulo(articulo: ArticuloSync):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No se pudo sincronizar el articulo",
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+SQL_VERIFICAR_KIT = "SELECT 1 FROM articulos WHERE art_cod = %s"
+
+SQL_BORRAR_COMPONENTES_KIT = "DELETE FROM articulos_kit WHERE art_codkit = %s"
+
+SQL_INSERTAR_COMPONENTE_KIT = """
+    INSERT INTO articulos_kit (idkit, art_codkit, art_cod, art_cantidad)
+    VALUES (%s, %s, %s, %s)
+"""
+
+
+@router.post("/articulos-kit", dependencies=[Depends(verificar_sincronizador)])
+def sincronizar_articulos_kit(datos: ArticulosKitSync):
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        cursor.execute(SQL_VERIFICAR_KIT, (datos.art_codkit,))
+        if cursor.fetchone() is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"art_codkit {datos.art_codkit} no existe en articulos",
+            )
+
+        cursor.execute(SQL_BORRAR_COMPONENTES_KIT, (datos.art_codkit,))
+
+        for componente in datos.componentes:
+            cursor.execute(SQL_INSERTAR_COMPONENTE_KIT, (
+                componente.idkit,
+                datos.art_codkit,
+                componente.art_cod,
+                componente.art_cantidad,
+            ))
+
+        conn.commit()
+
+        return {
+            "status": "ok",
+            "art_codkit": datos.art_codkit,
+            "version_actual": datos.version_actual,
+            "componentes": len(datos.componentes),
+        }
+
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
+    except ForeignKeyViolation as e:
+        if conn:
+            conn.rollback()
+        if getattr(e.diag, "constraint_name", None) == "fk_articulos_kit_componente":
+            detalle = "Uno de los componentes no existe todavia en articulos"
+        else:
+            detalle = "Referencia relacionada al kit no existe"
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detalle)
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("Error sincronizando articulos_kit:", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo sincronizar la composicion del kit",
         )
     finally:
         if cursor:

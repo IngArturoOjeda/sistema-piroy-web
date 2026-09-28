@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # 1. Definimos cómo luce un artículo individual dentro del carrito
 # Coincide con lo que JavaScript tiene en memoria
@@ -42,3 +42,24 @@ class ArticuloSync(BaseModel):
 # 4. Cambio de visibilidad web de un articulo (panel administrativo)
 class MostrarWebEntrada(BaseModel):
     mostrar_web: bool
+
+# 5. Composicion de un kit (SQL Server -> PostgreSQL)
+class ComponenteKit(BaseModel):
+    idkit: int = Field(gt=0)
+    art_cod: int = Field(gt=0, lt=10**18)
+    art_cantidad: Decimal = Field(gt=0, max_digits=9, decimal_places=3)
+
+class ArticulosKitSync(BaseModel):
+    art_codkit: int = Field(gt=0, lt=10**18)
+    componentes: List[ComponenteKit]
+    version_actual: int = Field(gt=0)
+
+    @field_validator("componentes")
+    @classmethod
+    def sin_componentes_duplicados(cls, valor):
+        vistos = set()
+        for c in valor:
+            if c.art_cod in vistos:
+                raise ValueError(f"art_cod {c.art_cod} esta repetido en componentes")
+            vistos.add(c.art_cod)
+        return valor

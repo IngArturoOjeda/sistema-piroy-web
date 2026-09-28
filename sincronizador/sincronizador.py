@@ -236,6 +236,153 @@ def imprimir_resumen(resumen):
         print("art_cod con error: " + ", ".join(str(a) for a in resumen["errores"]))
 
 
+SQL_PENDIENTES_KITS = """
+    SELECT
+        C.art_codkit,
+        C.version_actual,
+        C.version_enviada
+    FROM CAMBIOS_ARTICULOS_KIT C
+    WHERE C.version_actual > C.version_enviada
+    ORDER BY C.art_codkit
+"""
+
+SQL_COMPONENTES_KIT = """
+    SELECT idkit, ART_COD, ART_CANTIDAD
+    FROM ARTICULOS_KIT
+    WHERE ART_CODKIT = ?
+    ORDER BY idkit
+"""
+
+SQL_CONFIRMAR_VERSION_KIT = """
+    UPDATE CAMBIOS_ARTICULOS_KIT
+    SET version_enviada = ?,
+        fecha_sincronizacion = GETDATE()
+    WHERE art_codkit = ?
+      AND version_enviada < ?
+"""
+
+
+def leer_pendientes_kits(cursor):
+    cursor.execute(SQL_PENDIENTES_KITS)
+    return cursor.fetchall()
+
+
+def cantidad_para_json(cantidad):
+    return str(cantidad)
+
+
+def construir_payload_kit(cursor, fila_kit):
+    cursor.execute(SQL_COMPONENTES_KIT, (fila_kit.art_codkit,))
+    componentes = [
+        {
+            "idkit": int(c.idkit),
+            "art_cod": int(c.ART_COD),
+            "art_cantidad": cantidad_para_json(c.ART_CANTIDAD),
+        }
+        for c in cursor.fetchall()
+    ]
+    return {
+        "art_codkit": int(fila_kit.art_codkit),
+        "componentes": componentes,
+        "version_actual": int(fila_kit.version_actual),
+    }
+
+
+def validar_respuesta_kit(respuesta, payload):
+    if not isinstance(respuesta, dict):
+        raise ErrorSincronizacion(f"Respuesta inesperada de FastAPI: {respuesta}")
+    if respuesta.get("status") != "ok":
+        raise ErrorSincronizacion(f"FastAPI no confirmó status ok: {respuesta}")
+    if respuesta.get("art_codkit") != payload["art_codkit"]:
+        raise ErrorSincronizacion(
+            f"art_codkit devuelto ({respuesta.get('art_codkit')}) distinto del enviado ({payload['art_codkit']})"
+        )
+    if respuesta.get("version_actual") != payload["version_actual"]:
+        raise ErrorSincronizacion(
+            f"version_actual devuelta ({respuesta.get('version_actual')}) distinta de la enviada ({payload['version_actual']})"
+        )
+
+
+def confirmar_version_kit(conn, cursor, payload):
+    version = payload["version_actual"]
+    try:
+        cursor.execute(SQL_CONFIRMAR_VERSION_KIT, (version, payload["art_codkit"], version))
+        filas_actualizadas = cursor.rowcount
+        conn.commit()
+    except pyodbc.Error as e:
+        raise ErrorConfirmacionLocal(
+            f"FastAPI confirmó art_codkit={payload['art_codkit']} versión {version}, "
+            f"pero SQL Server no pudo registrar version_enviada en CAMBIOS_ARTICULOS_KIT: {e}"
+        )
+    return filas_actualizadas
+
+
+def sincronizar_un_kit(conn, cursor, fila_kit, url, api_key):
+    payload = construir_payload_kit(cursor, fila_kit)
+    respuesta = enviar_articulo(url, api_key, payload)
+    validar_respuesta_kit(respuesta, payload)
+    return confirmar_version_kit(conn, cursor, payload)
+
+
+def procesar_pendientes_kits(conn, cursor, pendientes, url, api_key):
+    total = len(pendientes)
+    resumen = {
+        "encontrados": total,
+        "ok": 0,
+        "errores": [],
+        "sin_procesar": 0,
+        "motivo_aborto": None,
+    }
+    fallos_conexion_seguidos = 0
+
+    for indice, fila_kit in enumerate(pendientes, start=1):
+        etiqueta = f"[{indice}/{total}] art_codkit={fila_kit.art_codkit} version={fila_kit.version_actual}"
+        try:
+            filas_actualizadas = sincronizar_un_kit(conn, cursor, fila_kit, url, api_key)
+            resumen["ok"] += 1
+            fallos_conexion_seguidos = 0
+            aviso = "" if filas_actualizadas else " (version_enviada ya estaba actualizada)"
+            print(f"{etiqueta} OK{aviso}")
+        except ErrorConfiguracion as e:
+            rollback_seguro(conn)
+            resumen["motivo_aborto"] = str(e)
+            resumen["sin_procesar"] = total - indice + 1
+            print(f"{etiqueta} ERROR FATAL: {e}")
+            break
+        except ErrorConfirmacionLocal as e:
+            rollback_seguro(conn)
+            resumen["errores"].append(int(fila_kit.art_codkit))
+            resumen["motivo_aborto"] = (
+                "SQL Server no puede registrar version_enviada "
+                "(no se envían más kits)"
+            )
+            resumen["sin_procesar"] = total - indice
+            print(f"{etiqueta} ERROR FATAL: {e}")
+            break
+        except ErrorConexion as e:
+            rollback_seguro(conn)
+            resumen["errores"].append(int(fila_kit.art_codkit))
+            fallos_conexion_seguidos += 1
+            print(f"{etiqueta} ERROR: {e}")
+            if fallos_conexion_seguidos >= MAX_FALLOS_CONEXION_SEGUIDOS:
+                resumen["motivo_aborto"] = (
+                    f"{MAX_FALLOS_CONEXION_SEGUIDOS} fallos de conexión seguidos con FastAPI"
+                )
+                resumen["sin_procesar"] = total - indice
+                break
+        except ErrorSincronizacion as e:
+            rollback_seguro(conn)
+            resumen["errores"].append(int(fila_kit.art_codkit))
+            fallos_conexion_seguidos = 0
+            print(f"{etiqueta} ERROR: {e}")
+        except Exception as e:
+            rollback_seguro(conn)
+            resumen["errores"].append(int(fila_kit.art_codkit))
+            print(f"{etiqueta} ERROR inesperado: {e}")
+
+    return resumen
+
+
 def main():
     conn = None
     cursor = None
@@ -247,14 +394,29 @@ def main():
         cursor = conn.cursor()
 
         pendientes = leer_pendientes(cursor)
-        if not pendientes:
+        if pendientes:
+            resumen = procesar_pendientes(conn, cursor, pendientes, url, api_key)
+            imprimir_resumen(resumen)
+            error_articulos = bool(resumen["errores"] or resumen["motivo_aborto"])
+        else:
             print("No hay artículos pendientes")
-            return
+            error_articulos = False
 
-        resumen = procesar_pendientes(conn, cursor, pendientes, url, api_key)
-        imprimir_resumen(resumen)
+        if error_articulos:
+            # No se procesan kits: pueden depender de articulos que no llegaron a Postgres.
+            raise SystemExit(1)
 
-        if resumen["errores"] or resumen["motivo_aborto"]:
+        pendientes_kits = leer_pendientes_kits(cursor)
+        if pendientes_kits:
+            url_kits = obtener_variable("SYNC_API_URL_KITS")
+            resumen_kits = procesar_pendientes_kits(conn, cursor, pendientes_kits, url_kits, api_key)
+            imprimir_resumen(resumen_kits)
+            error_kits = bool(resumen_kits["errores"] or resumen_kits["motivo_aborto"])
+        else:
+            print("No hay kits pendientes")
+            error_kits = False
+
+        if error_kits:
             raise SystemExit(1)
     except Exception as e:
         print(f"Error en el sincronizador: {e}")
