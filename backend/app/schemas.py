@@ -34,6 +34,9 @@ class ArticuloSync(BaseModel):
     art_foto: Optional[str] = None
     art_estado: str = Field(pattern="^[SN]$")
     llevar_web: bool
+    art_kit: bool
+    uni_cod_com: Optional[int] = None
+    uni_cod_ven: Optional[int] = None
     version_actual: int = Field(gt=0)
 
 # 4. Cambio de visibilidad web de un articulo (panel administrativo)

@@ -26,17 +26,40 @@ def verificar_sincronizador(x_api_key: str = Header(default="")):
 
 SQL_UPSERT_ARTICULO = """
     INSERT INTO articulos
-        (art_cod, art_nombre, art_preciobase, tipoart_cod, art_foto, art_estado, llevar_web)
-    VALUES (%s, %s, %s, %s, %s, %s, %s)
+        (art_cod, art_nombre, art_preciobase, tipoart_cod, art_foto, art_estado, llevar_web,
+         art_kit, uni_cod_com, uni_cod_ven)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (art_cod) DO UPDATE SET
         art_nombre     = EXCLUDED.art_nombre,
         art_preciobase = EXCLUDED.art_preciobase,
         tipoart_cod    = EXCLUDED.tipoart_cod,
         art_foto       = EXCLUDED.art_foto,
         art_estado     = EXCLUDED.art_estado,
-        llevar_web     = EXCLUDED.llevar_web
+        llevar_web     = EXCLUDED.llevar_web,
+        art_kit        = EXCLUDED.art_kit,
+        uni_cod_com    = EXCLUDED.uni_cod_com,
+        uni_cod_ven    = EXCLUDED.uni_cod_ven
     RETURNING art_cod
 """
+
+MENSAJES_FK_ARTICULOS = {
+    "fk_articulos_tipo_articulo": "tipoart_cod {valor} no existe en tipo_articulo",
+    "fk_articulos_unidad_com": "uni_cod_com {valor} no existe en unidad_medida",
+    "fk_articulos_unidad_ven": "uni_cod_ven {valor} no existe en unidad_medida",
+}
+
+
+def mensaje_para_violacion_fk(error, articulo):
+    valores_por_constraint = {
+        "fk_articulos_tipo_articulo": articulo.tipoart_cod,
+        "fk_articulos_unidad_com": articulo.uni_cod_com,
+        "fk_articulos_unidad_ven": articulo.uni_cod_ven,
+    }
+    nombre_constraint = getattr(error.diag, "constraint_name", None)
+    plantilla = MENSAJES_FK_ARTICULOS.get(nombre_constraint)
+    if plantilla is None:
+        return "Referencia relacionada al articulo no existe"
+    return plantilla.format(valor=valores_por_constraint.get(nombre_constraint))
 
 
 @router.post("/articulos", dependencies=[Depends(verificar_sincronizador)])
@@ -55,6 +78,9 @@ def sincronizar_articulo(articulo: ArticuloSync):
             articulo.art_foto,
             articulo.art_estado,
             articulo.llevar_web,
+            articulo.art_kit,
+            articulo.uni_cod_com,
+            articulo.uni_cod_ven,
         ))
         art_cod_guardado = cursor.fetchone()[0]
         conn.commit()
@@ -65,12 +91,12 @@ def sincronizar_articulo(articulo: ArticuloSync):
             "version_actual": articulo.version_actual,
         }
 
-    except ForeignKeyViolation:
+    except ForeignKeyViolation as e:
         if conn:
             conn.rollback()
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"tipoart_cod {articulo.tipoart_cod} no existe en tipo_articulo",
+            detail=mensaje_para_violacion_fk(e, articulo),
         )
     except Exception as e:
         if conn:
