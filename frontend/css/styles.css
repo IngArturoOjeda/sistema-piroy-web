@@ -108,6 +108,12 @@ header {
     color: #dc2626;
 }
 
+.pendiente-cantidad {
+    color: #dc2626;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
 /* Estilos para los botones de las categorías */
 .btn-categoria {
     width: 100%;

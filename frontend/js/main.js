@@ -21,6 +21,7 @@ const formPedidoUI = document.getElementById("form-pedido");
 const txtClienteNombreUI = document.getElementById("txt-cliente-nombre");
 const txtClienteDireccionUI = document.getElementById("txt-cliente-direccion");
 const txtClienteTelefonoUI = document.getElementById("txt-cliente-telefono");
+const btnEnviarPedidoUI = document.getElementById("btn-enviar-pedido");
 // Capturas de la Modal de Éxito
 const modalExitoUI = document.getElementById("modal-exito");
 const txtOrdenConfirmadaUI = document.getElementById("txt-orden-confirmada");
@@ -171,6 +172,26 @@ function normalizarCantidadFraccionable(valorCrudo, stockDisponible, cantidadAnt
     return cantidadFinal;
 }
 
+// Unica fuente de verdad sobre si un item del carrito (fraccionable o no) tiene
+// una cantidad numerica, finita, del tipo correcto y dentro del stock disponible.
+function cantidadItemValida(item) {
+    if (typeof item.cantidad !== "number" || !Number.isFinite(item.cantidad)) {
+        return false;
+    }
+
+    if (item.fraccionable === true) {
+        if (item.cantidad < 0.001) return false;
+    } else {
+        if (!Number.isInteger(item.cantidad) || item.cantidad < 1) return false;
+    }
+
+    if (typeof item.stock_disponible === "number" && item.cantidad > item.stock_disponible) {
+        return false;
+    }
+
+    return true;
+}
+
 // 4. DIBUJAR TARJETAS DE PRODUCTOS
 function dibujarArticulos(listaArticulos) {
     contenedorCardsUI.innerHTML = "";
@@ -222,8 +243,11 @@ function comprarArticulo(idArticulo) {
     const articuloEnCarrito = carrito.find(art => art.id === idArticulo);
 
     if (articuloEnCarrito) {
-        // Un fraccionable ya en el carrito se ajusta con el input de cantidad, no sumando de a uno.
+        // Un fraccionable ya en el carrito no se incrementa de a uno: reabrimos el carrito
+        // para que el usuario defina/edite su cantidad con el input decimal.
         if (articuloEnCarrito.fraccionable === true) {
+            dibujarCarrito();
+            modalCarritoUI.style.display = "flex";
             return;
         }
         // 🌟 Tope de stock: evaluamos la PROXIMA cantidad (cantidad + 1), no la actual.
@@ -255,9 +279,9 @@ function comprarArticulo(idArticulo) {
             if (estaSinStock(articuloBaseDeDatos)) {
                 return;
             }
-            // Fraccionable: arranca en 0.001 (nunca asumimos una cantidad real) y
-            // se abre el carrito para que el cliente la defina de inmediato.
-            const cantidadInicial = esFraccionable ? 0.001 : 1;
+            // Fraccionable: no asumimos ninguna cantidad (ni 0.001 ni 1 KG); queda en null
+            // hasta que el cliente la defina explicitamente en el input del carrito.
+            const cantidadInicial = esFraccionable ? null : 1;
             const nuevoItem = { ...articuloBaseDeDatos, cantidad: cantidadInicial };
             carrito.push(nuevoItem);
 
@@ -278,8 +302,9 @@ function dibujarCarrito() {
     let sumaTotal = 0;
 
     carrito.forEach((articulo) => {
-        const subtotalRenglon = articulo.precio * articulo.cantidad;
-        sumaTotal += subtotalRenglon;   
+        const cantidadValida = cantidadItemValida(articulo);
+        const subtotalRenglon = cantidadValida ? articulo.precio * articulo.cantidad : 0;
+        sumaTotal += subtotalRenglon;
 
         const li = document.createElement("li");
         li.className = "renglon-carrito";
@@ -295,7 +320,8 @@ function dibujarCarrito() {
                         step="0.001"
                         min="0.001"
                         max="${articulo.stock_disponible}"
-                        value="${articulo.cantidad}"
+                        value="${cantidadValida ? articulo.cantidad : ""}"
+                        placeholder="Ej: 0.500"
                     >
                     <span class="unidad-venta">${articulo.unidad_venta || ""}</span>
                 </div>
@@ -312,6 +338,10 @@ function dibujarCarrito() {
                 </div>
             `;
 
+        const precioRenglonHtml = cantidadValida
+            ? `PYG ${subtotalRenglon.toLocaleString('es-ES', { maximumFractionDigits: 0 })}`
+            : `<span class="pendiente-cantidad">Definí la cantidad</span>`;
+
         li.innerHTML = `
             <div class="carrito-bloque-izq">
                 <img src="${articulo.imagen}" alt="${articulo.nombre}" class="miniatura-carrito">
@@ -323,7 +353,7 @@ function dibujarCarrito() {
 
             <div class="carrito-bloque-der">
                 ${controlCantidadHtml}
-                <p class="precio-renglon">PYG ${subtotalRenglon.toLocaleString('es-ES', { maximumFractionDigits: 0 })}</p>
+                <p class="precio-renglon">${precioRenglonHtml}</p>
                 <button class="btn-eliminar-item">🗑️</button>
             </div>
         `;
@@ -375,6 +405,11 @@ function dibujarCarrito() {
     });
 
     totalCarritoUI.textContent = `PYG ${sumaTotal.toLocaleString('es-ES', { maximumFractionDigits: 0 })}`;
+
+    // Mientras exista un fraccionable sin cantidad valida, no se puede confirmar el pedido.
+    btnEnviarPedidoUI.disabled = carrito.some(
+        item => item.fraccionable === true && !cantidadItemValida(item)
+    );
 }
 
 // 7. ELIMINAR COMPLETAMENTE UN RENGLÓN DEL CARRITO
@@ -484,6 +519,15 @@ formPedidoUI.addEventListener("submit", async (evento) => {
     // 2. VALIDACIÓN EXTRA: Si el carrito está completamente vacío, frenamos el envío
     if (carrito.length === 0) {
         alert("Tu carrito está vacío. Agrega algún producto antes de confirmar el pedido.");
+        return;
+    }
+
+    // 2b. VALIDACIÓN EXTRA: ningún fraccionable puede viajar sin una cantidad válida
+    const hayFraccionableSinCantidad = carrito.some(
+        item => item.fraccionable === true && !cantidadItemValida(item)
+    );
+    if (hayFraccionableSinCantidad) {
+        alert("Definí la cantidad de los artículos fraccionables antes de confirmar el pedido.");
         return;
     }
 
