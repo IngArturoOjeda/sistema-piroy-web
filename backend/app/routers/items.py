@@ -1,5 +1,6 @@
 from pathlib import Path
 from decimal import Decimal
+from typing import Optional
 
 from backend.app.database_postgres import obtener_conexion_postgres
 from fastapi import HTTPException, status, APIRouter, Query
@@ -42,7 +43,8 @@ def url_imagen_articulo(foto):
 def trae_articulos(
     pagina: int = Query(1, description="Número de página (empieza en 1)"),
     limite: int = Query(30, description="Cantidad de productos por lote"),
-    categoria: str = Query("Todos", description="Categoría seleccionada por el usuario") # 🌟 NUEVO PARÁMETRO
+    categoria: str = Query("Todos", description="Categoría seleccionada por el usuario"),
+    unidad: Optional[str] = Query(None, description="Filtra por unidad de venta exacta (ej: KG, BOLSA, CAJA)")
 ):
     conn = None
     cursor = None
@@ -53,10 +55,14 @@ def trae_articulos(
         registros_a_saltear = (pagina - 1) * limite
 
         filtro_categoria = ""
+        filtro_unidad = ""
         parametros = []
         if categoria != "Todos":
             filtro_categoria = "AND t.tipoart_desc = %s"
             parametros.append(categoria)
+        if unidad:
+            filtro_unidad = "AND um.uni_nombre = %s"
+            parametros.append(unidad)
         parametros.extend([limite, registros_a_saltear])
 
         sql = f"""
@@ -90,6 +96,7 @@ def trae_articulos(
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
               {filtro_categoria}
+              {filtro_unidad}
             ORDER BY a.art_cod
             LIMIT %s OFFSET %s
         """
