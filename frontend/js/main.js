@@ -37,7 +37,10 @@ let paginaActual = 1;       // Empezamos siempre mostrando el primer lote (Pági
 let cargandoProductos = false; // Nos avisa si el sistema está ocupado hablando con FastAPI
 let finDeStock = false;     // Se volverá true cuando Python nos devuelva una lista vacía []
 let categoriaSeleccionadaActual = "Todos"; // 🌟 NUEVO: Sabe qué botón lateral está activo
-let promosGlobales = []; 
+let promosGlobales = [];
+// Presentacion (forma de compra) seleccionada para la categoria actual
+let presentacionesDisponibles = [];
+let presentacionSeleccionadaActual = null;
 
 // 2. CARGAR DATOS DESDE FASTAPI (SQL SERVER)
 async function cargarDatosDeLaAPI() {
@@ -62,7 +65,14 @@ async function cargarDatosDeLaAPI() {
             dibujarCategorias(categoriasGlobales);
         }    
         // 2. SECCIÓN ARTÍCULOS PAGINADOS: Le pasamos el número de página dinámico a FastAPI
-        const respuestaArticulos = await fetch(`/api/articulos/?pagina=${paginaActual}&categoria=${categoriaSeleccionadaActual}`);
+        let urlArticulos = `/api/articulos/?pagina=${paginaActual}&categoria=${categoriaSeleccionadaActual}`;
+        if (presentacionSeleccionadaActual) {
+            urlArticulos += `&presentacion=${presentacionSeleccionadaActual.codigo}`;
+            if (presentacionSeleccionadaActual.codigo === "NORMAL" && presentacionSeleccionadaActual.unidad) {
+                urlArticulos += `&unidad=${encodeURIComponent(presentacionSeleccionadaActual.unidad)}`;
+            }
+        }
+        const respuestaArticulos = await fetch(urlArticulos);
         
         if (!respuestaArticulos.ok) {
             const errorData = await respuestaArticulos.json();
@@ -134,9 +144,17 @@ function dibujarCategorias(listacategorias) {
             paginaActual = 1;          // Volvemos al primer lote de 30
             finDeStock = false;        // Encendemos el motor por si estaba apagado
             articulosGlobales = [];    // Vaciamos la lista vieja para que no se mezclen los artículos
+            // Regla: nunca reutilizar la presentacion elegida en otra categoria
+            presentacionesDisponibles = [];
+            presentacionSeleccionadaActual = null;
 
-            // 🌟 PASO C: Vamos a buscar el lote N°1 de esta categoría a SQL Server
-            cargarDatosDeLaAPI();
+            // 🌟 PASO C: "Todos" no tiene una sola forma de compra -> comportamiento actual sin cambios.
+            // Una categoria especifica primero pregunta que formas de compra existen.
+            if (categoriaSeleccionadaActual === "Todos") {
+                cargarDatosDeLaAPI();
+            } else {
+                cargarPresentacionesDeLaCategoria(categoriaSeleccionadaActual);
+            }
             /*
             if (categoria.nombre === "Todos") {
                 dibujarArticulos(articulosGlobales);
@@ -148,6 +166,83 @@ function dibujarCategorias(listacategorias) {
         
         listaCategoriasUI.appendChild(li);
     });
+}
+
+// Consulta las formas de compra disponibles para una categoria especifica
+// y decide si carga directo, muestra un selector minimo, o no hay nada que mostrar.
+async function cargarPresentacionesDeLaCategoria(categoria) {
+    try {
+        const respuesta = await fetch(
+            `/api/articulos/presentaciones?categoria=${encodeURIComponent(categoria)}`
+        );
+
+        // 🌟 PROTECCIÓN: si el usuario ya cambió de categoría mientras esta
+        // respuesta viajaba por la red, la descartamos (incluso si vino con error).
+        if (categoria !== categoriaSeleccionadaActual) {
+            return;
+        }
+
+        if (!respuesta.ok) {
+            const errorData = await respuesta.json();
+            alert(`Error ${respuesta.status}: ${errorData.detail || 'No se pudieron cargar las formas de compra'}`);
+            return;
+        }
+
+        const datos = await respuesta.json();
+
+        // 🌟 misma protección, ahora despues del segundo await (parseo del JSON)
+        if (categoria !== categoriaSeleccionadaActual) {
+            return;
+        }
+
+        presentacionesDisponibles = datos;
+
+        if (datos.length === 0) {
+            contenedorCardsUI.innerHTML = `
+                <div class="mensaje-sin-resultados">
+                    <div class="icono-vacio">🔍❌</div>
+                    <h3>No hay productos disponibles en esta categoría</h3>
+                </div>
+            `;
+            return;
+        }
+
+        if (datos.length === 1) {
+            presentacionSeleccionadaActual = datos[0];
+            cargarDatosDeLaAPI();
+            return;
+        }
+
+        dibujarSelectorDePresentaciones(datos);
+    } catch (error) {
+        console.error("Error crítico al conectar con la API de presentaciones:", error);
+        contenedorCardsUI.innerHTML = "<p>Error al conectar con el servidor. Intente más tarde.</p>";
+    }
+}
+
+// UI minima (sin diseño definitivo todavia) para elegir una forma de compra
+function dibujarSelectorDePresentaciones(lista) {
+    contenedorCardsUI.innerHTML = "";
+
+    const contenedor = document.createElement("div");
+    contenedor.className = "selector-presentaciones";
+    contenedor.innerHTML = `<p>¿Cómo querés comprar?</p>`;
+
+    lista.forEach(presentacion => {
+        const boton = document.createElement("button");
+        boton.className = "btn-presentacion";
+        boton.textContent = presentacion.descripcion;
+        boton.addEventListener("click", () => {
+            presentacionSeleccionadaActual = presentacion;
+            paginaActual = 1;
+            finDeStock = false;
+            articulosGlobales = [];
+            cargarDatosDeLaAPI();
+        });
+        contenedor.appendChild(boton);
+    });
+
+    contenedorCardsUI.appendChild(contenedor);
 }
 
 // Umbral de disponibilidad segun el tipo de venta del articulo
