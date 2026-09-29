@@ -9,7 +9,11 @@ class ItemCarrito(BaseModel):
     id: int = Field(gt=0)
     nombre: str
     precio: float
-    cantidad: int = Field(gt=0, le=100)
+    cantidad: Decimal = Field(
+        ge=Decimal("0.001"),
+        max_digits=9,
+        decimal_places=3
+    )
 
 # 2. Definimos cómo luce el pedido completo que enviará el cliente
 # Incluye los datos únicos de entrega y la lista de sus productos
