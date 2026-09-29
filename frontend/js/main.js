@@ -168,20 +168,29 @@ function dibujarArticulos(listaArticulos) {
         const divCard = document.createElement("div");
         divCard.className = "card-producto";
 
+        const sinStock = articulo.stock_disponible < 1;
+        const esFraccionable = articulo.fraccionable === true;
+        const bloqueado = sinStock || esFraccionable;
+        let textoBoton = "🛒 AGREGAR AL CARRITO ";
+        if (sinStock) textoBoton = "Sin stock";
+        else if (esFraccionable) textoBoton = "Próximamente por peso/medida";
+
         divCard.innerHTML = `
             <img src="${articulo.imagen}" alt="${articulo.nombre}">
             <h3>${articulo.nombre}</h3>
             <p class="precio">PYG ${articulo.precio.toLocaleString('es-ES', { maximumFractionDigits: 0 })}</p>
-            <p class="stock-info ${articulo.stock_disponible > 0 ? 'disponible' : 'agotado'}">
-                ${articulo.stock_disponible > 0 ? `Stock disponible: ${articulo.stock_disponible}` : 'Sin stock'}
+            <p class="stock-info ${sinStock ? 'agotado' : 'disponible'}">
+                ${sinStock ? 'Sin stock' : `Stock disponible: ${articulo.stock_disponible}`}
             </p>
-            <button class="btn-comprar">🛒 AGREGAR AL CARRITO </button>
+            <button class="btn-comprar" ${bloqueado ? "disabled" : ""}>${textoBoton}</button>
         `;
 
         const botonComprar = divCard.querySelector(".btn-comprar");
-        botonComprar.addEventListener("click", () => {
-            comprarArticulo(articulo.id);
-        });
+        if (!bloqueado) {
+            botonComprar.addEventListener("click", () => {
+                comprarArticulo(articulo.id);
+            });
+        }
 
         contenedorCardsUI.appendChild(divCard);
     });
@@ -193,18 +202,45 @@ function comprarArticulo(idArticulo) {
     const articuloEnCarrito = carrito.find(art => art.id === idArticulo);
 
     if (articuloEnCarrito) {
+        // 🌟 Defensa: un articulo fraccionable nunca deberia haber llegado al carrito,
+        // pero si pasara, no permitimos seguir sumando.
+        if (articuloEnCarrito.fraccionable === true) {
+            return;
+        }
+        // 🌟 Tope de stock: evaluamos la PROXIMA cantidad (cantidad + 1), no la actual.
+        // Cubre defensivamente stock_disponible fraccionario (ej. 3.500) en un articulo
+        // no fraccionable. Se aplica solo si el dato existe (ver promociones abajo).
+        const hayLimite = typeof articuloEnCarrito.stock_disponible === "number";
+        if (hayLimite && (articuloEnCarrito.cantidad + 1) > articuloEnCarrito.stock_disponible) {
+            return; // sumar una unidad mas superaria el stock disponible
+        }
         articuloEnCarrito.cantidad++; // Si ya existía, simplemente aumentamos su cantidad
     } else {
         // 2. 🌟 BUSQUEDA INTELIGENTE: Primero intentamos buscarlo en la lista de Ofertas
         let articuloBaseDeDatos = promosGlobales.find(art => art.id === idArticulo);
-        // Si no estaba en las ofertas, significa que es un producto normal del inicio
-        if(!articuloBaseDeDatos){
+
+        if (articuloBaseDeDatos) {
+            // 🌟 Si el mismo articulo tambien esta en el catalogo, completamos su metadata
+            // (stock_disponible, unidad_venta, fraccionable), manteniendo el precio promocional.
+            const articuloCatalogo = articulosGlobales.find(art => art.id === idArticulo);
+            if (articuloCatalogo) {
+                articuloBaseDeDatos = { ...articuloCatalogo, ...articuloBaseDeDatos };
+            }
+        } else {
+            // Si no estaba en las ofertas, significa que es un producto normal del inicio
             articuloBaseDeDatos = articulosGlobales.find(art => art.id === idArticulo);
         }
 
-        // Si es nuevo, lo buscamos en el catálogo maestro que vino de SQL Server
-       // const articuloBaseDeDatos = articulosGlobales.find(art => art.id === idArticulo);
         if (articuloBaseDeDatos) {
+            // 🌟 Defensas propias, sin depender de que el boton este disabled: la fuente
+            // pudo venir de promociones, que no siempre trae esta metadata todavia.
+            // Exigimos al menos 1 unidad completa disponible para poder agregar la primera.
+            const sinStock = typeof articuloBaseDeDatos.stock_disponible === "number"
+                && articuloBaseDeDatos.stock_disponible < 1;
+            const esFraccionable = articuloBaseDeDatos.fraccionable === true;
+            if (sinStock || esFraccionable) {
+                return;
+            }
             // Creamos una copia del producto inyectándole la cantidad inicial en 1
             const nuevoItem = { ...articuloBaseDeDatos, cantidad: 1 };
             carrito.push(nuevoItem);
@@ -240,7 +276,11 @@ function dibujarCarrito() {
                 <div class="control-cantidad">
                     <button class="btn-cantidad-menos">-</button>
                     <span class="cantidad-numero">${articulo.cantidad}</span>
-                    <button class="btn-cantidad-mas">+</button>
+                    <button class="btn-cantidad-mas" ${
+                        typeof articulo.stock_disponible === "number" && (articulo.cantidad + 1) > articulo.stock_disponible
+                            ? "disabled"
+                            : ""
+                    }>+</button>
                 </div>
                 <p class="precio-renglon">PYG ${subtotalRenglon.toLocaleString('es-ES', { maximumFractionDigits: 0 })}</p>
                 <button class="btn-eliminar-item">🗑️</button>
@@ -265,6 +305,10 @@ function dibujarCarrito() {
 
         // 🌟 EVENTO BOTÓN MÁS (+): Suma una unidad de forma directa
         btnMas.addEventListener("click", () => {
+            const hayLimite = typeof articulo.stock_disponible === "number";
+            if (hayLimite && (articulo.cantidad + 1) > articulo.stock_disponible) {
+                return; // el boton deberia estar deshabilitado, esto es solo defensivo
+            }
             articulo.cantidad++;
             actualizarBurbujaCabecera();
             dibujarCarrito();

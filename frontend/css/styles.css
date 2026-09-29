@@ -166,6 +166,17 @@ header {
     transform: scale(0.98);    /* Achica un milímetro el botón simulando que se hunde */
 }
 
+.btn-comprar:disabled {
+    background-color: #94a3b8;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-cantidad-mas:disabled {
+    color: #cbd5e1;
+    cursor: not-allowed;
+}
+
 
 /* Contenedor principal para centrar la barra en la pantalla */
 .contenedor-busqueda {
