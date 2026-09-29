@@ -1,6 +1,6 @@
 from pathlib import Path
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Literal
 
 from backend.app.database_postgres import obtener_conexion_postgres
 from fastapi import HTTPException, status, APIRouter, Query
@@ -52,11 +52,27 @@ def trae_articulos(
     pagina: int = Query(1, description="Número de página (empieza en 1)"),
     limite: int = Query(30, description="Cantidad de productos por lote"),
     categoria: str = Query("Todos", description="Categoría seleccionada por el usuario"),
-    unidad: Optional[str] = Query(None, description="Filtra por unidad de venta exacta (ej: KG, BOLSA, CAJA)")
+    unidad: Optional[str] = Query(None, description="Filtra por unidad de venta exacta (ej: KG, BOLSA, CAJA)"),
+    presentacion: Optional[Literal["NORMAL", "KIT"]] = Query(
+        None,
+        description="Filtra por forma de compra: NORMAL (articulos propios de la categoria) o KIT (kits relacionados por componente)"
+    )
 ):
     conn = None
     cursor = None
     try:
+        if presentacion == "KIT":
+            if unidad:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El filtro unidad no se aplica cuando presentacion=KIT"
+                )
+            if categoria == "Todos":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Debe indicar una categoría específica cuando presentacion=KIT"
+                )
+
         conn = obtener_conexion_postgres()
         cursor = conn.cursor()
 
@@ -64,13 +80,33 @@ def trae_articulos(
 
         filtro_categoria = ""
         filtro_unidad = ""
+        filtro_presentacion = ""
         parametros = []
-        if categoria != "Todos":
-            filtro_categoria = "AND t.tipoart_desc = %s"
+
+        if presentacion == "KIT":
+            # Ya se valido arriba: categoria != "Todos" y unidad no informado
+            filtro_presentacion = """
+                AND a.art_kit = TRUE
+                AND EXISTS (
+                    SELECT 1
+                    FROM articulos_kit ak
+                    JOIN articulos comp ON comp.art_cod = ak.art_cod
+                    JOIN tipo_articulo tcomp ON tcomp.tipoart_cod = comp.tipoart_cod
+                    WHERE ak.art_codkit = a.art_cod
+                      AND tcomp.tipoart_desc = %s
+                )
+            """
             parametros.append(categoria)
-        if unidad:
-            filtro_unidad = "AND um.uni_nombre = %s"
-            parametros.append(unidad)
+        else:
+            if categoria != "Todos":
+                filtro_categoria = "AND t.tipoart_desc = %s"
+                parametros.append(categoria)
+            if presentacion == "NORMAL":
+                filtro_presentacion = "AND a.art_kit = FALSE"
+            if unidad:
+                filtro_unidad = "AND um.uni_nombre = %s"
+                parametros.append(unidad)
+
         parametros.extend([limite, registros_a_saltear])
 
         sql = f"""
@@ -105,6 +141,7 @@ def trae_articulos(
               AND a.mostrar_web = TRUE
               {filtro_categoria}
               {filtro_unidad}
+              {filtro_presentacion}
             ORDER BY a.art_cod
             LIMIT %s OFFSET %s
         """
