@@ -14,6 +14,14 @@ router = APIRouter(prefix="/articulos", tags=["Articulos"])
 RUTA_FRONTEND = Path(__file__).resolve().parents[3] / "frontend"
 IMAGEN_SIN_FOTO = "/frontend/assets/images/sin-imagen.svg"
 
+# Descripciones confirmadas para la unidad de venta de articulos NORMALES.
+# Solo se cargan las que ya tienen un texto de negocio confirmado; cualquier
+# otra unidad usa un fallback mecanico ("Por {unidad}") hasta que se confirme.
+DESCRIPCIONES_UNIDAD_NORMAL = {
+    "KG": "Por KG",
+    "UNIDAD": "Por unidad",
+}
+
 
 def url_imagen_articulo(foto):
     if not foto or not foto.strip():
@@ -130,8 +138,87 @@ def trae_articulos(
             cursor.close()
         if conn:
             conn.close()
-            
-           
+
+
+@router.get("/presentaciones")
+def trae_presentaciones(
+    categoria: str = Query(..., description="Categoria para la cual se buscan las formas de compra disponibles")
+):
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        sql_normales = """
+            SELECT DISTINCT um.uni_nombre
+            FROM articulos a
+            JOIN tipo_articulo t ON t.tipoart_cod = a.tipoart_cod
+            LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
+            WHERE t.tipoart_desc = %s
+              AND a.art_estado = 'S'
+              AND a.llevar_web = TRUE
+              AND a.mostrar_web = TRUE
+              AND a.art_kit = FALSE
+        """
+        cursor.execute(sql_normales, (categoria,))
+        unidades_normales = [fila[0] for fila in cursor.fetchall()]
+
+        if None in unidades_normales:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=(
+                    f"Hay artículos normales sin unidad de venta asignada en "
+                    f"la categoría '{categoria}'"
+                )
+            )
+
+        sql_kit_existe = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM articulos kit
+                JOIN articulos_kit ak ON ak.art_codkit = kit.art_cod
+                JOIN articulos comp ON comp.art_cod = ak.art_cod
+                JOIN tipo_articulo tcomp ON tcomp.tipoart_cod = comp.tipoart_cod
+                WHERE kit.art_kit = TRUE
+                  AND kit.art_estado = 'S'
+                  AND kit.llevar_web = TRUE
+                  AND kit.mostrar_web = TRUE
+                  AND tcomp.tipoart_desc = %s
+            )
+        """
+        cursor.execute(sql_kit_existe, (categoria,))
+        hay_kit = cursor.fetchone()[0]
+
+        presentaciones = []
+
+        for unidad_normal in sorted(unidades_normales):
+            presentaciones.append({
+                "codigo": "NORMAL",
+                "unidad": unidad_normal,
+                "descripcion": DESCRIPCIONES_UNIDAD_NORMAL.get(unidad_normal, f"Por {unidad_normal}")
+            })
+
+        if hay_kit:
+            presentaciones.append({
+                "codigo": "KIT",
+                "descripcion": "Por presentación"
+            })
+
+        return presentaciones
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al obtener presentaciones")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
 @router.post("/confirmar-pedido")
 def confirmar_pedido(pedido: PedidoEntrada):
     conn = None
