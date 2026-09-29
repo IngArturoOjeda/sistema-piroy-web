@@ -149,6 +149,28 @@ function dibujarCategorias(listacategorias) {
     });
 }
 
+// Umbral de disponibilidad segun el tipo de venta del articulo
+function estaSinStock(articulo) {
+    if (typeof articulo.stock_disponible !== "number") return false;
+    const stockMinimo = articulo.fraccionable === true ? 0.001 : 1;
+    return articulo.stock_disponible < stockMinimo;
+}
+
+// Interpreta el valor crudo del input de cantidad fraccionable.
+// Si no es interpretable, conserva la cantidad anterior (no rompe el carrito).
+function normalizarCantidadFraccionable(valorCrudo, stockDisponible, cantidadAnterior) {
+    const numero = parseFloat(valorCrudo);
+    if (typeof valorCrudo !== "string" || valorCrudo.trim() === "" || Number.isNaN(numero)) {
+        return cantidadAnterior;
+    }
+    let cantidadFinal = Math.round(numero * 1000) / 1000; // maximo 3 decimales, sin arrastre de floats
+    if (cantidadFinal < 0.001) cantidadFinal = 0.001;
+    if (typeof stockDisponible === "number" && cantidadFinal > stockDisponible) {
+        cantidadFinal = stockDisponible;
+    }
+    return cantidadFinal;
+}
+
 // 4. DIBUJAR TARJETAS DE PRODUCTOS
 function dibujarArticulos(listaArticulos) {
     contenedorCardsUI.innerHTML = "";
@@ -168,12 +190,10 @@ function dibujarArticulos(listaArticulos) {
         const divCard = document.createElement("div");
         divCard.className = "card-producto";
 
-        const sinStock = articulo.stock_disponible < 1;
-        const esFraccionable = articulo.fraccionable === true;
-        const bloqueado = sinStock || esFraccionable;
+        const sinStock = estaSinStock(articulo);
+        const bloqueado = sinStock;
         let textoBoton = "🛒 AGREGAR AL CARRITO ";
         if (sinStock) textoBoton = "Sin stock";
-        else if (esFraccionable) textoBoton = "Próximamente por peso/medida";
 
         divCard.innerHTML = `
             <img src="${articulo.imagen}" alt="${articulo.nombre}">
@@ -202,8 +222,7 @@ function comprarArticulo(idArticulo) {
     const articuloEnCarrito = carrito.find(art => art.id === idArticulo);
 
     if (articuloEnCarrito) {
-        // 🌟 Defensa: un articulo fraccionable nunca deberia haber llegado al carrito,
-        // pero si pasara, no permitimos seguir sumando.
+        // Un fraccionable ya en el carrito se ajusta con el input de cantidad, no sumando de a uno.
         if (articuloEnCarrito.fraccionable === true) {
             return;
         }
@@ -232,18 +251,20 @@ function comprarArticulo(idArticulo) {
         }
 
         if (articuloBaseDeDatos) {
-            // 🌟 Defensas propias, sin depender de que el boton este disabled: la fuente
-            // pudo venir de promociones, que no siempre trae esta metadata todavia.
-            // Exigimos al menos 1 unidad completa disponible para poder agregar la primera.
-            const sinStock = typeof articuloBaseDeDatos.stock_disponible === "number"
-                && articuloBaseDeDatos.stock_disponible < 1;
             const esFraccionable = articuloBaseDeDatos.fraccionable === true;
-            if (sinStock || esFraccionable) {
+            if (estaSinStock(articuloBaseDeDatos)) {
                 return;
             }
-            // Creamos una copia del producto inyectándole la cantidad inicial en 1
-            const nuevoItem = { ...articuloBaseDeDatos, cantidad: 1 };
+            // Fraccionable: arranca en 0.001 (nunca asumimos una cantidad real) y
+            // se abre el carrito para que el cliente la defina de inmediato.
+            const cantidadInicial = esFraccionable ? 0.001 : 1;
+            const nuevoItem = { ...articuloBaseDeDatos, cantidad: cantidadInicial };
             carrito.push(nuevoItem);
+
+            if (esFraccionable) {
+                dibujarCarrito();
+                modalCarritoUI.style.display = "flex";
+            }
         }
     }
 
@@ -261,18 +282,25 @@ function dibujarCarrito() {
         sumaTotal += subtotalRenglon;   
 
         const li = document.createElement("li");
-        li.className = "renglon-carrito"; 
+        li.className = "renglon-carrito";
 
-        li.innerHTML = `
-            <div class="carrito-bloque-izq">
-                <img src="${articulo.imagen}" alt="${articulo.nombre}" class="miniatura-carrito">
-                <div class="carrito-detalles">
-                    <h4>${articulo.nombre}</h4>
-                    <span class="codigo-articulo">Art. ${articulo.id}</span>
+        const esFraccionable = articulo.fraccionable === true;
+
+        const controlCantidadHtml = esFraccionable
+            ? `
+                <div class="control-cantidad control-cantidad-fraccionable">
+                    <input
+                        type="number"
+                        class="input-cantidad-fraccionable"
+                        step="0.001"
+                        min="0.001"
+                        max="${articulo.stock_disponible}"
+                        value="${articulo.cantidad}"
+                    >
+                    <span class="unidad-venta">${articulo.unidad_venta || ""}</span>
                 </div>
-            </div>
-            
-            <div class="carrito-bloque-der">
+            `
+            : `
                 <div class="control-cantidad">
                     <button class="btn-cantidad-menos">-</button>
                     <span class="cantidad-numero">${articulo.cantidad}</span>
@@ -282,42 +310,66 @@ function dibujarCarrito() {
                             : ""
                     }>+</button>
                 </div>
+            `;
+
+        li.innerHTML = `
+            <div class="carrito-bloque-izq">
+                <img src="${articulo.imagen}" alt="${articulo.nombre}" class="miniatura-carrito">
+                <div class="carrito-detalles">
+                    <h4>${articulo.nombre}</h4>
+                    <span class="codigo-articulo">Art. ${articulo.id}</span>
+                </div>
+            </div>
+
+            <div class="carrito-bloque-der">
+                ${controlCantidadHtml}
                 <p class="precio-renglon">PYG ${subtotalRenglon.toLocaleString('es-ES', { maximumFractionDigits: 0 })}</p>
                 <button class="btn-eliminar-item">🗑️</button>
             </div>
         `;
 
-        // 🌟 CAPTURAMOS LOS CONTROLES INTERNOS DEL RENGLÓN RECIÉN CREADO
-        const btnMenos = li.querySelector(".btn-cantidad-menos");
-        const btnMas = li.querySelector(".btn-cantidad-mas");
         const btnEliminar = li.querySelector(".btn-eliminar-item");
-
-        // 🌟 EVENTO BOTÓN MENOS (-): Resta una unidad. Si llega a 0, elimina el producto.
-        btnMenos.addEventListener("click", () => {
-            articulo.cantidad--;
-            if (articulo.cantidad <= 0) {
-                eliminarArticuloDelCarrito(articulo.id);
-            } else {
-                actualizarBurbujaCabecera();
-                dibujarCarrito(); // Redibujamos para refrescar subtotales y números
-            }
-        });
-
-        // 🌟 EVENTO BOTÓN MÁS (+): Suma una unidad de forma directa
-        btnMas.addEventListener("click", () => {
-            const hayLimite = typeof articulo.stock_disponible === "number";
-            if (hayLimite && (articulo.cantidad + 1) > articulo.stock_disponible) {
-                return; // el boton deberia estar deshabilitado, esto es solo defensivo
-            }
-            articulo.cantidad++;
-            actualizarBurbujaCabecera();
-            dibujarCarrito();
-        });
-
-        // Evento para el tacho de basura
         btnEliminar.addEventListener("click", () => {
             eliminarArticuloDelCarrito(articulo.id);
         });
+
+        if (esFraccionable) {
+            const inputCantidad = li.querySelector(".input-cantidad-fraccionable");
+            inputCantidad.addEventListener("change", () => {
+                articulo.cantidad = normalizarCantidadFraccionable(
+                    inputCantidad.value,
+                    articulo.stock_disponible,
+                    articulo.cantidad
+                );
+                actualizarBurbujaCabecera();
+                dibujarCarrito();
+            });
+        } else {
+            const btnMenos = li.querySelector(".btn-cantidad-menos");
+            const btnMas = li.querySelector(".btn-cantidad-mas");
+
+            // 🌟 EVENTO BOTÓN MENOS (-): Resta una unidad. Si llega a 0, elimina el producto.
+            btnMenos.addEventListener("click", () => {
+                articulo.cantidad--;
+                if (articulo.cantidad <= 0) {
+                    eliminarArticuloDelCarrito(articulo.id);
+                } else {
+                    actualizarBurbujaCabecera();
+                    dibujarCarrito(); // Redibujamos para refrescar subtotales y números
+                }
+            });
+
+            // 🌟 EVENTO BOTÓN MÁS (+): Suma una unidad de forma directa
+            btnMas.addEventListener("click", () => {
+                const hayLimite = typeof articulo.stock_disponible === "number";
+                if (hayLimite && (articulo.cantidad + 1) > articulo.stock_disponible) {
+                    return; // el boton deberia estar deshabilitado, esto es solo defensivo
+                }
+                articulo.cantidad++;
+                actualizarBurbujaCabecera();
+                dibujarCarrito();
+            });
+        }
 
         listaProductosCarritoUI.appendChild(li);
     });
@@ -332,10 +384,9 @@ function eliminarArticuloDelCarrito(idArticulo) {
     dibujarCarrito(); // Redibujamos la lista de la modal
 }
 
-// 🌟 FUNCIÓN AUXILIAR: Cuenta todas las unidades del carrito y refresca la burbuja roja
+// 🌟 FUNCIÓN AUXILIAR: Cuenta los renglones (productos distintos) del carrito y refresca la burbuja roja
 function actualizarBurbujaCabecera() {
-    const totalUnidades = carrito.reduce((suma, art) => suma + art.cantidad, 0);
-    contadorCarritoUI.textContent = totalUnidades;
+    contadorCarritoUI.textContent = carrito.length;
 }
 
 // Función para conectar el Frontend con tu endpoint corregido de FastAPI

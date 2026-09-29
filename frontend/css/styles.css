@@ -441,6 +441,26 @@ header {
     background-color: #e2e8f0;
 }
 
+.control-cantidad-fraccionable {
+    padding: 4px 8px;
+    gap: 6px;
+}
+
+.input-cantidad-fraccionable {
+    width: 70px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.9rem;
+    text-align: right;
+}
+
+.unidad-venta {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #64748b;
+}
+
 .cantidad-numero {
     font-size: 0.95rem;
     font-weight: bold;
