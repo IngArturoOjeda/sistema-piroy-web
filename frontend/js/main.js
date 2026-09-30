@@ -220,18 +220,42 @@ async function cargarPresentacionesDeLaCategoria(categoria) {
     }
 }
 
-// UI minima (sin diseño definitivo todavia) para elegir una forma de compra
+// Deriva icono + subtitulo puramente visuales a partir de codigo/unidad.
+// No participa de ninguna decision de negocio: eso ya quedo resuelto por el backend.
+function obtenerVisualPresentacion(presentacion) {
+    if (presentacion.codigo === "KIT") {
+        return { icono: "📦", subtitulo: "Elegí una presentación disponible" };
+    }
+    if (presentacion.unidad === "KG") {
+        return { icono: "⚖️", subtitulo: "Elegí cuántos kilos necesitás" };
+    }
+    if (presentacion.unidad === "UNIDAD") {
+        return { icono: "🛍️", subtitulo: "Elegí las unidades que necesitás" };
+    }
+    return { icono: "🧺", subtitulo: "Elegí la cantidad que necesitás" };
+}
+
+// UI del selector de formas de compra
 function dibujarSelectorDePresentaciones(lista) {
     contenedorCardsUI.innerHTML = "";
 
     const contenedor = document.createElement("div");
     contenedor.className = "selector-presentaciones";
-    contenedor.innerHTML = `<p>¿Cómo querés comprar?</p>`;
+    contenedor.innerHTML = `<h3 class="selector-presentaciones-titulo">¿Cómo querés comprar?</h3>`;
+
+    const grilla = document.createElement("div");
+    grilla.className = "grilla-presentaciones";
 
     lista.forEach(presentacion => {
+        const { icono, subtitulo } = obtenerVisualPresentacion(presentacion);
+
         const boton = document.createElement("button");
-        boton.className = "btn-presentacion";
-        boton.textContent = presentacion.descripcion;
+        boton.className = "tarjeta-presentacion";
+        boton.innerHTML = `
+            <span class="tarjeta-presentacion-icono">${icono}</span>
+            <span class="tarjeta-presentacion-titulo">${presentacion.descripcion}</span>
+            <span class="tarjeta-presentacion-subtitulo">${subtitulo}</span>
+        `;
         boton.addEventListener("click", () => {
             presentacionSeleccionadaActual = presentacion;
             paginaActual = 1;
@@ -239,9 +263,10 @@ function dibujarSelectorDePresentaciones(lista) {
             articulosGlobales = [];
             cargarDatosDeLaAPI();
         });
-        contenedor.appendChild(boton);
+        grilla.appendChild(boton);
     });
 
+    contenedor.appendChild(grilla);
     contenedorCardsUI.appendChild(contenedor);
 }
 
