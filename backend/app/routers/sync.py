@@ -27,8 +27,8 @@ def verificar_sincronizador(x_api_key: str = Header(default="")):
 SQL_UPSERT_ARTICULO = """
     INSERT INTO articulos
         (art_cod, art_nombre, art_preciobase, tipoart_cod, art_foto, art_estado, llevar_web,
-         art_kit, uni_cod_com, uni_cod_ven)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+         art_kit, tipo_kit, uni_cod_com, uni_cod_ven)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (art_cod) DO UPDATE SET
         art_nombre     = EXCLUDED.art_nombre,
         art_preciobase = EXCLUDED.art_preciobase,
@@ -37,6 +37,7 @@ SQL_UPSERT_ARTICULO = """
         art_estado     = EXCLUDED.art_estado,
         llevar_web     = EXCLUDED.llevar_web,
         art_kit        = EXCLUDED.art_kit,
+        tipo_kit       = EXCLUDED.tipo_kit,
         uni_cod_com    = EXCLUDED.uni_cod_com,
         uni_cod_ven    = EXCLUDED.uni_cod_ven
     RETURNING art_cod
@@ -79,6 +80,7 @@ def sincronizar_articulo(articulo: ArticuloSync):
             articulo.art_estado,
             articulo.llevar_web,
             articulo.art_kit,
+            articulo.tipo_kit,
             articulo.uni_cod_com,
             articulo.uni_cod_ven,
         ))

@@ -1,7 +1,7 @@
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # 1. Definimos cómo luce un artículo individual dentro del carrito
 # Coincide con lo que JavaScript tiene en memoria
@@ -39,9 +39,19 @@ class ArticuloSync(BaseModel):
     art_estado: str = Field(pattern="^[SN]$")
     llevar_web: bool
     art_kit: bool
+    tipo_kit: Optional[Literal["PRESENTACION", "COMBO"]] = None
     uni_cod_com: Optional[int] = None
     uni_cod_ven: Optional[int] = None
     version_actual: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def tipo_kit_consistente_con_art_kit(self):
+        if not self.art_kit and self.tipo_kit is not None:
+            raise ValueError(
+                f"art_kit es False pero tipo_kit='{self.tipo_kit}' "
+                "(tipo_kit debe ser NULL cuando art_kit=False)"
+            )
+        return self
 
 # 4. Cambio de visibilidad web de un articulo (panel administrativo)
 class MostrarWebEntrada(BaseModel):

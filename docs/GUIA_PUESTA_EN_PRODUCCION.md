@@ -118,6 +118,8 @@ ALTER TABLE articulos
 - `uni_cod_com` / `uni_cod_ven`: unidad de compra y de venta. Nacen `NULL` en artículos ya sincronizados antes de este cambio, hasta que se resincronicen.
 - Se sincronizan desde `ARTICULOS.art_kit`, `ARTICULOS.UNI_COD_COM`, `ARTICULOS.UNI_COD_VEN`.
 
+> **Nota**: `art_kit=true` engloba dos conceptos distintos, `PRESENTACION` y `COMBO`, distinguidos por la columna `tipo_kit` (`ARTICULOS.TIPO_KIT` en SQL Server, `articulos.tipo_kit` en PostgreSQL con `CHECK` propio). La columna ya existe en ambas bases y la sincronización de artículos ya la propaga (`sincronizador.py` → `POST /api/sync/articulos`). Ver la sección "Modelo de artículos compuestos: PRESENTACION vs COMBO" en `ARCHITECTURE.md` para la regla completa, y `ROADMAP.md` (Fase 16) para lo que todavía falta (clasificar los kits existentes, resincronizar, y adaptar catálogo/frontend). Esta guía (secciones 5-6) sigue describiendo el flujo tal como se diseñó antes de `tipo_kit`; no se reescribe hasta completar la Fase 16.
+
 ## 6. `articulos_kit`
 
 ```sql

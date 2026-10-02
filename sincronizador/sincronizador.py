@@ -22,6 +22,7 @@ SQL_PENDIENTES = """
         A.art_estado,
         A.llevar_web,
         A.art_kit,
+        A.TIPO_KIT,
         A.UNI_COD_COM,
         A.UNI_COD_VEN
     FROM CAMBIOS_ARTICULOS C
@@ -84,6 +85,7 @@ def construir_payload(fila):
         "art_estado": fila.art_estado,
         "llevar_web": bool(fila.llevar_web),
         "art_kit": bool(fila.art_kit),
+        "tipo_kit": fila.TIPO_KIT,
         "uni_cod_com": valor_opcional_entero(fila.UNI_COD_COM),
         "uni_cod_ven": valor_opcional_entero(fila.UNI_COD_VEN),
         "version_actual": int(fila.version_actual),

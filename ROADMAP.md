@@ -245,6 +245,23 @@ Pendiente:
 - logs;
 - backups/plan persistente para producción.
 
+## Fase 16 — Modelo PRESENTACION / COMBO (`tipo_kit`)
+Estado: PARCIALMENTE COMPLETADA
+
+Decisión de modelo ya documentada en `ARCHITECTURE.md` ("Modelo de artículos compuestos: PRESENTACION vs COMBO"). La limpieza de datos maestros en SQL Server la realiza el usuario manualmente.
+
+Orden recomendado:
+1. limpieza de unidades/datos maestros en SQL Server — PENDIENTE (responsabilidad del usuario);
+2. agregar `tipo_kit` en SQL Server — COMPLETADO (`ARTICULOS.TIPO_KIT`);
+3. clasificar los kits actuales como `PRESENTACION` o `COMBO` — PENDIENTE de confirmar sobre los kits reales existentes (`21038`, `251186`);
+4. agregar `tipo_kit` en PostgreSQL — COMPLETADO (`articulos.tipo_kit` con `CHECK`);
+5. adaptar la sincronización (`CAMBIOS_ARTICULOS`, payload, schema Pydantic, `POST /api/sync/articulos`) — COMPLETADO;
+6. resincronizar y verificar los datos — PENDIENTE;
+7. adaptar los endpoints de catálogo (`/api/articulos/presentaciones`, `GET /api/articulos?presentacion=`) para distinguir `PRESENTACION` de `COMBO` — PENDIENTE;
+8. adaptar el selector del frontend — PENDIENTE;
+9. crear la sección independiente de Combos — PENDIENTE;
+10. pruebas end-to-end — PENDIENTE.
+
 ## Versión 2
 
 Sincronizar estados comerciales:

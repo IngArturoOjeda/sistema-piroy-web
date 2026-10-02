@@ -428,6 +428,79 @@ Debe administrar datos propios del ecommerce, por ejemplo:
 
 No debe reemplazar VFP ni administrar directamente SQL Server.
 
+## Modelo de artículos compuestos: PRESENTACION vs COMBO
+
+Decisión de modelo de dominio, **estable**. El campo `tipo_kit` ya existe como columna en SQL Server (`ARTICULOS.TIPO_KIT`) y en PostgreSQL (`articulos.tipo_kit`, con `CHECK` propio), y la sincronización de artículos ya lo propaga de punta a punta (`sincronizador.py` → `POST /api/sync/articulos` → `articulos.tipo_kit`). Lo que todavía **no** está implementado es la distinción entre `PRESENTACION` y `COMBO` en los endpoints de catálogo (`/api/articulos/presentaciones`, `GET /api/articulos?presentacion=`) ni en el frontend — ver `ROADMAP.md`, Fase 16.
+
+### Problema detectado
+
+`articulos.art_kit = true` hoy engloba dos conceptos comerciales distintos que la web necesita poder distinguir:
+
+1. **PRESENTACION**: una forma de venta cerrada de un único producto base (ej. una bolsa de 25kg de un producto que también se vende a granel).
+2. **COMBO**: una combinación comercial de productos, potencialmente de categorías distintas, pensada como oferta propia — no como una forma de venta de una sola categoría.
+
+### Campo nuevo: `tipo_kit`
+
+```text
+art_kit = false  ->  tipo_kit = NULL
+art_kit = true   ->  tipo_kit = PRESENTACION
+art_kit = true   ->  tipo_kit = COMBO
+```
+
+No se usa `tipo_kit = "NORMAL"`: un artículo normal se sigue identificando por `art_kit = false` + `tipo_kit NULL`, igual que hoy.
+
+`tipo_kit` es un **dato explícito**, nunca inferido. No son reglas válidas para determinarlo automáticamente:
+- cantidad de componentes en `articulos_kit`;
+- nombre del artículo;
+- categoría del kit o de sus componentes;
+- cantidad (`art_cantidad`) de un componente.
+
+### Ejemplos
+
+Artículo normal (sin cambios respecto al modelo actual):
+
+```text
+BOVIMAX A GRANEL
+tipo_articulo = BALANCEADOS, art_kit = false, tipo_kit = NULL, unidad_venta = KG
+
+BALA CALIBRE 22 POR UNIDAD
+tipo_articulo = PROYECTILES, art_kit = false, tipo_kit = NULL, unidad_venta = UNIDAD
+```
+
+PRESENTACION — representa una forma de venta cerrada de un único producto base; pertenece funcionalmente a la categoría de su componente, aunque su propio `tipo_articulo` siga siendo `KIT`:
+
+```text
+BOVIMAX X25KG
+tipo_articulo = KIT, art_kit = true, tipo_kit = PRESENTACION
+articulos_kit: BOVIMAX X25KG -> BOVIMAX A GRANEL x 25 KG
+
+BALA CALIBRE 22 X CAJA
+tipo_articulo = KIT, art_kit = true, tipo_kit = PRESENTACION
+articulos_kit: BALA CALIBRE 22 X CAJA -> BALA CALIBRE 22 POR UNIDAD x 50
+```
+
+COMBO — técnicamente también un kit, pero comercialmente otro concepto; puede mezclar componentes de categorías distintas y **no** se considera una presentación de ninguna de esas categorías:
+
+```text
+COMBO CAZA
+tipo_articulo = KIT, art_kit = true, tipo_kit = COMBO
+componentes de categorías distintas (ej. PROYECTILES, INFLABLES, ...)
+```
+
+### Comportamiento futuro del catálogo
+
+- Si una categoría tiene artículos normales (una sola unidad) **y** presentaciones (`tipo_kit = PRESENTACION`) relacionadas: mostrar selector, ej. `[Por KG] [Presentaciones]`.
+- Si una categoría solo tiene artículos normales con una única unidad: no mostrar selector, cargar directo (ej. MERCERIAS / UNIDAD).
+- Los kits `tipo_kit = COMBO` **no participan** del selector por categoría. Se muestran en una sección propia de la web (ej. "Combos"), separada del catálogo por categoría.
+
+### Limpieza de datos (responsabilidad del usuario, en SQL Server)
+
+Se detectaron artículos normales con `uni_cod_ven` mal configurado (ej. artículos "X100 UNIDAD" cargados con unidad `CAJA`). La corrección se hace manualmente en SQL Server, antes de continuar con cualquier cambio de código. No se compensan datos incorrectos con lógica en el backend ni se infiere la unidad por el nombre del artículo.
+
+### Stock y pedidos
+
+Hasta que se confirme una regla distinta, tanto `PRESENTACION` como `COMBO` siguen calculando disponibilidad física a partir de sus componentes (`articulos_kit` + `stock`), igual que hoy. `confirmar_pedido()` puede seguir tratando ambos como `art_kit = true` para el cálculo de consumo físico agregado — no se identificó, por ahora, una necesidad de distinguir `PRESENTACION` de `COMBO` en esa validación.
+
 ## Seguridad
 
 No:
