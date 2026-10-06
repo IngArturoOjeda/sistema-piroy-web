@@ -87,6 +87,7 @@ def trae_articulos(
             # Ya se valido arriba: categoria != "Todos" y unidad no informado
             filtro_presentacion = """
                 AND a.art_kit = TRUE
+                AND a.tipo_kit = 'PRESENTACION'
                 AND EXISTS (
                     SELECT 1
                     FROM articulos_kit ak
@@ -218,6 +219,7 @@ def trae_presentaciones(
                 JOIN articulos comp ON comp.art_cod = ak.art_cod
                 JOIN tipo_articulo tcomp ON tcomp.tipoart_cod = comp.tipoart_cod
                 WHERE kit.art_kit = TRUE
+                  AND kit.tipo_kit = 'PRESENTACION'
                   AND kit.art_estado = 'S'
                   AND kit.llevar_web = TRUE
                   AND kit.mostrar_web = TRUE
