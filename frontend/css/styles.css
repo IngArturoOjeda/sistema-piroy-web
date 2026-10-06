@@ -114,30 +114,69 @@ header {
     font-size: 0.85rem;
 }
 
-.mensaje-carrito-confirmacion {
-    background: #dcfce7;
-    color: #166534;
-    border: 1px solid #86efac;
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-weight: 600;
-    margin-bottom: 12px;
+.modal-agregado-contenido {
+    background: #fff;
+    border-radius: 14px;
+    padding: 28px 24px;
+    width: min(360px, 90vw);
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
-.btn-seguir-comprando {
-    width: 100%;
-    margin-top: 10px;
-    padding: 10px;
+.check-agregado {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 12px;
+    border-radius: 50%;
+    background: #16a34a;
+    color: #fff;
+    font-size: 40px;
+    line-height: 72px;
+    animation: pop-check 0.35s ease-out;
+}
+
+@keyframes pop-check {
+    0%   { transform: scale(0.4); opacity: 0; }
+    60%  { transform: scale(1.12); opacity: 1; }
+    100% { transform: scale(1); }
+}
+
+.texto-agregado {
+    color: #64748b;
+    margin: 6px 0 0;
+}
+
+.acciones-agregado {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.btn-agregado-principal,
+.btn-agregado-secundario {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-agregado-principal {
+    background: #2c3e50;
+    color: #fff;
+    border: none;
+}
+
+.btn-agregado-secundario {
     background: #fff;
     color: #2c3e50;
     border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
 }
 
-.btn-seguir-comprando:hover {
-    background: #f1f5f9;
+@media (prefers-reduced-motion: reduce) {
+    .check-agregado {
+        animation: none;
+    }
 }
 
 .encabezado-combos {

@@ -155,9 +155,6 @@
                 <h2>🛒 Resumen de tu Pedido</h2>
                 <hr>
 
-                <!-- Confirmacion visible tras agregar un producto (se oculta si no hay mensaje) -->
-                <div id="mensaje-carrito" class="mensaje-carrito-confirmacion" style="display: none;"></div>
-
                 <!-- Aquí JavaScript listará los productos agregados -->
                 <ul id="lista-productos-carrito" class="lista-carrito-emergente">
                     <!-- Se llenará con JS -->
@@ -167,10 +164,6 @@
                 <div class="total-pedido">
                     <h3>Total a Pagar: <span id="total-carrito">PYG 0</span></h3>
                 </div>
-
-                <button type="button" id="btn-seguir-comprando" class="btn-seguir-comprando">
-                    ← Seguir comprando
-                </button>
 
                 <hr>
 
@@ -225,6 +218,22 @@
                 <button id="btn-entendido-exito" class="btn-comprar">
                     ¡ENTENDIDO, MUCHAS GRACIAS!
                 </button>
+            </div>
+        </div>
+
+        <!-- Modal independiente de confirmacion al agregar al carrito -->
+        <div id="modal-agregado" class="modal-fondo" style="display: none;">
+            <div class="modal-agregado-contenido" role="dialog" aria-modal="true" aria-labelledby="titulo-agregado">
+                <div class="check-agregado" aria-hidden="true">✓</div>
+                <h2 id="titulo-agregado">Agregado al carrito</h2>
+                <p id="texto-agregado-definir" class="texto-agregado" style="display: none;">
+                    Definí la cantidad que necesitás
+                </p>
+                <div class="acciones-agregado">
+                    <button type="button" id="btn-agregado-seguir" class="btn-agregado-secundario">Seguir comprando</button>
+                    <button type="button" id="btn-agregado-ver-carrito" class="btn-agregado-principal">Ver carrito</button>
+                    <button type="button" id="btn-agregado-definir" class="btn-agregado-principal" style="display: none;">Definir cantidad</button>
+                </div>
             </div>
         </div>
 

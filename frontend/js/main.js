@@ -22,8 +22,12 @@ const txtClienteNombreUI = document.getElementById("txt-cliente-nombre");
 const txtClienteDireccionUI = document.getElementById("txt-cliente-direccion");
 const txtClienteTelefonoUI = document.getElementById("txt-cliente-telefono");
 const btnEnviarPedidoUI = document.getElementById("btn-enviar-pedido");
-const mensajeCarritoUI = document.getElementById("mensaje-carrito");
-const btnSeguirComprandoUI = document.getElementById("btn-seguir-comprando");
+// Capturas del modal de confirmacion al agregar al carrito
+const modalAgregadoUI = document.getElementById("modal-agregado");
+const txtAgregadoDefinirUI = document.getElementById("texto-agregado-definir");
+const btnAgregadoSeguirUI = document.getElementById("btn-agregado-seguir");
+const btnAgregadoVerCarritoUI = document.getElementById("btn-agregado-ver-carrito");
+const btnAgregadoDefinirUI = document.getElementById("btn-agregado-definir");
 // Capturas de la sección COMBOS
 const btnVerCombosUI = document.getElementById("btn-ver-combos");
 const vistaCombosUI = document.getElementById("vista-combos");
@@ -52,8 +56,6 @@ let paginaCombos = 1;
 // Presentacion (forma de compra) seleccionada para la categoria actual
 let presentacionesDisponibles = [];
 let presentacionSeleccionadaActual = null;
-// Mensaje de confirmacion visible dentro del carrito ("" = sin mensaje)
-let mensajeCarritoConfirmacion = "";
 
 // 2. CARGAR DATOS DESDE FASTAPI (SQL SERVER)
 async function cargarDatosDeLaAPI() {
@@ -376,11 +378,12 @@ function dibujarArticulos(listaArticulos, contenedor = contenedorCardsUI) {
 function comprarArticulo(idArticulo) {
     // Buscamos si el artículo ya existía en la canasta
     const articuloEnCarrito = carrito.find(art => art.id === idArticulo);
-    let mensajeAgregado = "";
+    let agregado = false;
+    let definirCantidad = false;
 
     if (articuloEnCarrito) {
-        // Un fraccionable ya en el carrito no se incrementa de a uno: reabrimos el carrito
-        // para que el usuario defina/edite su cantidad. No hay confirmacion: no se agrego nada nuevo.
+        // Un fraccionable ya en el carrito no se incrementa: reabrimos el carrito para editar
+        // la cantidad. No es una incorporacion, asi que no hay modal de exito.
         if (articuloEnCarrito.fraccionable === true) {
             abrirCarrito();
             return;
@@ -393,7 +396,7 @@ function comprarArticulo(idArticulo) {
             return; // sumar una unidad mas superaria el stock disponible
         }
         articuloEnCarrito.cantidad++; // Si ya existía, simplemente aumentamos su cantidad
-        mensajeAgregado = "✓ Producto agregado al carrito";
+        agregado = true;
     } else {
         // 2. 🌟 BUSQUEDA INTELIGENTE: Primero intentamos buscarlo en la lista de Ofertas
         let articuloBaseDeDatos = promosGlobales.find(art => art.id === idArticulo);
@@ -427,37 +430,44 @@ function comprarArticulo(idArticulo) {
             const cantidadInicial = esFraccionable ? null : 1;
             const nuevoItem = { ...articuloBaseDeDatos, cantidad: cantidadInicial };
             carrito.push(nuevoItem);
-            mensajeAgregado = esFraccionable
-                ? "✓ Producto agregado. Definí la cantidad que necesitás."
-                : "✓ Producto agregado al carrito";
+            agregado = true;
+            definirCantidad = esFraccionable;
         }
     }
 
     // Actualizamos la burbuja roja sumando todas las unidades acumuladas en tiempo real
     actualizarBurbujaCabecera();
 
-    if (mensajeAgregado) {
-        abrirCarrito({ mensaje: mensajeAgregado });
+    if (agregado) {
+        // Redibuja aunque el carrito este cerrado: mantiene al dia el estado del boton CONFIRMAR
+        dibujarCarrito();
+        abrirModalAgregado({ definirCantidad });
     }
 }
 
-// Abre el carrito. El mensaje solo se muestra si viene de una incorporacion exitosa.
-function abrirCarrito({ mensaje = "" } = {}) {
-    mensajeCarritoConfirmacion = mensaje;
+// Modal independiente de exito: para el cliente, cada agregado exitoso es el mismo mensaje
+function abrirModalAgregado({ definirCantidad = false } = {}) {
+    txtAgregadoDefinirUI.style.display = definirCantidad ? "block" : "none";
+    btnAgregadoDefinirUI.style.display = definirCantidad ? "inline-block" : "none";
+    btnAgregadoVerCarritoUI.style.display = definirCantidad ? "none" : "inline-block";
+    modalAgregadoUI.style.display = "flex";
+}
+
+function cerrarModalAgregado() {
+    modalAgregadoUI.style.display = "none";
+}
+
+function abrirCarrito() {
     dibujarCarrito();
     modalCarritoUI.style.display = "flex";
 }
 
-// Cierra el carrito sin tocar carrito, cantidades ni vista actual.
 function cerrarCarrito() {
-    mensajeCarritoConfirmacion = "";
     modalCarritoUI.style.display = "none";
 }
 
 // 6. DIBUJAR LISTADO DENTRO DE LA VENTANA EMERGENTE (CON INTERACTIVIDAD EN + Y -)
 function dibujarCarrito() {
-    mensajeCarritoUI.textContent = mensajeCarritoConfirmacion;
-    mensajeCarritoUI.style.display = mensajeCarritoConfirmacion ? "block" : "none";
     listaProductosCarritoUI.innerHTML = "";
     let sumaTotal = 0;
 
@@ -656,13 +666,30 @@ btnCerrarModalUI.addEventListener("click", () => {
     cerrarCarrito();
 });
 
-btnSeguirComprandoUI.addEventListener("click", () => {
-    cerrarCarrito();
-});
-
 window.addEventListener("click", (evento) => {
     if (evento.target === modalCarritoUI) {
         cerrarCarrito();
+    }
+});
+
+// Modal de exito: "Seguir comprando" solo lo cierra; "Ver carrito" y "Definir cantidad" abren el carrito
+btnAgregadoSeguirUI.addEventListener("click", () => {
+    cerrarModalAgregado();
+});
+
+btnAgregadoVerCarritoUI.addEventListener("click", () => {
+    cerrarModalAgregado();
+    abrirCarrito();
+});
+
+btnAgregadoDefinirUI.addEventListener("click", () => {
+    cerrarModalAgregado();
+    abrirCarrito();
+});
+
+window.addEventListener("click", (evento) => {
+    if (evento.target === modalAgregadoUI) {
+        cerrarModalAgregado();
     }
 });
 
