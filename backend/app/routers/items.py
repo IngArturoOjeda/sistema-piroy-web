@@ -468,6 +468,13 @@ def confirmar_pedido(pedido: PedidoEntrada):
         sql_detalle = """
             INSERT INTO pedido_detalle (id_pedido, art_cod, cantidad, precio_unitario)
             VALUES (%s, %s, %s, %s)
+            RETURNING id_detalle
+        """
+        sql_componente = """
+            INSERT INTO pedido_detalle_componentes
+                (id_pedido, id_detalle, art_cod_padre, art_cod_componente,
+                 art_nombre_componente, cantidad_por_unidad, cantidad_total)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """
         for item in pedido.productos:
             articulo = articulos_por_id[item.id]
@@ -475,6 +482,22 @@ def confirmar_pedido(pedido: PedidoEntrada):
                 sql_detalle,
                 (id_pedido_nuevo, item.id, item.cantidad, articulo["art_preciobase"])
             )
+            id_detalle_nuevo = cursor.fetchone()[0]
+
+            if articulo["art_kit"]:
+                filas_componentes = [
+                    (
+                        id_pedido_nuevo,
+                        id_detalle_nuevo,
+                        item.id,
+                        art_cod_componente,
+                        info_fisicos[art_cod_componente]["art_nombre"],
+                        art_cantidad,
+                        item.cantidad * art_cantidad,
+                    )
+                    for art_cod_componente, art_cantidad in componentes_por_kit[item.id]
+                ]
+                cursor.executemany(sql_componente, filas_componentes)
 
         conn.commit()
 
