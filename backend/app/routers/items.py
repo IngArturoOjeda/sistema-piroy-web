@@ -22,6 +22,9 @@ DESCRIPCIONES_UNIDAD_NORMAL = {
     "UNIDAD": "Por unidad",
 }
 
+# Unidades que la web vende solo en cantidades enteras (politica de venta, no cambia la base)
+UNIDADES_WEB_ENTERAS = {"KG", "LITROS", "METROS"}
+
 # Disponibilidad de un kit = minimo, entre sus componentes, de stock / art_cantidad.
 # Requiere el alias "a" para el articulo y "kit" para la subconsulta resultante.
 SQL_STOCK_KIT_LATERAL = """
@@ -341,7 +344,8 @@ def confirmar_pedido(pedido: PedidoEntrada):
                 a.art_nombre,
                 a.art_preciobase,
                 a.art_kit,
-                COALESCE(um.fraccionable, FALSE) AS fraccionable
+                COALESCE(um.fraccionable, FALSE) AS fraccionable,
+                um.uni_nombre AS unidad_venta
             FROM articulos a
             LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
             WHERE a.art_cod = ANY(%s)
@@ -356,8 +360,9 @@ def confirmar_pedido(pedido: PedidoEntrada):
                 "art_preciobase": art_preciobase,
                 "art_kit": art_kit,
                 "fraccionable": fraccionable,
+                "unidad_venta": unidad_venta,
             }
-            for art_cod, art_nombre, art_preciobase, art_kit, fraccionable in cursor.fetchall()
+            for art_cod, art_nombre, art_preciobase, art_kit, fraccionable, unidad_venta in cursor.fetchall()
         }
 
         # FASE 2: existencia + tipo de cantidad, y consumo fisico directo de los NO-kit
@@ -377,6 +382,13 @@ def confirmar_pedido(pedido: PedidoEntrada):
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"El artículo '{articulo['art_nombre']}' no admite cantidades fraccionarias"
                 )
+
+            if articulo["unidad_venta"] in UNIDADES_WEB_ENTERAS:
+                if item.cantidad < 1 or item.cantidad != item.cantidad.to_integral_value():
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"El artículo '{articulo['art_nombre']}' se vende en cantidades enteras"
+                    )
 
             if articulo["art_kit"]:
                 ids_kit_en_pedido.append(item.id)

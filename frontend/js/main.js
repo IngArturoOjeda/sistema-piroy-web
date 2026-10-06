@@ -287,9 +287,27 @@ function dibujarSelectorDePresentaciones(lista) {
     contenedorCardsUI.appendChild(contenedor);
 }
 
+// Politica de venta web: estas unidades se venden solo en cantidades enteras.
+// Es una regla de venta; no cambia unidad_medida.fraccionable en la base.
+const UNIDADES_WEB_ENTERAS = new Set(["KG", "LITROS", "METROS"]);
+
+function esUnidadWebEntera(articulo) {
+    return UNIDADES_WEB_ENTERAS.has(articulo.unidad_venta);
+}
+
+// Maximo vendible por la web: el stock decimal se trunca hacia abajo.
+function maximoVendibleWeb(articulo) {
+    return typeof articulo.stock_disponible === "number"
+        ? Math.floor(articulo.stock_disponible)
+        : null;
+}
+
 // Umbral de disponibilidad segun el tipo de venta del articulo
 function estaSinStock(articulo) {
     if (typeof articulo.stock_disponible !== "number") return false;
+    if (esUnidadWebEntera(articulo)) {
+        return maximoVendibleWeb(articulo) < 1;
+    }
     const stockMinimo = articulo.fraccionable === true ? 0.001 : 1;
     return articulo.stock_disponible < stockMinimo;
 }
@@ -314,6 +332,12 @@ function normalizarCantidadFraccionable(valorCrudo, stockDisponible, cantidadAnt
 function cantidadItemValida(item) {
     if (typeof item.cantidad !== "number" || !Number.isFinite(item.cantidad)) {
         return false;
+    }
+
+    if (esUnidadWebEntera(item)) {
+        const maximo = maximoVendibleWeb(item);
+        if (!Number.isInteger(item.cantidad) || item.cantidad < 1) return false;
+        return maximo === null || item.cantidad <= maximo;
     }
 
     if (item.fraccionable === true) {
@@ -358,7 +382,7 @@ function dibujarArticulos(listaArticulos, contenedor = contenedorCardsUI) {
             <h3>${articulo.nombre}</h3>
             <p class="precio">PYG ${articulo.precio.toLocaleString('es-ES', { maximumFractionDigits: 0 })}</p>
             <p class="stock-info ${sinStock ? 'agotado' : 'disponible'}">
-                ${sinStock ? 'Sin stock' : `Stock disponible: ${articulo.stock_disponible}`}
+                ${sinStock ? 'Sin stock' : `Stock disponible: ${esUnidadWebEntera(articulo) ? maximoVendibleWeb(articulo) : articulo.stock_disponible}`}
             </p>
             <button class="btn-comprar" ${bloqueado ? "disabled" : ""}>${textoBoton}</button>
         `;
@@ -382,21 +406,31 @@ function comprarArticulo(idArticulo) {
     let definirCantidad = false;
 
     if (articuloEnCarrito) {
-        // Un fraccionable ya en el carrito no se incrementa: reabrimos el carrito para editar
-        // la cantidad. No es una incorporacion, asi que no hay modal de exito.
-        if (articuloEnCarrito.fraccionable === true) {
-            abrirCarrito();
-            return;
+        if (esUnidadWebEntera(articuloEnCarrito)) {
+            // Unidades web enteras: +1 por clic, sin pasar el maximo vendible
+            const maximo = maximoVendibleWeb(articuloEnCarrito);
+            if (maximo !== null && articuloEnCarrito.cantidad + 1 > maximo) {
+                return;
+            }
+            articuloEnCarrito.cantidad++;
+            agregado = true;
+        } else {
+            // Un fraccionable ya en el carrito no se incrementa: reabrimos el carrito para editar
+            // la cantidad. No es una incorporacion, asi que no hay modal de exito.
+            if (articuloEnCarrito.fraccionable === true) {
+                abrirCarrito();
+                return;
+            }
+            // 🌟 Tope de stock: evaluamos la PROXIMA cantidad (cantidad + 1), no la actual.
+            // Cubre defensivamente stock_disponible fraccionario (ej. 3.500) en un articulo
+            // no fraccionable. Se aplica solo si el dato existe (ver promociones abajo).
+            const hayLimite = typeof articuloEnCarrito.stock_disponible === "number";
+            if (hayLimite && (articuloEnCarrito.cantidad + 1) > articuloEnCarrito.stock_disponible) {
+                return; // sumar una unidad mas superaria el stock disponible
+            }
+            articuloEnCarrito.cantidad++; // Si ya existía, simplemente aumentamos su cantidad
+            agregado = true;
         }
-        // 🌟 Tope de stock: evaluamos la PROXIMA cantidad (cantidad + 1), no la actual.
-        // Cubre defensivamente stock_disponible fraccionario (ej. 3.500) en un articulo
-        // no fraccionable. Se aplica solo si el dato existe (ver promociones abajo).
-        const hayLimite = typeof articuloEnCarrito.stock_disponible === "number";
-        if (hayLimite && (articuloEnCarrito.cantidad + 1) > articuloEnCarrito.stock_disponible) {
-            return; // sumar una unidad mas superaria el stock disponible
-        }
-        articuloEnCarrito.cantidad++; // Si ya existía, simplemente aumentamos su cantidad
-        agregado = true;
     } else {
         // 2. 🌟 BUSQUEDA INTELIGENTE: Primero intentamos buscarlo en la lista de Ofertas
         let articuloBaseDeDatos = promosGlobales.find(art => art.id === idArticulo);
@@ -427,11 +461,13 @@ function comprarArticulo(idArticulo) {
             }
             // Fraccionable: no asumimos ninguna cantidad (ni 0.001 ni 1 KG); queda en null
             // hasta que el cliente la defina explicitamente en el input del carrito.
-            const cantidadInicial = esFraccionable ? null : 1;
+            // Unidades web enteras arrancan en 1; otros fraccionables quedan pendientes
+            const enteraWeb = esUnidadWebEntera(articuloBaseDeDatos);
+            const cantidadInicial = (esFraccionable && !enteraWeb) ? null : 1;
             const nuevoItem = { ...articuloBaseDeDatos, cantidad: cantidadInicial };
             carrito.push(nuevoItem);
             agregado = true;
-            definirCantidad = esFraccionable;
+            definirCantidad = esFraccionable && !enteraWeb;
         }
     }
 
@@ -480,8 +516,18 @@ function dibujarCarrito() {
         li.className = "renglon-carrito";
 
         const esFraccionable = articulo.fraccionable === true;
+        const enteraWebItem = esUnidadWebEntera(articulo);
+        const maximoItem = maximoVendibleWeb(articulo);
 
-        const controlCantidadHtml = esFraccionable
+        const controlCantidadHtml = enteraWebItem
+            ? `
+                <div class="control-cantidad">
+                    <button class="btn-cantidad-menos" ${articulo.cantidad <= 1 ? "disabled" : ""}>-</button>
+                    <span class="cantidad-numero">${articulo.cantidad} ${articulo.unidad_venta}</span>
+                    <button class="btn-cantidad-mas" ${maximoItem !== null && articulo.cantidad + 1 > maximoItem ? "disabled" : ""}>+</button>
+                </div>
+            `
+            : esFraccionable
             ? `
                 <div class="control-cantidad control-cantidad-fraccionable">
                     <input
@@ -533,7 +579,19 @@ function dibujarCarrito() {
             eliminarArticuloDelCarrito(articulo.id);
         });
 
-        if (esFraccionable) {
+        if (enteraWebItem) {
+            li.querySelector(".btn-cantidad-menos").addEventListener("click", () => {
+                if (articulo.cantidad > 1) articulo.cantidad--;
+                actualizarBurbujaCabecera();
+                dibujarCarrito();
+            });
+            li.querySelector(".btn-cantidad-mas").addEventListener("click", () => {
+                const maximo = maximoVendibleWeb(articulo);
+                if (maximo === null || articulo.cantidad + 1 <= maximo) articulo.cantidad++;
+                actualizarBurbujaCabecera();
+                dibujarCarrito();
+            });
+        } else if (esFraccionable) {
             const inputCantidad = li.querySelector(".input-cantidad-fraccionable");
             inputCantidad.addEventListener("change", () => {
                 articulo.cantidad = normalizarCantidadFraccionable(
