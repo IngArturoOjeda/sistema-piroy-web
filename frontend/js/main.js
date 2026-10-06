@@ -22,6 +22,11 @@ const txtClienteNombreUI = document.getElementById("txt-cliente-nombre");
 const txtClienteDireccionUI = document.getElementById("txt-cliente-direccion");
 const txtClienteTelefonoUI = document.getElementById("txt-cliente-telefono");
 const btnEnviarPedidoUI = document.getElementById("btn-enviar-pedido");
+// Capturas de la sección COMBOS
+const btnVerCombosUI = document.getElementById("btn-ver-combos");
+const vistaCombosUI = document.getElementById("vista-combos");
+const contenedorCardsCombosUI = document.getElementById("contenedor-cards-combos");
+const btnMasCombosUI = document.getElementById("btn-mas-combos");
 // Capturas de la Modal de Éxito
 const modalExitoUI = document.getElementById("modal-exito");
 const txtOrdenConfirmadaUI = document.getElementById("txt-orden-confirmada");
@@ -38,6 +43,10 @@ let cargandoProductos = false; // Nos avisa si el sistema está ocupado hablando
 let finDeStock = false;     // Se volverá true cuando Python nos devuelva una lista vacía []
 let categoriaSeleccionadaActual = "Todos"; // 🌟 NUEVO: Sabe qué botón lateral está activo
 let promosGlobales = [];
+let vistaActual = "CATALOGO"; // "CATALOGO" | "PROMOCIONES" | "COMBOS"
+// Combos: sección independiente, cargada al iniciar para saber si mostrar la entrada
+let combosGlobales = [];
+let paginaCombos = 1;
 // Presentacion (forma de compra) seleccionada para la categoria actual
 let presentacionesDisponibles = [];
 let presentacionSeleccionadaActual = null;
@@ -126,7 +135,9 @@ function dibujarCategorias(listacategorias) {
             // 🌟 NUEVO: Si el usuario hace clic en una categoría, lo regresamos al catálogo regular
             document.getElementById("vista-catalogo").style.display = "block";
             document.getElementById("vista-promociones").style.display = "none";
-            
+            vistaCombosUI.style.display = "none";
+            vistaActual = "CATALOGO";
+
             // Restablecemos el texto del botón enérgico de la cabecera
             const btnVerPromosUI = document.getElementById("btn-ver-promos");
             if (btnVerPromosUI) btnVerPromosUI.innerHTML = "🔥 Ver Promos";
@@ -313,11 +324,11 @@ function cantidadItemValida(item) {
 }
 
 // 4. DIBUJAR TARJETAS DE PRODUCTOS
-function dibujarArticulos(listaArticulos) {
-    contenedorCardsUI.innerHTML = "";
+function dibujarArticulos(listaArticulos, contenedor = contenedorCardsUI) {
+    contenedor.innerHTML = "";
 
     if (listaArticulos.length === 0) {
-        contenedorCardsUI.innerHTML = `
+        contenedor.innerHTML = `
             <div class="mensaje-sin-resultados">
                 <div class="icono-vacio">🔍❌</div>
                 <h3>No encontramos productos coincidentes</h3>
@@ -353,7 +364,7 @@ function dibujarArticulos(listaArticulos) {
             });
         }
 
-        contenedorCardsUI.appendChild(divCard);
+        contenedor.appendChild(divCard);
     });
 }
 
@@ -385,13 +396,20 @@ function comprarArticulo(idArticulo) {
         if (articuloBaseDeDatos) {
             // 🌟 Si el mismo articulo tambien esta en el catalogo, completamos su metadata
             // (stock_disponible, unidad_venta, fraccionable), manteniendo el precio promocional.
-            const articuloCatalogo = articulosGlobales.find(art => art.id === idArticulo);
+            const articuloCatalogo =
+                articulosGlobales.find(art => art.id === idArticulo)
+                || combosGlobales.find(art => art.id === idArticulo);
             if (articuloCatalogo) {
                 articuloBaseDeDatos = { ...articuloCatalogo, ...articuloBaseDeDatos };
             }
         } else {
             // Si no estaba en las ofertas, significa que es un producto normal del inicio
             articuloBaseDeDatos = articulosGlobales.find(art => art.id === idArticulo);
+        }
+
+        // Fallback: solo si no estaba en promociones ni en el catálogo
+        if (!articuloBaseDeDatos) {
+            articuloBaseDeDatos = combosGlobales.find(art => art.id === idArticulo);
         }
 
         if (articuloBaseDeDatos) {
@@ -717,6 +735,11 @@ btnEntendidoExitoUI.addEventListener("click", () => {
 
 // 🌟 ESCUCHADOR DINÁMICO: Detecta el scroll del mouse en tiempo real
 window.addEventListener("scroll", () => {
+    // Las vistas de promociones y combos no paginan el catálogo
+    if (vistaActual !== "CATALOGO") {
+        return;
+    }
+
     // Medimos el estado del navegador del cliente
     const alturaTotalPagina = document.documentElement.scrollHeight; // El alto completo de tu catálogo
     const alturaBordeSuperior = window.scrollY;                       // Cuánto bajó el usuario con la ruedita
@@ -785,6 +808,8 @@ btnVerPromosUI.addEventListener("click", async () => {
     if (vistaPromocionesUI.style.display === "none") {
         vistaCatalogoUI.style.display = "none";
         vistaPromocionesUI.style.display = "block";
+        vistaCombosUI.style.display = "none";
+        vistaActual = "PROMOCIONES";
         btnVerPromosUI.innerHTML = "⬅️ Ver Catálogo"; // Cambia el texto del botón temporalmente
         
         // Cambiamos la URL estéticamente a nivel profesional sin recargar el navegador
@@ -798,6 +823,7 @@ btnVerPromosUI.addEventListener("click", async () => {
         // Si ya estaba visible, el usuario quiere regresar a ver todos los artículos
         vistaPromocionesUI.style.display = "none";
         vistaCatalogoUI.style.display = "block";
+        vistaActual = "CATALOGO";
         btnVerPromosUI.innerHTML = "🔥 Ver Promos"; // Restablece el texto original del botón
         
         // Regresamos la URL al inicio estéticamente
@@ -806,5 +832,45 @@ btnVerPromosUI.addEventListener("click", async () => {
 });
 
 
+// ----------------------------------------------------
+// SECCIÓN COMBOS (independiente de categorías y presentaciones)
+// ----------------------------------------------------
+
+const LIMITE_COMBOS = 30;
+
+// Se llama al iniciar: solo muestra la entrada "Combos" si hay alguno publicado
+async function cargarCombosDeLaAPI(pagina = 1) {
+    try {
+        const respuesta = await fetch(`/api/articulos/combos?pagina=${pagina}&limite=${LIMITE_COMBOS}`);
+        if (!respuesta.ok) throw new Error(`Error ${respuesta.status} al cargar combos`);
+
+        const nuevos = await respuesta.json();
+        combosGlobales = pagina === 1 ? nuevos : [...combosGlobales, ...nuevos];
+        paginaCombos = pagina;
+
+        btnVerCombosUI.style.display = combosGlobales.length > 0 ? "inline-flex" : "none";
+        btnMasCombosUI.style.display = nuevos.length === LIMITE_COMBOS ? "inline-block" : "none";
+    } catch (error) {
+        console.error("No se pudieron cargar los combos:", error);
+        btnVerCombosUI.style.display = "none";
+        btnMasCombosUI.style.display = "none";
+    }
+}
+
+btnVerCombosUI.addEventListener("click", () => {
+    vistaCatalogoUI.style.display = "none";
+    vistaPromocionesUI.style.display = "none";
+    vistaCombosUI.style.display = "block";
+    vistaActual = "COMBOS";
+    window.history.pushState({}, "", "/combos");
+    dibujarArticulos(combosGlobales, contenedorCardsCombosUI);
+});
+
+btnMasCombosUI.addEventListener("click", async () => {
+    await cargarCombosDeLaAPI(paginaCombos + 1);
+    dibujarArticulos(combosGlobales, contenedorCardsCombosUI);
+});
+
 // Arrancamos la aplicación leyendo la API
 cargarDatosDeLaAPI();
+cargarCombosDeLaAPI();

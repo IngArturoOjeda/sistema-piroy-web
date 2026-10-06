@@ -31,6 +31,12 @@
                         <span class="texto-promos-nav">Ver Promos</span>
                     </button>
 
+                    <!-- Entrada a la sección COMBOS: oculta hasta confirmar que existen combos -->
+                    <button id="btn-ver-combos" class="btn-promos-cabecera" style="display: none;">
+                        <span class="icono-promos-nav">🎁</span>
+                        <span class="texto-promos-nav">Combos</span>
+                    </button>
+
                     <!-- 3. 🌟 NUEVO: Botón "Ver Carrito" con contador dinámico -->
                     <button id="btn-ver-carrito" class="btn-carrito-cabecera">
                         <span class="icono-carrito-nav">🛒</span>
@@ -116,6 +122,24 @@
                 <!-- 🌟 Usamos tu misma clase cuadricula-productos para que las cards queden perfectas -->
                 <div id="contenedor-cards-promos" class="cuadricula-productos">
                     <!-- JS cargará las "cards" de ofertas aquí adentro -->
+                </div>
+
+             </main>
+
+             <!-- Sección independiente de COMBOS (oculta por defecto) -->
+             <main class="contenido-productos" id="vista-combos" style="display: none;">
+
+                <div class="encabezado-combos">
+                    <h1>🎁 COMBOS</h1>
+                    <p>Paquetes armados con productos de distintas categorías</p>
+                </div>
+
+                <div id="contenedor-cards-combos" class="cuadricula-productos">
+                    <!-- JS cargará las "cards" de combos aquí adentro -->
+                </div>
+
+                <div class="paginacion-combos">
+                    <button id="btn-mas-combos" class="btn-comprar" style="display: none;">Ver más combos</button>
                 </div>
 
              </main>
