@@ -163,6 +163,7 @@ def trae_articulos(
             WHERE a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
+              AND a.tipo_kit IS DISTINCT FROM 'COMBO'
               {filtro_categoria}
               {filtro_unidad}
               {filtro_presentacion}
