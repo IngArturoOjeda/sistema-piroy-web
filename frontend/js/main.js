@@ -22,6 +22,8 @@ const txtClienteNombreUI = document.getElementById("txt-cliente-nombre");
 const txtClienteDireccionUI = document.getElementById("txt-cliente-direccion");
 const txtClienteTelefonoUI = document.getElementById("txt-cliente-telefono");
 const btnEnviarPedidoUI = document.getElementById("btn-enviar-pedido");
+const mensajeCarritoUI = document.getElementById("mensaje-carrito");
+const btnSeguirComprandoUI = document.getElementById("btn-seguir-comprando");
 // Capturas de la sección COMBOS
 const btnVerCombosUI = document.getElementById("btn-ver-combos");
 const vistaCombosUI = document.getElementById("vista-combos");
@@ -50,6 +52,8 @@ let paginaCombos = 1;
 // Presentacion (forma de compra) seleccionada para la categoria actual
 let presentacionesDisponibles = [];
 let presentacionSeleccionadaActual = null;
+// Mensaje de confirmacion visible dentro del carrito ("" = sin mensaje)
+let mensajeCarritoConfirmacion = "";
 
 // 2. CARGAR DATOS DESDE FASTAPI (SQL SERVER)
 async function cargarDatosDeLaAPI() {
@@ -372,13 +376,13 @@ function dibujarArticulos(listaArticulos, contenedor = contenedorCardsUI) {
 function comprarArticulo(idArticulo) {
     // Buscamos si el artículo ya existía en la canasta
     const articuloEnCarrito = carrito.find(art => art.id === idArticulo);
+    let mensajeAgregado = "";
 
     if (articuloEnCarrito) {
         // Un fraccionable ya en el carrito no se incrementa de a uno: reabrimos el carrito
-        // para que el usuario defina/edite su cantidad con el input decimal.
+        // para que el usuario defina/edite su cantidad. No hay confirmacion: no se agrego nada nuevo.
         if (articuloEnCarrito.fraccionable === true) {
-            dibujarCarrito();
-            modalCarritoUI.style.display = "flex";
+            abrirCarrito();
             return;
         }
         // 🌟 Tope de stock: evaluamos la PROXIMA cantidad (cantidad + 1), no la actual.
@@ -389,6 +393,7 @@ function comprarArticulo(idArticulo) {
             return; // sumar una unidad mas superaria el stock disponible
         }
         articuloEnCarrito.cantidad++; // Si ya existía, simplemente aumentamos su cantidad
+        mensajeAgregado = "✓ Producto agregado al carrito";
     } else {
         // 2. 🌟 BUSQUEDA INTELIGENTE: Primero intentamos buscarlo en la lista de Ofertas
         let articuloBaseDeDatos = promosGlobales.find(art => art.id === idArticulo);
@@ -422,20 +427,37 @@ function comprarArticulo(idArticulo) {
             const cantidadInicial = esFraccionable ? null : 1;
             const nuevoItem = { ...articuloBaseDeDatos, cantidad: cantidadInicial };
             carrito.push(nuevoItem);
-
-            if (esFraccionable) {
-                dibujarCarrito();
-                modalCarritoUI.style.display = "flex";
-            }
+            mensajeAgregado = esFraccionable
+                ? "✓ Producto agregado. Definí la cantidad que necesitás."
+                : "✓ Producto agregado al carrito";
         }
     }
 
     // Actualizamos la burbuja roja sumando todas las unidades acumuladas en tiempo real
     actualizarBurbujaCabecera();
+
+    if (mensajeAgregado) {
+        abrirCarrito({ mensaje: mensajeAgregado });
+    }
+}
+
+// Abre el carrito. El mensaje solo se muestra si viene de una incorporacion exitosa.
+function abrirCarrito({ mensaje = "" } = {}) {
+    mensajeCarritoConfirmacion = mensaje;
+    dibujarCarrito();
+    modalCarritoUI.style.display = "flex";
+}
+
+// Cierra el carrito sin tocar carrito, cantidades ni vista actual.
+function cerrarCarrito() {
+    mensajeCarritoConfirmacion = "";
+    modalCarritoUI.style.display = "none";
 }
 
 // 6. DIBUJAR LISTADO DENTRO DE LA VENTANA EMERGENTE (CON INTERACTIVIDAD EN + Y -)
 function dibujarCarrito() {
+    mensajeCarritoUI.textContent = mensajeCarritoConfirmacion;
+    mensajeCarritoUI.style.display = mensajeCarritoConfirmacion ? "block" : "none";
     listaProductosCarritoUI.innerHTML = "";
     let sumaTotal = 0;
 
@@ -623,21 +645,24 @@ txtBuscarUI.addEventListener("input", (evento) => {
 // Evento para abrir la ventana del carrito
 btnVerCarritoUI.addEventListener("click", () => {
     if (carrito.length>0){
-        dibujarCarrito(); // Construye los renglones antes de abrir
-        modalCarritoUI.style.display = "flex";
+        abrirCarrito(); // Apertura manual: sin confirmacion
     }else{
         alert('No existe articulos en el carrito')
-    }    
+    }
 });
 
 // Eventos para cerrar la ventana del carrito
 btnCerrarModalUI.addEventListener("click", () => {
-    modalCarritoUI.style.display = "none";
+    cerrarCarrito();
+});
+
+btnSeguirComprandoUI.addEventListener("click", () => {
+    cerrarCarrito();
 });
 
 window.addEventListener("click", (evento) => {
     if (evento.target === modalCarritoUI) {
-        modalCarritoUI.style.display = "none";
+        cerrarCarrito();
     }
 });
 
@@ -711,7 +736,7 @@ formPedidoUI.addEventListener("submit", async (evento) => {
             carrito = [];                           // Vaciamos la canasta en memoria
             contadorCarritoUI.textContent = 0;      // Regresamos la burbuja roja a cero
             formPedidoUI.reset();                   // Limpiamos las cajas de texto del cliente
-            modalCarritoUI.style.display = "none";  // Cerramos la ventana flotante
+            cerrarCarrito();                        // Cerramos la ventana flotante
 
         } else {
             const datosError = await respuestaServer.json();

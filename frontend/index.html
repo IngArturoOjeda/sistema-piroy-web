@@ -154,7 +154,10 @@
                 
                 <h2>🛒 Resumen de tu Pedido</h2>
                 <hr>
-                
+
+                <!-- Confirmacion visible tras agregar un producto (se oculta si no hay mensaje) -->
+                <div id="mensaje-carrito" class="mensaje-carrito-confirmacion" style="display: none;"></div>
+
                 <!-- Aquí JavaScript listará los productos agregados -->
                 <ul id="lista-productos-carrito" class="lista-carrito-emergente">
                     <!-- Se llenará con JS -->
@@ -164,6 +167,10 @@
                 <div class="total-pedido">
                     <h3>Total a Pagar: <span id="total-carrito">PYG 0</span></h3>
                 </div>
+
+                <button type="button" id="btn-seguir-comprando" class="btn-seguir-comprando">
+                    ← Seguir comprando
+                </button>
 
                 <hr>
 
