@@ -22,6 +22,25 @@ DESCRIPCIONES_UNIDAD_NORMAL = {
     "UNIDAD": "Por unidad",
 }
 
+# Disponibilidad de un kit = minimo, entre sus componentes, de stock / art_cantidad.
+# Requiere el alias "a" para el articulo y "kit" para la subconsulta resultante.
+SQL_STOCK_KIT_LATERAL = """
+    LEFT JOIN LATERAL (
+        SELECT GREATEST(
+            MIN(
+                CASE
+                    WHEN ak.art_cantidad <= 0 THEN 0
+                    ELSE FLOOR(COALESCE(sc.cantidad, 0) / ak.art_cantidad)
+                END
+            ),
+            0
+        ) AS stock_disponible
+        FROM articulos_kit ak
+        LEFT JOIN stock sc ON sc.art_cod = ak.art_cod
+        WHERE ak.art_codkit = a.art_cod
+    ) kit ON a.art_kit = TRUE
+"""
+
 
 def url_imagen_articulo(foto):
     if not foto or not foto.strip():
@@ -45,6 +64,20 @@ def url_imagen_articulo(foto):
         return IMAGEN_SIN_FOTO
 
     return f"/{parte_relativa}"
+
+
+def formatear_articulo_catalogo(fila):
+    art_cod, nombre, precio, tipo, foto, stock_disponible, unidad_venta, fraccionable = fila
+    return {
+        "id": art_cod,
+        "nombre": nombre,
+        "precio": int(precio),
+        "tipo": tipo,
+        "imagen": url_imagen_articulo(foto),
+        "stock_disponible": float(stock_disponible),
+        "unidad_venta": unidad_venta,
+        "fraccionable": bool(fraccionable)
+    }
 
 
 @router.get("/")
@@ -123,20 +156,7 @@ def trae_articulos(
             INNER JOIN tipo_articulo t ON a.tipoart_cod = t.tipoart_cod
             LEFT JOIN stock s ON s.art_cod = a.art_cod
             LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
-            LEFT JOIN LATERAL (
-                SELECT GREATEST(
-                    MIN(
-                        CASE
-                            WHEN ak.art_cantidad <= 0 THEN 0
-                            ELSE FLOOR(COALESCE(sc.cantidad, 0) / ak.art_cantidad)
-                        END
-                    ),
-                    0
-                ) AS stock_disponible
-                FROM articulos_kit ak
-                LEFT JOIN stock sc ON sc.art_cod = ak.art_cod
-                WHERE ak.art_codkit = a.art_cod
-            ) kit ON a.art_kit = TRUE
+            {SQL_STOCK_KIT_LATERAL}
             WHERE a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
@@ -147,24 +167,9 @@ def trae_articulos(
             LIMIT %s OFFSET %s
         """
         cursor.execute(sql, parametros)
-            
-        articulos = cursor.fetchall()
-        if not articulos:
-            return []
 
-        lista_articulos = []
-        for art_cod, nombre, precio, tipo, foto, stock_disponible, unidad_venta, fraccionable in articulos:
-            lista_articulos.append({
-                "id": art_cod,
-                "nombre": nombre,
-                "precio": int(precio),
-                "tipo": tipo,
-                "imagen": url_imagen_articulo(foto),
-                "stock_disponible": float(stock_disponible),
-                "unidad_venta": unidad_venta,
-                "fraccionable": bool(fraccionable)
-            })
-        return lista_articulos
+        articulos = cursor.fetchall()
+        return [formatear_articulo_catalogo(fila) for fila in articulos]
 
     except HTTPException:
         raise
@@ -251,6 +256,56 @@ def trae_presentaciones(
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al obtener presentaciones")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@router.get("/combos")
+def trae_combos(
+    pagina: int = Query(1, description="Número de página (empieza en 1)"),
+    limite: int = Query(30, description="Cantidad de productos por lote"),
+):
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        registros_a_saltear = (pagina - 1) * limite
+
+        sql = f"""
+            SELECT
+                a.art_cod, a.art_nombre, a.art_preciobase, t.tipoart_desc, a.art_foto,
+                CASE
+                    WHEN a.art_kit THEN COALESCE(kit.stock_disponible, 0)
+                    ELSE COALESCE(s.cantidad, 0)
+                END AS stock_disponible,
+                um.uni_nombre AS unidad_venta,
+                COALESCE(um.fraccionable, FALSE) AS fraccionable
+            FROM articulos a
+            INNER JOIN tipo_articulo t ON a.tipoart_cod = t.tipoart_cod
+            LEFT JOIN stock s ON s.art_cod = a.art_cod
+            LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
+            {SQL_STOCK_KIT_LATERAL}
+            WHERE a.art_estado = 'S'
+              AND a.llevar_web = TRUE
+              AND a.mostrar_web = TRUE
+              AND a.art_kit = TRUE
+              AND a.tipo_kit = 'COMBO'
+            ORDER BY a.art_cod
+            LIMIT %s OFFSET %s
+        """
+        cursor.execute(sql, (limite, registros_a_saltear))
+        return [formatear_articulo_catalogo(fila) for fila in cursor.fetchall()]
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al obtener combos")
     finally:
         if cursor:
             cursor.close()
