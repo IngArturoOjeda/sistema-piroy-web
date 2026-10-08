@@ -1,9 +1,27 @@
 // 1. CAPTURA DE ELEMENTOS DE LA PANTALLA (UI)
 const listaCategoriasUI = document.getElementById("lista-categorias");
+const menuLateralUI = document.getElementById("menu-lateral");
+const btnToggleCategoriasUI = document.getElementById("btn-toggle-categorias");
+
+// Celular: abre o cierra el desplegable de categorías
+if (btnToggleCategoriasUI && menuLateralUI) {
+    btnToggleCategoriasUI.addEventListener("click", () => {
+        const abierto = menuLateralUI.classList.toggle("abierto");
+        btnToggleCategoriasUI.setAttribute("aria-expanded", String(abierto));
+    });
+}
+
+// Lleva la vista al inicio de una sección (catálogo, promos o combos)
+function irAlInicioDeLaVista(elemento) {
+    if (elemento && typeof elemento.scrollIntoView === "function") {
+        elemento.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+}
 const contenedorCardsUI = document.getElementById("contenedor-cards");
 const txtBuscarUI = document.getElementById("txt-buscar"); 
 const contadorCarritoUI = document.getElementById("contador-carrito"); 
 const vistaCatalogoUI = document.getElementById("vista-catalogo");
+const tituloCatalogoUI = document.getElementById("titulo-catalogo");
 const vistaPromocionesUI = document.getElementById("vista-promociones");
 const contenedorCardsPromosUI = document.getElementById("contenedor-cards-promos");
 const btnVerPromosUI = document.getElementById("btn-ver-promos");
@@ -153,7 +171,20 @@ function dibujarCategorias(listacategorias) {
 
             const todosLosBotones = document.querySelectorAll(".btn-categoria");
             todosLosBotones.forEach(btn => btn.classList.remove("activo"));
-            boton.classList.add("activo");  
+            boton.classList.add("activo");
+
+            // Celular: el desplegable se cierra y el botón muestra la categoría elegida
+            if (menuLateralUI && btnToggleCategoriasUI) {
+                menuLateralUI.classList.remove("abierto");
+                btnToggleCategoriasUI.setAttribute("aria-expanded", "false");
+                btnToggleCategoriasUI.textContent = `Categorías: ${categoria.nombre} ▾`;
+            }
+
+            // Subimos a la grilla para ver los artículos de la categoría desde el inicio
+            // El título de la sección muestra la categoría elegida
+            tituloCatalogoUI.textContent = categoria.nombre === "Todos" ? "Nuestros Artículos" : categoria.nombre;
+
+            irAlInicioDeLaVista(document.getElementById("vista-catalogo"));
 
             // 🌟 PASO A: Guardamos la categoría seleccionada
             categoriaSeleccionadaActual = categoria.nombre;
@@ -353,6 +384,13 @@ function cantidadItemValida(item) {
     return true;
 }
 
+// Etiqueta de unidad de venta para la tarjeta del catalogo (solo texto visual, no afecta la venta)
+const ETIQUETAS_UNIDAD_VENTA = { KG: "Por KG", LITROS: "Por litro", METROS: "Por metro" };
+function etiquetaUnidadVenta(articulo) {
+    if (!articulo.unidad_venta || articulo.unidad_venta === "UNIDAD") return null;
+    return ETIQUETAS_UNIDAD_VENTA[articulo.unidad_venta] || `Por ${articulo.unidad_venta}`;
+}
+
 // 4. DIBUJAR TARJETAS DE PRODUCTOS
 function dibujarArticulos(listaArticulos, contenedor = contenedorCardsUI) {
     contenedor.innerHTML = "";
@@ -377,13 +415,22 @@ function dibujarArticulos(listaArticulos, contenedor = contenedorCardsUI) {
         let textoBoton = "🛒 AGREGAR AL CARRITO ";
         if (sinStock) textoBoton = "Sin stock";
 
+        const etiquetaUnidad = etiquetaUnidadVenta(articulo);
+
         divCard.innerHTML = `
-            <img src="${articulo.imagen}" alt="${articulo.nombre}">
-            <h3>${articulo.nombre}</h3>
-            <p class="precio">PYG ${articulo.precio.toLocaleString('es-ES', { maximumFractionDigits: 0 })}</p>
-            <p class="stock-info ${sinStock ? 'agotado' : 'disponible'}">
-                ${sinStock ? 'Sin stock' : `Stock disponible: ${esUnidadWebEntera(articulo) ? maximoVendibleWeb(articulo) : articulo.stock_disponible}`}
-            </p>
+            <div class="imagen-producto">
+                <img src="${articulo.imagen}" alt="${articulo.nombre}" loading="lazy">
+            </div>
+            <div class="info-producto">
+                <h3>${articulo.nombre}</h3>
+                <p class="precio"><span class="precio-moneda">PYG</span> ${articulo.precio.toLocaleString('es-ES', { maximumFractionDigits: 0 })}</p>
+                <div class="etiquetas-producto">
+                    <span class="stock-info ${sinStock ? 'agotado' : 'disponible'}">
+                        ${sinStock ? 'Sin stock' : `Stock: ${esUnidadWebEntera(articulo) ? maximoVendibleWeb(articulo) : articulo.stock_disponible}`}
+                    </span>
+                    ${etiquetaUnidad ? `<span class="unidad-producto">${etiquetaUnidad}</span>` : ''}
+                </div>
+            </div>
             <button class="btn-comprar" ${bloqueado ? "disabled" : ""}>${textoBoton}</button>
         `;
 
@@ -703,11 +750,29 @@ async function cargarPromocionesDeLaAPI() {
 
 // Evento para la barra de búsqueda por texto
 txtBuscarUI.addEventListener("input", (evento) => {
+    // Si el cliente estaba en Promos o Combos, la búsqueda vuelve al catálogo para mostrar resultados
+    if (vistaActual !== "CATALOGO") {
+        vistaCatalogoUI.style.display = "block";
+        vistaPromocionesUI.style.display = "none";
+        vistaCombosUI.style.display = "none";
+        vistaActual = "CATALOGO";
+        btnVerPromosUI.innerHTML = "🔥 Ver Promos";
+    }
+
     const textoUsuario = evento.target.value.toLowerCase();
     const articulosFiltrados = articulosGlobales.filter(articulo => {
         return articulo.nombre.toLowerCase().includes(textoUsuario);
     });
     dibujarArticulos(articulosFiltrados);
+});
+
+// Enter en la búsqueda: cierra el teclado (celular) y sube a los resultados
+txtBuscarUI.addEventListener("keydown", (evento) => {
+    if (evento.key === "Enter") {
+        evento.preventDefault();
+        txtBuscarUI.blur();
+        irAlInicioDeLaVista(vistaCatalogoUI);
+    }
 });
 
 // Evento para abrir la ventana del carrito
@@ -921,7 +986,8 @@ btnVerPromosUI.addEventListener("click", async () => {
         vistaCombosUI.style.display = "none";
         vistaActual = "PROMOCIONES";
         btnVerPromosUI.innerHTML = "⬅️ Ver Catálogo"; // Cambia el texto del botón temporalmente
-        
+        irAlInicioDeLaVista(vistaPromocionesUI);
+
         // Cambiamos la URL estéticamente a nivel profesional sin recargar el navegador
         window.history.pushState({}, "", "/promos");
         
@@ -935,7 +1001,8 @@ btnVerPromosUI.addEventListener("click", async () => {
         vistaCatalogoUI.style.display = "block";
         vistaActual = "CATALOGO";
         btnVerPromosUI.innerHTML = "🔥 Ver Promos"; // Restablece el texto original del botón
-        
+        irAlInicioDeLaVista(vistaCatalogoUI);
+
         // Regresamos la URL al inicio estéticamente
         window.history.pushState({}, "", "/");
     }
@@ -974,6 +1041,7 @@ btnVerCombosUI.addEventListener("click", () => {
     vistaActual = "COMBOS";
     window.history.pushState({}, "", "/combos");
     dibujarArticulos(combosGlobales, contenedorCardsCombosUI);
+    irAlInicioDeLaVista(vistaCombosUI);
 });
 
 btnMasCombosUI.addEventListener("click", async () => {

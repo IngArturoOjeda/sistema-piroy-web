@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8"></meta>
     <meta name="viewport" content="width=device-width initial-scale=1.0">
-    <title>Rancho Piro'y - Bienvenidos</title>
+    <title>AGRO-VETZO - Agroveterinaria</title>
     <!-- 🌟 ESTA ES LA LÍNEA MÁGICA PARA EL ICONO DE LA PESTAÑA -->
     <link rel="icon" type="image/png" href="/frontend/assets/images/favicon.png">
     <link rel="stylesheet" href="/frontend/css/styles.css">
@@ -12,9 +12,9 @@
         <header>
             <!-- Colocamos la fila de navegación ADENTRO del header -->
             <div class="fila-navegacion">
-                <!-- 1. El Logo de la Ferretería -->
+                <!-- 1. Logo de AGRO-VETZO -->
                   <div class="contenedor-logo">
-                    <img src="/frontend/assets/images/logo-vete.jpg" alt="Logo Ferretería"  class="logo-busqueda">
+                    <img src="/frontend/assets/images/logo-vete.jpg" alt="AGRO-VETZO Agroveterinaria" class="logo-busqueda">
                   </div>
             
                     <!-- Barra de búsqueda mejorada y más grande -->
@@ -84,17 +84,14 @@
             </div>
         </div>
 
-        <!-- Mantenemos el título de tus artículos pero estilizado -->
-        <div class="sub-cabecera">
-            <h2>Nuestros Artículos</h2>
-        </div>
-
-
         <div class="contenedor-principal">
 
             <!-- Menú Lateral de Categorías -->
-             <aside class="menu-lateral">
+             <aside class="menu-lateral" id="menu-lateral">
                 <h2>Categorias</h2>
+                <button type="button" id="btn-toggle-categorias" class="btn-toggle-categorias" aria-expanded="false" aria-controls="lista-categorias">
+                    Categorías: Todos ▾
+                </button>
                 <ul id="lista-categorias">
                     <!-- JS cargará las categorías aquí adentro -->
                 </ul>
@@ -102,7 +99,10 @@
             
             <!-- Sección Principal de Productos -->
              <main class="contenido-productos" id="vista-catalogo">
-                
+
+                <!-- Título de la sección: cambia al nombre de la categoría elegida -->
+                <h2 class="titulo-seccion" id="titulo-catalogo">Nuestros Artículos</h2>
+
                 <div id="contenedor-cards" class="cuadricula-productos">
                     <!-- JS cargará las "cards" de los productos aquí adentro -->
                 </div>

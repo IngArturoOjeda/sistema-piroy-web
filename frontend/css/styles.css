@@ -1,3 +1,16 @@
+/* 0. Paleta de marca (tomada del logo AGRO-VETZO) */
+:root {
+    --marron: #603000;            /* marrón del logo: cabecera y títulos */
+    --verde: #3C9C18;             /* verde del logo: acentos */
+    --verde-accion: #2E7A12;      /* verde oscurecido para botones con texto blanco (contraste AA) */
+    --verde-accion-hover: #24620E;
+    --verde-claro: #6CC03C;       /* verde claro del logo: destacados, con texto marrón */
+    --verde-suave: #EAF5E0;       /* fondo suave para hover y estados */
+    --fondo: #FAF7F2;             /* crema neutro para el cuerpo de la página */
+    --texto: #2B1A0A;             /* marrón muy oscuro para texto corrido */
+    --gris-borde: #e0e0e0;
+}
+
 /* 1. Configuración General (Reset) */
 * {
     margin: 0;
@@ -7,14 +20,15 @@
 }
 
 body {
-    background-color: white; /*#f4f6f9*/
-    color: #333;
+    background-color: var(--fondo);
+    color: var(--texto);
 }
 
 /* 2. Cabecera */
 header {
-    background-color: white; /* #2c3e50 Un color azul oscuro profesional */
+    background-color: var(--marron);
     color: white;
+    border-bottom: 4px solid var(--verde-claro);
     padding: 5px 0;
     text-align: center;
     width: 100%;
@@ -32,12 +46,23 @@ header {
     background-color: white; /*#ffffff*/
     padding: 20px;
     border-right: 1px solid #e0e0e0;
+    /* En escritorio queda fijo mientras se baja por el catálogo */
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    max-height: 100vh;
+    overflow-y: auto;
+}
+
+/* Botón de categorías: solo se ve en celular (ver @media más abajo) */
+.btn-toggle-categorias {
+    display: none;
 }
 
 .menu-lateral h2 {
     font-size: 1.2rem;
     margin-bottom: 15px;
-    color: #2c3e50;
+    color: var(--marron);
 }
 
 .menu-lateral ul {
@@ -48,6 +73,168 @@ header {
 .contenido-productos {
     flex: 1; /* Ocupa todo el espacio restante a la derecha */
     padding: 20px;
+    /* Al elegir categoría, la vista se alinea al inicio de la grilla (ver main.js) */
+    scroll-margin-top: 16px;
+}
+
+/* Celular: el menú pasa a ser un desplegable arriba del catálogo */
+@media (max-width: 768px) {
+    .contenedor-principal {
+        flex-direction: column;
+    }
+
+    .menu-lateral {
+        width: auto;
+        position: static;
+        max-height: none;
+        overflow: visible;
+        border-right: none;
+        border-bottom: 1px solid #e0e0e0;
+        padding: 12px 16px;
+    }
+
+    .menu-lateral h2 {
+        display: none;
+    }
+
+    .btn-toggle-categorias {
+        display: block;
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 1rem;
+        font-weight: bold;
+        text-align: left;
+        background-color: var(--verde-accion);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+    /* La lista queda oculta hasta que el botón la despliega */
+    .menu-lateral ul {
+        display: none;
+        max-height: 60vh;
+        overflow-y: auto;
+        margin-top: 8px;
+    }
+
+    .menu-lateral.abierto ul {
+        display: block;
+    }
+}
+
+/* Celular: la cabecera se reparte en filas para que nada quede fuera de la pantalla.
+   Fila 1: logo + Carrito. Fila 2: buscador completo. Fila 3: Promos y Combos. */
+@media (max-width: 768px) {
+    /* Recorta lo que sobresalga por los costados (los botones animados escalan y rotan).
+       Sin esto, la pagina se puede arrastrar hacia la derecha. */
+    html,
+    body {
+        overflow-x: hidden; /* respaldo para navegadores antiguos */
+        overflow-x: clip;
+    }
+
+    .fila-navegacion {
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 0 10px;
+    }
+
+    .contenedor-logo {
+        order: 1;
+        flex: 1 1 auto;      /* ocupa el ancho libre al costado del carrito */
+        min-width: 0;
+        padding: 6px 10px;
+    }
+
+    .logo-busqueda {
+        width: 100%;         /* se estira a lo ancho; object-fit mantiene la proporcion */
+        height: 96px;
+    }
+
+    .btn-carrito-cabecera {
+        order: 2;
+        flex: 0 0 auto;
+        margin-left: auto;   /* Carrito queda a la derecha del logo, en la misma fila */
+        padding: 8px 12px;
+        font-size: 0.95rem;
+    }
+
+    .contenedor-busqueda {
+        order: 3;
+        flex: 1 1 100%;
+        width: 100%;
+        max-width: none;
+    }
+
+    .btn-promos-cabecera {
+        order: 4;
+        flex: 1 1 calc(50% - 4px);
+        justify-content: center;
+        padding: 8px 10px;
+        font-size: 0.95rem;
+    }
+
+    #btn-ver-combos {
+        order: 5;
+        flex: 1 1 calc(50% - 4px);
+        justify-content: center;
+        padding: 8px 10px;
+        font-size: 0.95rem;
+    }
+
+    .contador-burbuja {
+        top: -8px;
+        right: -8px;
+    }
+
+    /* Promos y Combos en celular: solo latido, sin el giro de escritorio */
+    .btn-promos-cabecera {
+        animation: latidoSuave 1.5s infinite ease-in-out;
+    }
+
+    /* Carrito en celular: el renglon se parte en dos filas para que el tacho
+       de basura y el precio no queden fuera de la pantalla. */
+    .modal-contenido {
+        width: 94%;
+        padding: 20px 16px;
+    }
+
+    .renglon-carrito {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .carrito-bloque-izq {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    .carrito-detalles h4 {
+        overflow-wrap: anywhere;
+    }
+
+    .carrito-bloque-der {
+        flex: 1 1 100%;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .precio-renglon {
+        min-width: 0;
+    }
+}
+
+/* Latido suave: solo escala, sin girar (usado en celular para Promos y Combos) */
+@keyframes latidoSuave {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.06);
+    }
 }
 
 .contenido-productos h2 {
@@ -65,47 +252,102 @@ header {
 
 /* 7. Diseño de las CARDS (Los cuadritos) */
 .card-producto {
-    background-color: rgb(255,255,255);
-    border-radius: 8px; /* Bordes redondeados */
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Sombrita suave */
-    padding: 15px;
-    text-align: center;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    transition: box-shadow 0.2s, transform 0.2s;
 }
 
-.card-producto img {
-    max-width: 100%;
-    height: 150px;
-    object-fit: contain; /* Evita que la foto del producto se deforme */
-    margin-bottom: 15px;
+.card-producto:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+/* Marco cuadrado: todas las imagenes ocupan la misma proporcion, sin deformarse */
+.imagen-producto {
+    aspect-ratio: 1 / 1;
+    background-color: var(--fondo);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.imagen-producto img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 12px;
+}
+
+.info-producto {
+    padding: 12px 15px 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .card-producto h3 {
-    font-size: 1.1rem;
-    margin-bottom: 10px;
-    color: #333;
+    font-size: 1rem;
+    line-height: 1.3;
+    color: var(--texto);
+    margin-bottom: 8px;
+    font-weight: 600;
+    /* Tope de 2 lineas: un nombre largo termina en "…" en vez de estirar la tarjeta */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 2.6em;
 }
 
 .card-producto .precio {
-    font-size: 1.2rem;
-    font-weight: bold;
-    color: #e67e22; /* Color naranja llamativo para el precio */
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--marron);
+    margin-bottom: 8px;
+}
+
+.precio-moneda {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #8a7a6a;
+}
+
+.etiquetas-producto {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
 }
 
 .card-producto .stock-info {
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     font-weight: 600;
-    margin-bottom: 10px;
+    padding: 3px 8px;
+    border-radius: 12px;
 }
 
 .card-producto .stock-info.disponible {
-    color: #16a34a;
+    color: var(--verde-accion);
+    background-color: var(--verde-suave);
 }
 
 .card-producto .stock-info.agotado {
-    color: #dc2626;
+    color: #B91C1C;
+    background-color: #FDE8E8;
+}
+
+.unidad-producto {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6B5B4D;
+    background-color: #F3EDE6;
+    padding: 3px 8px;
+    border-radius: 12px;
 }
 
 .pendiente-cantidad {
@@ -285,41 +527,41 @@ header {
 
 /* Efecto cuando pasas el mouse por arriba */
 .btn-categoria:hover {
-    background-color: #e2e8f0;
-    color: #2c3e50;
+    background-color: var(--verde-suave);
+    color: var(--marron);
     font-weight: bold;
 }
 
 /*Estilo para el botón de la categoría que está actualmente seleccionada */
 .btn-categoria.activo {
-    background-color: #2c3e50; /* El mismo azul oscuro de la cabecera */
-    color: white;              /* Letras blancas para que contraste */
+    background-color: var(--verde-accion); /* Verde de marca: indica la categoria elegida */
+    color: white;                          /* Letras blancas para que contraste */
     font-weight: bold;         /* Letras en negrita */
 }
 
 /* 🌟 NUEVO ESTILO EN AZUL OSCURO E IMPONENTE */
 .btn-comprar {
-    background-color: #6e3106dc; /* Azul marino intenso e institucional como tu imagen */
+    background-color: var(--verde-accion);
     color: white;
     border: none;
     width: 100%;               /* Hace que ocupe todo el ancho de la tarjeta */
-    height: 50px;              /* 🌟 Le da una altura más grande y cómoda para hacer clic */
+    height: 48px;
     margin-top: 15px;
-    border-radius: 4px;        /* Bordes sutiles iguales a los de tu captura */
-    font-size: 1rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
     font-weight: bold;         /* Letras en negrita */
-    letter-spacing: 0.5px;     /* Separa un milímetro las letras para mayor elegancia */
+    letter-spacing: 0.3px;
     cursor: pointer;
     display: flex;
     align-items: center;       /* Centra verticalmente el texto y el carrito */
     justify-content: center;    /* Centra horizontalmente todo el contenido */
-    gap: 10px;                 /* Deja una linda separación fija entre el carrito y las letras */
+    gap: 8px;
     transition: background-color 0.2s, transform 0.1s;
 }
 
 /* Efecto cuando el usuario pasa el mouse por arriba */
 .btn-comprar:hover {
-    background-color: #41250b; /* Un azul todavía un poco más oscuro al pasar el cursor */
+    background-color: var(--verde-accion-hover);
 }
 
 /* Efecto opcional de feedback táctil cuando el usuario hace clic */
@@ -327,10 +569,21 @@ header {
     transform: scale(0.98);    /* Achica un milímetro el botón simulando que se hunde */
 }
 
+.btn-comprar:focus-visible {
+    outline: 3px solid var(--marron);
+    outline-offset: -3px;
+}
+
 .btn-comprar:disabled {
     background-color: #94a3b8;
     cursor: not-allowed;
     transform: none;
+}
+
+/* Dentro de la tarjeta: pegado al fondo, con esquinas que acompañan a la tarjeta */
+.card-producto .btn-comprar {
+    margin-top: auto;
+    border-radius: 0 0 10px 10px;
 }
 
 .btn-cantidad-mas:disabled {
@@ -374,14 +627,21 @@ header {
     position: absolute;
     right: 20px;
     font-size: 1.3rem;
-    color: #1e3a8a; /* Un tono azul oscuro para la lupa */
+    color: var(--verde-accion); /* Lupa en verde de marca */
     pointer-events: none; /* Hace que si haces clic en la lupa, el clic pase directo al input */
 }
 
 /* Efecto visual cuando el usuario está escribiendo */
 .caja-buscar-wrapper:focus-within {
-    border-color: #1e3a8a;
-    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.1);
+    border-color: var(--verde-accion);
+    box-shadow: 0 4px 12px rgba(60, 156, 24, 0.15);
+}
+
+/* El logo tiene fondo blanco: se presenta como una placa sobre la cabecera marrón */
+.contenedor-logo {
+    background-color: white;
+    border-radius: 12px;
+    padding: 6px 10px;
 }
 
 /* Controla el tamaño del logo al costado de la búsqueda */
@@ -411,17 +671,12 @@ header {
     gap: 15px;                 /* Separa el logo de la barra de búsqueda */
 }
 
-.sub-cabecera{
-    background-color: #20aa1cb5;
-    color: white;
-    padding: 0 250px;
-}
 
 /* Estilo base para el botón del carrito en la barra de navegación */
 .btn-carrito-cabecera {
     background-color: #ffffff;
-    color: #000c66;             /* El mismo azul corporativo de tus botones */
-    border: 2px solid #000c66;
+    color: var(--marron);
+    border: 2px solid var(--marron);
     padding: 10px 20px;
     font-size: 1rem;
     font-weight: bold;
@@ -436,7 +691,8 @@ header {
 
 /* Efecto Hover */
 .btn-carrito-cabecera:hover {
-    background-color: #000c66;
+    background-color: var(--verde-accion);
+    border-color: var(--verde-accion);
     color: #ffffff;
 }
 
@@ -868,18 +1124,19 @@ header {
     }
 }
 
-/* Corrección menor para tu sub-cabecera anterior */
-.sub-cabecera {
-    background-color: #20aa1cb5;
-    color: white;
-    padding: 15px 20px;
-    text-align: center;
+/* Título de la sección de artículos (con la paleta de marca) */
+.titulo-seccion {
+    color: var(--marron);
+    font-size: 1.5rem;
+    border-left: 6px solid var(--verde-claro);
+    padding-left: 12px;
+    margin-bottom: 16px;
 }
 
 /* 🔥 ESTILOS PARA EL BOTÓN DE PROMOCIONES ANIMADO */
 .btn-promos-cabecera {
-    background-color: #e74c3c; /* Rojo llamativo */
-    color: white;
+    background-color: var(--verde-claro);
+    color: var(--marron);
     border: none;
     padding: 10px 20px;
     font-size: 1rem;
@@ -897,7 +1154,7 @@ header {
 
 /* Efecto al pasar el mouse por encima */
 .btn-promos-cabecera:hover {
-    background-color: #c0392b; /* Rojo más oscuro */
+    background-color: #5AAE2E; /* verde claro un tono más oscuro */
 }
 
 /* 🔬 REGLA DE ANIMACIÓN: CRECE, VIBRA, ACHICA Y VUELVE A EMPEZAR */
