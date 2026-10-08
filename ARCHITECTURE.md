@@ -430,7 +430,7 @@ No debe reemplazar VFP ni administrar directamente SQL Server.
 
 ## Modelo de artículos compuestos: PRESENTACION vs COMBO
 
-Decisión de modelo de dominio, **estable**. El campo `tipo_kit` ya existe como columna en SQL Server (`ARTICULOS.TIPO_KIT`) y en PostgreSQL (`articulos.tipo_kit`, con `CHECK` propio), y la sincronización de artículos ya lo propaga de punta a punta (`sincronizador.py` → `POST /api/sync/articulos` → `articulos.tipo_kit`). Lo que todavía **no** está implementado es la distinción entre `PRESENTACION` y `COMBO` en los endpoints de catálogo (`/api/articulos/presentaciones`, `GET /api/articulos?presentacion=`) ni en el frontend — ver `ROADMAP.md`, Fase 16.
+Decisión de modelo de dominio, **estable**. El campo `tipo_kit` ya existe como columna en SQL Server (`ARTICULOS.TIPO_KIT`) y en PostgreSQL (`articulos.tipo_kit`, con `CHECK` propio), y la sincronización de artículos ya lo propaga de punta a punta (`sincronizador.py` → `POST /api/sync/articulos` → `articulos.tipo_kit`). La distinción ya está implementada en los endpoints y en el frontend: `GET /api/articulos` excluye `COMBO` en todos sus modos (`AND a.tipo_kit IS DISTINCT FROM 'COMBO'`, commit `0306ffe`), `GET /api/articulos/presentaciones` y `presentacion=KIT` trabajan solo con `PRESENTACION`, y `GET /api/articulos/combos` devuelve solo `COMBO`. Lo pendiente (clasificación de kits reales y resincronización) está en `ROADMAP.md`, Fase 16.
 
 ### Problema detectado
 
@@ -487,7 +487,7 @@ tipo_articulo = KIT, art_kit = true, tipo_kit = COMBO
 componentes de categorías distintas (ej. PROYECTILES, INFLABLES, ...)
 ```
 
-### Comportamiento futuro del catálogo
+### Comportamiento del catálogo
 
 - Si una categoría tiene artículos normales (una sola unidad) **y** presentaciones (`tipo_kit = PRESENTACION`) relacionadas: mostrar selector, ej. `[Por KG] [Presentaciones]`.
 - Si una categoría solo tiene artículos normales con una única unidad: no mostrar selector, cargar directo (ej. MERCERIAS / UNIDAD).
@@ -500,6 +500,35 @@ Se detectaron artículos normales con `uni_cod_ven` mal configurado (ej. artícu
 ### Stock y pedidos
 
 Hasta que se confirme una regla distinta, tanto `PRESENTACION` como `COMBO` siguen calculando disponibilidad física a partir de sus componentes (`articulos_kit` + `stock`), igual que hoy. `confirmar_pedido()` puede seguir tratando ambos como `art_kit = true` para el cálculo de consumo físico agregado — no se identificó, por ahora, una necesidad de distinguir `PRESENTACION` de `COMBO` en esa validación.
+
+## Frontend: diseño responsivo y marca
+
+El frontend (`frontend/index.html`, `frontend/css/styles.css`, `frontend/js/main.js`) está pensado **móvil primero**, porque la mayoría de los clientes compra desde el celular.
+
+- **Paleta de marca**: tokens en `:root` (`--marron`, `--verde-accion`, `--verde-claro`, `--fondo`, `--texto`), tomados del logo `frontend/assets/images/logo-vete.jpg`. El verde del logo tal cual no alcanza contraste AA con texto blanco, por eso los botones usan `--verde-accion`.
+- **Categorías**: en celular (≤ 768 px), un botón "Categorías: <actual> ▾" despliega la lista. En escritorio, el panel es `sticky`. Al elegir categoría se sube a la sección de artículos (`irAlInicioDeLaVista`), y el título de la sección muestra el nombre de la categoría.
+- **Cabecera**: en escritorio, una fila con logo, buscador, Promos, Combos y Carrito. En celular, tres filas: logo + Carrito, buscador completo, y Promos + Combos.
+- **Búsqueda**: al escribir, si la vista activa no es el catálogo, vuelve a él. Enter cierra el teclado y sube a los resultados.
+- **Carrito en celular**: cada renglón se parte en dos filas para que el tacho de basura quede dentro de la pantalla.
+- **Desplazamiento horizontal**: en celular, `overflow-x: clip` (con `hidden` como respaldo) evita arrastrar la página hacia los costados.
+- **Promos y Combos**: en celular, latido suave (`latidoSuave`, solo escala). En escritorio, el latido con giro (`latidoVibratorio`).
+- **Lógica sin cambios**: el rediseño no toca carrito, stock, presentaciones, combos ni paginación. Los IDs que usan las pruebas de frontend se conservaron.
+
+Pendiente: tarjetas, selector de presentaciones y modales (Etapa 3 de `ROADMAP.md`, Fase 17).
+
+## Pruebas
+
+- `tests/unit/`: mock puro de `confirmar_pedido()`, unidades enteras y catálogo de combos. No se conecta a ninguna base: `tests/conftest.py` bloquea `psycopg.connect` en esos tests.
+- `tests/integracion_lectura/`: requiere el servidor local y `DATABASE_URL`. Solo `SELECT` y `GET`, con conexión de solo lectura (`conn.read_only = True`). No escribe nada en PostgreSQL.
+- Ejecución desde la raíz del proyecto, con `pytest` instalado desde `requirements-dev.txt`:
+
+```text
+.venv\Scripts\python.exe -m pytest tests/unit
+.venv\Scripts\python.exe -m pytest tests/integracion_lectura   (con el servidor levantado en 127.0.0.1:8000)
+```
+
+- Las credenciales salen del entorno (`.env`, ignorado por Git). Ningún test versionado contiene secretos ni rutas absolutas.
+- Las pruebas de frontend (jsdom) todavía no están en el repo.
 
 ## Seguridad
 

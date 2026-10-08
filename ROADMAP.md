@@ -246,7 +246,7 @@ Pendiente:
 - backups/plan persistente para producción.
 
 ## Fase 16 — Modelo PRESENTACION / COMBO (`tipo_kit`)
-Estado: PARCIALMENTE COMPLETADA
+Estado: PARCIALMENTE COMPLETADA (pendientes: pasos 1, 3, 6 y la verificación visual del paso 10)
 
 Decisión de modelo ya documentada en `ARCHITECTURE.md` ("Modelo de artículos compuestos: PRESENTACION vs COMBO"). La limpieza de datos maestros en SQL Server la realiza el usuario manualmente.
 
@@ -257,10 +257,30 @@ Orden recomendado:
 4. agregar `tipo_kit` en PostgreSQL — COMPLETADO (`articulos.tipo_kit` con `CHECK`);
 5. adaptar la sincronización (`CAMBIOS_ARTICULOS`, payload, schema Pydantic, `POST /api/sync/articulos`) — COMPLETADO;
 6. resincronizar y verificar los datos — PENDIENTE;
-7. adaptar los endpoints de catálogo (`/api/articulos/presentaciones`, `GET /api/articulos?presentacion=`) para distinguir `PRESENTACION` de `COMBO` — PENDIENTE;
-8. adaptar el selector del frontend — PENDIENTE;
-9. crear la sección independiente de Combos — PENDIENTE;
-10. pruebas end-to-end — PENDIENTE.
+7. adaptar los endpoints de catálogo (`/api/articulos/presentaciones`, `GET /api/articulos?presentacion=`) para distinguir `PRESENTACION` de `COMBO` — COMPLETADO (`GET /api/articulos` excluye `COMBO` en todos sus modos, commit `0306ffe`; `GET /api/articulos/combos` devuelve solo `COMBO`);
+8. adaptar el selector del frontend — COMPLETADO (selector de presentaciones por categoría);
+9. crear la sección independiente de Combos — COMPLETADO (`#vista-combos` con paginación);
+10. pruebas end-to-end — PARCIAL: suites automatizadas en `tests/` (ver Fase 18); pruebas visuales de frontend pendientes de confirmación del usuario.
+
+## Fase 17 — Rediseño del frontend (móvil primero)
+Estado: PARCIALMENTE COMPLETADA
+
+Decisiones del usuario: la mayoría compra desde el celular; estilo moderno y vivo; paleta derivada del logo AGRO-VETZO. Detalle en `ARCHITECTURE.md`, sección "Frontend: diseño responsivo y marca".
+
+1. Etapa 1: categorías y scroll — COMPLETADO (desplegable en celular, panel fijo en escritorio, subida automática a la sección al elegir categoría; Combos, Promos y búsqueda también suben a su sección);
+2. Etapa 2: sistema visual y marca — COMPLETADO (paleta en `:root`, cabecera en filas en celular, marca AGRO-VETZO en título y logo, carrito en dos filas en celular);
+3. Etapa 3: tarjetas, selector de presentaciones y modales, con accesibilidad (buscador con etiqueta, tarjetas usables con teclado, foco y `Escape` en modales, `role="dialog"` en el carrito) — PENDIENTE;
+4. conteo de artículos por categoría en el panel — PENDIENTE (requiere que `GET /api/categorias` devuelva el conteo);
+5. decisión sobre modo oscuro — PENDIENTE (no incluido hasta que el usuario lo confirme);
+6. verificación visual en celular y escritorio — PENDIENTE de confirmación del usuario.
+
+## Fase 18 — Pruebas automatizadas
+Estado: COMPLETADA en su primera versión (commit `01e0034`)
+
+- `tests/unit/`: mock puro, sin base ni servidor. `psycopg.connect` queda bloqueado por `tests/conftest.py`.
+- `tests/integracion_lectura/`: requiere servidor local y PostgreSQL; solo `SELECT` y `GET`, con conexión de solo lectura.
+- Pendiente: versionar las suites de frontend (jsdom), que hoy viven en el scratchpad. Requieren un `package.json` con `jsdom`.
+- Pendiente: reescribir `test_carrito_fraccionable` y `test_carrito_full` con datos controlados (hecho en el scratchpad, sin versionar).
 
 ## Versión 2
 
