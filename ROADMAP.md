@@ -23,7 +23,9 @@ Confirmado:
 - `items.py` ya fue migrado a PostgreSQL (catálogo, presentaciones, combos
   y confirmar-pedido — ver `ARCHITECTURE.md`, "Backend actual vs
   arquitectura objetivo");
-- `promos.py` todavía usa SQL Server (único router pendiente);
+- `promos.py` todavía usa SQL Server (único router pendiente); mientras
+  tanto el botón "Ver Promos" está oculto en `frontend/index.html`
+  (`style="display: none;"`; quitarlo al migrar el router);
 - `main.py` sirve frontend y monta routers;
 - `models.py` está vacío;
 - `frontend/js/api.js` está vacío.
