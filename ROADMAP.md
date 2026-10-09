@@ -5,21 +5,25 @@
 Trabajar una etapa por vez.
 
 ## Fase 0 — Entender y separar arquitectura
-Estado: EN PROGRESO
+Estado: CASI COMPLETADA (falta solo `promos.py`)
 
 Ya confirmado:
 - el proyecto actual nació usando SQL Server desde FastAPI;
 - existe conexión PostgreSQL preparada con `psycopg`;
 - Render es la plataforma cloud prevista;
-- la arquitectura objetivo separa backend web y SQL Server local.
+- la arquitectura objetivo separa backend web y SQL Server local;
+- `categories.py`, `items.py`, `sync.py` y `admin.py` ya quedaron migrados
+  a PostgreSQL. Solo `promos.py` sigue sobre SQL Server.
 
 ### Fase 0.1 — Revisar routers actuales
-Estado: REVISADO
+Estado: REVISADO (actualizado tras la migración de `items.py`)
 
 Confirmado:
 - `categories.py` ya fue migrado a PostgreSQL;
-- `items.py` todavía usa SQL Server;
-- `promos.py` todavía usa SQL Server;
+- `items.py` ya fue migrado a PostgreSQL (catálogo, presentaciones, combos
+  y confirmar-pedido — ver `ARCHITECTURE.md`, "Backend actual vs
+  arquitectura objetivo");
+- `promos.py` todavía usa SQL Server (único router pendiente);
 - `main.py` sirve frontend y monta routers;
 - `models.py` está vacío;
 - `frontend/js/api.js` está vacío.
@@ -33,16 +37,18 @@ Confirmado:
 - no confiar en nombre/precio recibidos desde el navegador.
 
 ### Fase 0.3 — Separar conexiones
-Estado: EN PROGRESO
+Estado: CASI COMPLETADA (falta solo `promos.py`)
 
 Actualmente:
 
 ```text
 backend/app/database.py
 -> SQL Server
+-> usado solo por promos.py
 
 backend/app/database_postgres.py
 -> PostgreSQL
+-> usado por categories.py, items.py, sync.py y admin.py
 ```
 
 Objetivo:
@@ -56,13 +62,15 @@ sincronizador/
 ```
 
 Avance:
-- `categories.py` ya usa `database_postgres.py`;
-- `items.py` y `promos.py` siguen usando `database.py`.
+- `categories.py`, `items.py`, `sync.py` y `admin.py` ya usan
+  `database_postgres.py`;
+- `promos.py` sigue usando `database.py` (único router pendiente).
 
 Antes de mover/eliminar archivos:
-1. migrar routers uno por uno;
+1. migrar routers uno por uno — hecho para todos salvo `promos.py`;
 2. validar funcionamiento después de cada migración;
-3. recién después retirar SQL Server del backend web.
+3. recién después retirar SQL Server del backend web (pendiente de
+   `promos.py`; `backend/app/database.py` no se puede eliminar todavía).
 
 ## Fase 1 — Diseñar tablas mínimas en PostgreSQL
 Estado: COMPLETADA
@@ -96,27 +104,32 @@ Realizado:
 - cambio commiteado y enviado a `main`.
 
 ## Fase 3 — Migrar artículos a PostgreSQL
-Estado: PENDIENTE
+Estado: COMPLETADA
 
-Siguiente etapa.
-
-Objetivos:
-- cargar/sincronizar artículos necesarios en PostgreSQL;
-- mantener paginación;
-- mantener filtro por categoría;
-- usar `mostrar_web`;
-- respetar `art_estado`;
-- definir estrategia de imagen;
-- mantener contrato actual del frontend cuando sea posible.
+Realizado:
+- `backend/app/routers/items.py` migrado por completo a PostgreSQL
+  (`GET /api/articulos/`, `/presentaciones`, `/combos`);
+- paginación y filtro por categoría conservados, y ampliados con filtro
+  por unidad y por presentación (`NORMAL`/`KIT`);
+- usa `mostrar_web` y respeta `art_estado`;
+- estrategia de imagen: Cloudinary para lo nuevo, con fallback a rutas
+  locales bajo `frontend/` para lo heredado (`url_imagen_articulo()`);
+- se agregaron campos nuevos al contrato del frontend (`stock_disponible`,
+  `unidad_venta`, `fraccionable`) — ver `ARCHITECTURE.md`, "Endpoint actual
+  de artículos".
 
 ## Fase 4 — Migrar pedidos a PostgreSQL
-Estado: PENDIENTE
+Estado: COMPLETADA
 
-- `POST /api/articulos/confirmar-pedido` debe guardar primero en PostgreSQL;
-- `estado_sync = PENDIENTE`;
-- obtener precio oficial desde PostgreSQL;
-- no confiar en precio enviado por JavaScript;
-- usar transacción cabecera/detalle.
+Realizado:
+- `POST /api/articulos/confirmar-pedido` guarda en PostgreSQL, dentro de
+  una transacción (`pedido_cabecera` con `estado_sync='PENDIENTE'` por
+  default, `pedido_detalle`, y snapshot en `pedido_detalle_componentes`);
+- el precio oficial se obtiene de PostgreSQL, nunca del valor enviado por
+  el navegador;
+- además de lo planeado originalmente, valida stock físico agregado
+  (incluye expansión de kits) antes de confirmar — ver `ARCHITECTURE.md`,
+  "Endpoint actual de pedidos".
 
 ## Fase 5 — Stock local
 Estado: PARCIALMENTE COMPLETADO
@@ -129,61 +142,49 @@ Ya realizado y probado en SQL Server:
 - consulta de pendientes;
 - lógica `version_actual > version_enviada`.
 
-Siguiente:
-- crear `sincronizador/sincronizador.py`;
-- conectar a SQL Server;
-- leer pendientes;
-- imprimir resultados;
-- todavía no enviar nada a la nube.
+Realizado (más allá de lo planeado originalmente para esta fase):
+- `sincronizador/sincronizador.py` creado, conectado a SQL Server con
+  `pyodbc`, lee pendientes y envía a FastAPI por HTTPS — ver Fases 6 a 9,
+  completadas junto con esta.
 
 ## Fase 6 — Endpoint privado de stock
-Estado: PENDIENTE
+Estado: COMPLETADA
 
-FastAPI debe recibir algo equivalente a:
-
-```json
-{
-  "art_cod": 105,
-  "stock": 17,
-  "version": 4
-}
-```
-
-Actualizar PostgreSQL y responder confirmación.
+`POST /api/sync/stock` (`backend/app/routers/sync.py`, protegido con
+`X-API-Key`) recibe `{art_cod, cantidad, version_actual}`, valida que el
+artículo exista y no sea un kit (un kit no tiene stock físico propio), hace
+`UPSERT` en `stock` y responde confirmación.
 
 ## Fase 7 — Confirmación local de stock
-Estado: PENDIENTE
+Estado: COMPLETADA
 
-Solo después de respuesta exitosa:
-
-```sql
-UPDATE CAMBIOS_STOCK
-SET version_enviada = @version,
-    fecha_sincronizacion = GETDATE()
-WHERE art_cod = @art_cod
-  AND version_enviada < @version;
-```
+`sincronizador.py` actualiza `CAMBIOS_STOCK.version_enviada` en SQL Server
+solo después de una respuesta exitosa de FastAPI, con la misma defensa de
+concurrencia planeada originalmente (`AND version_enviada < @version`). Si
+SQL Server no puede registrar la confirmación aunque FastAPI sí la haya
+recibido, el sincronizador lo trata como un error aparte (reintenta en la
+corrida siguiente en vez de perder el cambio).
 
 ## Fase 8 — Reintentos y errores
-Estado: PENDIENTE
+Estado: COMPLETADA
 
-Probar:
-- Internet caído;
-- API caída;
-- timeout;
-- datos inválidos;
-- reintento automático.
+`sincronizador.py` tolera errores de red/timeout (hasta 3 seguidos), separa
+los errores de configuración, de conexión, de confirmación local y de
+sincronización en general, y no deja un artículo a medio sincronizar: si
+PostgreSQL confirma pero SQL Server no puede registrar `version_enviada`,
+ese caso queda identificado para reintentar, no se pierde.
 
 ## Fase 9 — Sincronización de artículos
-Estado: PENDIENTE
+Estado: COMPLETADA
 
-Definir:
-- `llevar_web`;
-- `CAMBIOS_ARTICULOS`;
-- alta inicial;
-- cambio de precio;
-- cambio de tipo;
-- activo/inactivo.
+- `llevar_web` viaja desde SQL Server (`ARTICULOS.llevar_web`) hasta
+  PostgreSQL (`articulos.llevar_web`);
+- tabla `CAMBIOS_ARTICULOS` en SQL Server, con el mismo patrón
+  `version_actual > version_enviada` que el stock;
+- `POST /api/sync/articulos` hace `UPSERT` (alta y cambios de precio, tipo,
+  estado, todo en una sola operación idempotente);
+- documentado con incidentes reales de datos en
+  `docs/GUIA_PUESTA_EN_PRODUCCION.md`.
 
 ## Fase 10 — Tipos de artículos
 Estado: PARCIALMENTE COMPLETADA
@@ -213,14 +214,19 @@ Permitir que el asesor:
 - cambie estado comercial.
 
 ## Fase 13 — Administrador web
-Estado: PENDIENTE
+Estado: PARCIALMENTE COMPLETADA
 
-Gestionar:
-- `mostrar_web`;
-- imagen;
+Ya realizado (`backend/app/routers/admin.py`, protegido con `X-Admin-Key`):
+- listar/buscar artículos;
+- togglear `mostrar_web` por artículo (`PATCH /api/admin/articulos/{art_cod}/mostrar-web`);
+- subir imagen de un artículo a Cloudinary (`POST /api/admin/articulos/{art_cod}/imagen`).
+
+Pendiente:
 - descripción comercial;
 - destacados;
-- promociones.
+- administración de promociones (hoy `promos.py` sigue sobre SQL Server,
+  sin panel propio — ver Fase 0 y la sección "Promociones" de
+  `ARCHITECTURE.md`).
 
 ## Fase 14 — Servicio Windows
 Estado: PENDIENTE
@@ -269,7 +275,7 @@ Decisiones del usuario: la mayoría compra desde el celular; estilo moderno y vi
 
 1. Etapa 1: categorías y scroll — COMPLETADO (desplegable en celular, panel fijo en escritorio, subida automática a la sección al elegir categoría; Combos, Promos y búsqueda también suben a su sección);
 2. Etapa 2: sistema visual y marca — COMPLETADO (paleta en `:root`, cabecera en filas en celular, marca AGRO-VETZO en título y logo, carrito en dos filas en celular);
-3. Etapa 3: tarjetas, selector de presentaciones y modales, con accesibilidad (buscador con etiqueta, tarjetas usables con teclado, foco y `Escape` en modales, `role="dialog"` en el carrito) — PENDIENTE;
+3. Etapa 3: COMPLETADO para tarjetas de producto (imagen 1:1 con `object-fit:contain` y `loading="lazy"`, nombre a 2 líneas, precio destacado, stock como badge, unidad de venta como badge, botón con `:focus-visible`), aplicado pero **sin confirmación visual del usuario todavía**. PENDIENTE: selector de presentaciones, modales (carrito, "agregado al carrito") y el resto de la accesibilidad (buscador con etiqueta, foco y `Escape` en modales, `role="dialog"` en el carrito);
 4. conteo de artículos por categoría en el panel — PENDIENTE (requiere que `GET /api/categorias` devuelva el conteo);
 5. decisión sobre modo oscuro — PENDIENTE (no incluido hasta que el usuario lo confirme);
 6. verificación visual en celular y escritorio — PENDIENTE de confirmación del usuario.

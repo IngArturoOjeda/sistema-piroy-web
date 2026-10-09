@@ -200,17 +200,21 @@ WHERE C.version_actual > C.version_enviada;
 
 ## Backend actual vs arquitectura objetivo
 
-Actualmente el proyecto nació consultando SQL Server desde FastAPI en localhost.
+**Estado: la migración ya se hizo para casi todos los routers.** El proyecto
+nació consultando SQL Server desde FastAPI en localhost; hoy la mayoría de
+los endpoints públicos ya consultan PostgreSQL.
 
-Estado actual:
+Estado actual, por router:
 
 ```text
-frontend
-  -> FastAPI
-  -> SQL Server
+categories.py  -> PostgreSQL  (migrado)
+items.py       -> PostgreSQL  (migrado: catálogo, presentaciones, combos, confirmar-pedido)
+sync.py        -> PostgreSQL  (siempre fue así: recibe del sincronizador)
+admin.py       -> PostgreSQL + Cloudinary (siempre fue así)
+promos.py      -> SQL Server  (sin migrar todavía, es el único que queda)
 ```
 
-Arquitectura objetivo:
+Arquitectura objetivo (ya alcanzada salvo `promos.py`):
 
 ```text
 frontend
@@ -226,19 +230,24 @@ SQL Server
   -> FastAPI/PostgreSQL
 ```
 
+Pendiente: migrar `promos.py` a PostgreSQL (requiere antes decidir cómo se
+administran las promociones — ver sección "Promociones" más abajo).
+
 ## Conexiones actuales confirmadas
 
 ```text
 backend/app/database.py
 -> pyodbc
 -> SQL Server
+-> usado solo por backend/app/routers/promos.py
 
 backend/app/database_postgres.py
 -> psycopg
 -> PostgreSQL en Render
+-> usado por categories.py, items.py, sync.py y admin.py
 ```
 
-Objetivo final:
+Objetivo final (pendiente solo para `promos.py`):
 
 ```text
 backend/app
@@ -250,70 +259,89 @@ sincronizador/
 
 ## Endpoint actual de categorías
 
-Actualmente consulta:
+`GET /api/categorias/` consulta PostgreSQL:
 
 ```sql
 SELECT tipoart_cod, tipoart_desc
-FROM tipoarticulo;
+FROM tipo_articulo;
 ```
 
-Esto confirma que PostgreSQL necesita como mínimo:
-
-```text
-tipoart_cod
-tipoart_desc
-```
+Devuelve una lista de `{"id": tipoart_cod, "nombre": tipoart_desc}`. Si la
+tabla está vacía, responde 404.
 
 ## Endpoint actual de artículos
 
-Actualmente `GET /api/articulos/` usa:
-
-```text
-ARTICULOS.art_cod
-ARTICULOS.art_nombre
-ARTICULOS.art_preciobase
-ARTICULOS.tipoart_cod
-ARTICULOS.art_foto
-ARTICULOS.art_estado
-
-TIPOARTICULO.tipoart_cod
-TIPOARTICULO.tipoart_desc
-```
-
-Devuelve:
+`GET /api/articulos/` consulta PostgreSQL (`articulos`, `tipo_articulo`,
+`stock`, `unidad_medida`, más la subconsulta de stock de kits). Parámetros:
+`pagina`, `limite`, `categoria` (o `"Todos"`), `unidad` (opcional, solo con
+`presentacion` NORMAL o ninguna), `presentacion` (`NORMAL` | `KIT`,
+opcional). Siempre excluye `tipo_kit='COMBO'`, en todos los modos (ver
+"Modelo de artículos compuestos" más abajo). Devuelve, por artículo:
 
 ```text
 id
 nombre
 precio
-tipo
+tipo            (nombre de la categoría)
 imagen
+stock_disponible
+unidad_venta
+fraccionable
 ```
 
-Soporta:
-- paginación;
-- filtro por categoría.
+`GET /api/articulos/presentaciones?categoria=` y `GET /api/articulos/combos`
+comparten el mismo formato de respuesta; están descriptos en la sección
+"Modelo de artículos compuestos: PRESENTACION vs COMBO".
 
 ## Endpoint actual de pedidos
 
-Actualmente `POST /api/articulos/confirmar-pedido`:
-1. recibe `PedidoEntrada`;
-2. inserta cabecera directamente en SQL Server;
-3. obtiene `id_pedido`;
-4. inserta detalles;
-5. hace COMMIT;
-6. hace ROLLBACK si falla.
+`POST /api/articulos/confirmar-pedido` ya corre sobre PostgreSQL, dentro de
+una única transacción (rollback si cualquier fase falla):
 
-Arquitectura objetivo:
+1. valida que el pedido no esté vacío y no tenga artículos repetidos;
+2. trae metadatos de los artículos pedidos (precio oficial, si es kit,
+   fraccionable, unidad de venta) — nunca confía en lo que mandó el
+   navegador;
+3. valida reglas de cantidad: enteros para no-fraccionables, y enteros
+   también para KG/LITROS/METROS por política web (ver "Política de
+   cantidades" más abajo);
+4. para los kits del pedido, trae su composición (`articulos_kit`) y la
+   expande a consumo físico de sus componentes;
+5. valida el stock físico **agregado**: si un artículo directo y un kit
+   comparten el mismo componente, se suman antes de comparar contra el
+   stock real; detecta también kits anidados (no soportado) y kits sin
+   componentes configurados (inconsistencia interna, 500);
+6. recién con todo validado, inserta `pedido_cabecera`, `pedido_detalle` y
+   un snapshot por componente en `pedido_detalle_componentes`, y hace
+   commit.
+
+Ya no inserta nada en SQL Server directamente. El flujo hacia SQL Server
+(sincronizador descargando pedidos desde PostgreSQL) sigue pendiente —
+Fase 11 del `ROADMAP.md`:
 
 ```text
 Cliente
   -> FastAPI en Render
-  -> PostgreSQL
-  -> pedido PENDIENTE
-  -> sincronizador
+  -> PostgreSQL (pedido_cabecera con estado_sync='PENDIENTE')
+  -> sincronizador  [PENDIENTE: todavía no descarga pedidos]
   -> SQL Server
 ```
+
+## Política de cantidades: unidades web enteras
+
+Regla comercial de la web (no cambia la base de datos ni el sistema local):
+**KG, LITROS y METROS se venden en cantidades enteras en la web**, aunque el
+artículo sea fraccionable en el sistema local. El tope por artículo es
+`floor(stock_disponible)`. La lista de unidades afectadas es una constante
+compartida (`UNIDADES_WEB_ENTERAS` en `backend/app/routers/items.py` y en
+`frontend/js/main.js`).
+
+Cualquier otro artículo fraccionable (por ejemplo, con unidad `M3`) admite
+decimales normalmente: hasta 3 decimales, mínimo 0.001 (`ItemCarrito.cantidad`,
+ver "Schemas actuales"). En el frontend, ese tipo de artículo se agrega al
+carrito con cantidad pendiente (`null`) hasta que el cliente la define
+explícitamente; "Confirmar pedido" queda bloqueado mientras haya algún
+pendiente sin definir.
 
 ## Schemas actuales
 

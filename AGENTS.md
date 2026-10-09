@@ -25,6 +25,7 @@ Antes de escribir código, leer también:
 13. Nunca subir credenciales reales a Git.
 14. Implementar y probar una etapa antes de continuar.
 15. Priorizar simplicidad, seguridad, idempotencia y recuperación ante fallos.
+16. Si un cambio hace que algo documentado en `AGENTS.md`, `ARCHITECTURE.md`, `ROADMAP.md` o cualquier otro `.md` del proyecto deje de ser cierto (un endpoint que migra de base, una fase que se completa, una regla que cambia), actualizar ese documento en el mismo cambio. No dejarlo para una revisión aparte: un `.md` desactualizado es peor que no tenerlo, porque el próximo agente (de IA o humano) confía en él.
 
 ## Stack
 
@@ -79,7 +80,8 @@ Debe:
 
 ## Regla final de acceso a bases
 
-El backend actual todavía tiene rutas que consultan SQL Server porque el proyecto nació en localhost.
+El backend nació consultando SQL Server desde localhost. Esa migración ya
+se hizo para casi todos los routers; queda un solo pendiente.
 
 La arquitectura objetivo es:
 
@@ -88,20 +90,29 @@ backend/app -> PostgreSQL
 sincronizador/ -> SQL Server
 ```
 
-Los endpoints públicos del ecommerce NO deben consultar SQL Server.
+Ya alcanzada para `categories.py`, `items.py`, `sync.py` y `admin.py`.
+Pendiente solo para `promos.py` (sigue consultando SQL Server directo).
+
+Los endpoints públicos del ecommerce NO deben consultar SQL Server (salvo
+el caso pendiente de arriba, a migrar).
 
 ## Código actual confirmado
 
 Actualmente existen:
-- `backend/app/database.py` -> SQL Server con pyodbc
-- `backend/app/database_postgres.py` -> PostgreSQL con psycopg
+- `backend/app/database.py` -> SQL Server con pyodbc (usado solo por `promos.py`)
+- `backend/app/database_postgres.py` -> PostgreSQL con psycopg (usado por `categories.py`, `items.py`, `sync.py`, `admin.py`)
 - `backend/app/routers/categories.py`
 - `backend/app/routers/items.py`
 - `backend/app/routers/promos.py`
+- `backend/app/routers/sync.py`
+- `backend/app/routers/admin.py`
 - `backend/app/schemas.py`
 - `frontend/js/main.js`
 
-Los routers de categorías, artículos y promociones todavía usan `backend.app.database`, por lo tanto consultan SQL Server.
+Solo el router de promociones (`promos.py`) sigue usando `backend.app.database`
+y consultando SQL Server. Categorías, artículos, sincronización y
+administración ya consultan PostgreSQL. Detalle completo en
+`ARCHITECTURE.md`, sección "Backend actual vs arquitectura objetivo".
 
 ## Reglas para pedidos
 
