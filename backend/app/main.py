@@ -34,7 +34,8 @@ async def read_index():
     return FileResponse(ruta_index)
 
 # 5. ENDPOINT PARA MOSTRAR LA PÁGINA DE PROMOCIONES
-@app.get("/promos")
-async def read_promos():
-    ruta_promos = f"{RUTA_FRONTEND}/promos-Exclusivos.html"
-    return FileResponse(ruta_promos)
+# Desactivado hasta migrar promos.py a PostgreSQL (descomentar para reactivar).
+# @app.get("/promos")
+# async def read_promos():
+#     ruta_promos = f"{RUTA_FRONTEND}/promos-Exclusivos.html"
+#     return FileResponse(ruta_promos)

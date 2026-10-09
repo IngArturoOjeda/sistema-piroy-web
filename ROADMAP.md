@@ -25,7 +25,8 @@ Confirmado:
   arquitectura objetivo");
 - `promos.py` todavía usa SQL Server (único router pendiente); mientras
   tanto el botón "Ver Promos" está oculto en `frontend/index.html`
-  (`style="display: none;"`; quitarlo al migrar el router);
+  (`style="display: none;"`) y la ruta de página `GET /promos` está
+  comentada en `main.py` (reactivar ambos al migrar el router);
 - `main.py` sirve frontend y monta routers;
 - `models.py` está vacío;
 - `frontend/js/api.js` está vacío.
