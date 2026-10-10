@@ -1,0 +1,9 @@
+# Dependencias del backend para desplegar en Render (ver render.yaml).
+# Igual a backend/requirements.txt pero SIN pyodbc: el backend publicado no
+# consulta SQL Server (eso lo hace el sincronizador, que corre en el local).
+fastapi
+uvicorn
+python-dotenv
+psycopg[binary]
+cloudinary
+python-multipart

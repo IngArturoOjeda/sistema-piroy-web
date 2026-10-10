@@ -91,7 +91,8 @@ sincronizador/ -> SQL Server
 ```
 
 Ya alcanzada para `categories.py`, `items.py`, `sync.py` y `admin.py`.
-Pendiente solo para `promos.py` (sigue consultando SQL Server directo).
+Pendiente solo para `promos.py` (sigue consultando SQL Server directo; por eso
+hoy no está registrado en `main.py`).
 
 Los endpoints públicos del ecommerce NO deben consultar SQL Server (salvo
 el caso pendiente de arriba, a migrar).

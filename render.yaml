@@ -1,0 +1,29 @@
+# Blueprint de Render para el backend (FastAPI) de AGRO-VETZO.
+# Solo declara el servicio web. La base PostgreSQL ya existe y NO se declara
+# aqui, para que Render no cree una nueva.
+# Los secretos (sync: false) se cargan a mano en el panel de Render; nunca se
+# escriben en este archivo.
+services:
+  - type: web
+    name: agrovetzo-web
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-render.txt
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    autoDeployTrigger: commit
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.5
+      - key: DATABASE_URL
+        sync: false
+      - key: SYNC_API_KEY
+        sync: false
+      - key: ADMIN_API_KEY
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false

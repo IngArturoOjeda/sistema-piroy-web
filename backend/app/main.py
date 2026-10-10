@@ -5,7 +5,9 @@ from fastapi.staticfiles import StaticFiles
 # Importamos únicamente el router de categorías
 from backend.app.routers.categories import router as categorias_router
 from backend.app.routers.items import router as articulos_router
-from backend.app.routers.promos import router as promos_router
+# Desactivado: promos.py usa SQL Server (pyodbc) y no puede arrancar en Render.
+# Reactivar junto con su include_router al migrarlo a PostgreSQL.
+# from backend.app.routers.promos import router as promos_router
 from backend.app.routers.sync import router as sync_router
 from backend.app.routers.admin import router as admin_router
 from backend.app.routers.banners import router as banners_router
@@ -24,7 +26,7 @@ app.mount("/frontend", StaticFiles(directory=RUTA_FRONTEND), name="frontend")
 # Le agregamos el prefijo '/api' aquí de forma global para que coincida con tu main.js
 app.include_router(categorias_router, prefix="/api")
 app.include_router(articulos_router, prefix="/api")
-app.include_router(promos_router,prefix="/api")
+# app.include_router(promos_router, prefix="/api")  # ver nota arriba
 app.include_router(sync_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(banners_router, prefix="/api")

@@ -25,8 +25,11 @@ Confirmado:
   arquitectura objetivo");
 - `promos.py` todavía usa SQL Server (único router pendiente); mientras
   tanto el botón "Ver Promos" está oculto en `frontend/index.html`
-  (`style="display: none;"`) y la ruta de página `GET /promos` está
-  comentada en `main.py` (reactivar ambos al migrar el router);
+  (`style="display: none;"`), la ruta de página `GET /promos` está comentada
+  en `main.py` y el router de promos no se registra (necesario para que el
+  backend arranque en Render sin `pyodbc`); reactivar todo al migrar el router;
+- `render.yaml` y `requirements-render.txt` creados; falta el primer despliegue
+  y verificarlo (crear el Blueprint en Render, cargar las variables secretas);
 - `main.py` sirve frontend y monta routers;
 - `models.py` está vacío;
 - `frontend/js/api.js` está vacío.
