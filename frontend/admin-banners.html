@@ -21,7 +21,8 @@
       <h2>Subir un banner nuevo</h2>
       <p class="banners-ayuda">
         Imagen completa con el texto ya incluido. Tamaño recomendado: 1920 × 660 px
-        (jpg, png o webp, hasta 5 MB). Se crea oculto: activalo cuando esté listo.
+        (jpg, png o webp, hasta 5 MB). Se agrega al final de la lista y oculto:
+        ordenalo con ▲ ▼ y activalo cuando esté listo.
       </p>
       <form id="form-banner" class="form-banner">
         <label class="campo-banner">
@@ -33,10 +34,6 @@
           <span>Texto alternativo (describí el mensaje del banner)</span>
           <input type="text" id="banner-alt" maxlength="500" required
                  placeholder="Ej: Envío sin costo en compras web hasta diciembre">
-        </label>
-        <label class="campo-banner campo-orden">
-          <span>Orden</span>
-          <input type="number" id="banner-orden" min="0" max="2147483647" value="0" required>
         </label>
         <button type="submit" class="btn-subir-imagen" id="banner-btn-subir">Subir banner</button>
       </form>

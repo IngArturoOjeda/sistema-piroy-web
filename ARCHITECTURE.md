@@ -472,13 +472,14 @@ Tabla `banners` (definición en `scripts/crear_tabla_banners.sql`, creada con `s
 
 Endpoints:
 - `GET /api/banners/` — público; solo activos, ordenados por `orden, id`; responde `Cache-Control: no-store`.
-- `GET /api/admin/banners`, `POST /api/admin/banners` (multipart: `archivo`, `alt`, `orden`; se crea inactivo), `PATCH /api/admin/banners/{id}` (`alt`, `orden`, `activo`) y `DELETE /api/admin/banners/{id}` — protegidos con `X-Admin-Key`.
+- `GET /api/admin/banners`, `POST /api/admin/banners` (multipart: `archivo`, `alt` y `orden` opcional; se crea inactivo y, sin `orden`, al final de la lista), `PATCH /api/admin/banners/{id}` (`alt`, `orden`, `activo`), `PUT /api/admin/banners/orden` (cuerpo `{"ids": [...]}`: fija el orden de todos los banners de una vez, en una transacción) y `DELETE /api/admin/banners/{id}` — protegidos con `X-Admin-Key`.
+- `PUT /api/admin/banners/orden` exige exactamente los ids existentes; si la lista cambió (otro banner subido o borrado) responde 409 y no escribe. Asigna `orden` 0, 1, 2... según la posición.
 
 Reglas: el `public_id` lo genera el backend (aleatorio, `overwrite=False`). Al borrar se destruye primero la imagen en Cloudinary (aceptando "not found") y después la fila; si Cloudinary falla, la fila queda y se reintenta. Si el INSERT falla al subir, se intenta borrar la imagen recién subida; si el resultado del COMMIT es incierto, la imagen se conserva.
 
-Panel: `frontend/admin-banners.html` + `frontend/js/admin-banners.js` (estilos en `admin-imagenes.css`), enlazado desde el panel de imágenes de productos. Permite subir (con texto alternativo y orden), editar texto y orden, activar o desactivar y borrar. Pide la clave de administrador y la guarda solo en memoria. Todo dato del servidor se pinta con `textContent`.
+Panel: `frontend/admin-banners.html` + `frontend/js/admin-banners.js` (estilos en `admin-imagenes.css`), enlazado desde el panel de imágenes de productos. Permite subir (con texto alternativo; el banner nuevo queda al final y oculto), editar el texto, reordenar con botones ▲ Subir / ▼ Bajar, activar o desactivar y borrar. Si el servidor rechaza un reordenamiento, la fila vuelve a su lugar. Pide la clave de administrador y la guarda solo en memoria. Todo dato del servidor se pinta con `textContent`.
 
-Estado: backend probado con mocks (`tests/unit/test_banners.py`) y con el circuito real en producción (crear inactivo, editar, listar, borrar; Cloudinary quedó vacío). Falta que `index.html` lea la API: hoy el carrusel sigue con las 3 imágenes locales y textos de prueba (etapa 3). El panel todavía no se probó en un navegador.
+Estado: backend probado con mocks (`tests/unit/test_banners.py`) y con el circuito real en producción (crear inactivo, editar, listar, borrar; Cloudinary quedó vacío). Falta que `index.html` lea la API: hoy el carrusel sigue con las 3 imágenes locales y textos de prueba (etapa 3). La lógica del panel se probó en un DOM simulado (jsdom, fuera del repo); todavía no en un navegador real.
 
 ### Documentación automática de la API
 

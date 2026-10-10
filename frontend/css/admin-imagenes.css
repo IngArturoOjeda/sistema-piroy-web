@@ -597,6 +597,11 @@ body {
     gap: 10px;
 }
 
+.banner-mover {
+    display: flex;
+    gap: 10px;
+}
+
 .btn-borrar-banner {
     background-color: white;
     color: #dc2626;

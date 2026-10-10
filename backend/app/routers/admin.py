@@ -2,6 +2,7 @@ import os
 import secrets
 import uuid
 from io import BytesIO
+from typing import Optional
 
 import cloudinary
 import cloudinary.uploader
@@ -9,7 +10,7 @@ from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 
 from backend.app.database_postgres import obtener_conexion_postgres
-from backend.app.schemas import BannerActualizar, MostrarWebEntrada
+from backend.app.schemas import BannerActualizar, BannersReordenar, MostrarWebEntrada
 
 router = APIRouter(prefix="/admin", tags=["Administracion"])
 
@@ -299,7 +300,8 @@ def listar_banners_admin():
 async def subir_banner(
     archivo: UploadFile = File(...),
     alt: str = Form(..., max_length=500),
-    orden: int = Form(0, ge=0, le=ORDEN_BANNER_MAXIMO),
+    # Sin orden, el banner se agrega al final de la lista.
+    orden: Optional[int] = Form(None, ge=0, le=ORDEN_BANNER_MAXIMO),
 ):
     alt_limpio = alt.strip()
     if not alt_limpio:
@@ -323,7 +325,7 @@ async def subir_banner(
     )
 
 
-def crear_banner(contenido: bytes, nombre_archivo: str, alt: str, orden: int):
+def crear_banner(contenido: bytes, nombre_archivo: str, alt: str, orden: Optional[int]):
     configurar_cloudinary()
 
     archivo_memoria = BytesIO(contenido)
@@ -358,7 +360,9 @@ def crear_banner(contenido: bytes, nombre_archivo: str, alt: str, orden: int):
         cursor.execute(
             f"""
             INSERT INTO banners (imagen_url, public_id, alt, orden, activo)
-            VALUES (%s, %s, %s, %s, FALSE)
+            VALUES (%s, %s, %s,
+                    COALESCE(%s, (SELECT COALESCE(MAX(orden) + 1, 0) FROM banners)),
+                    FALSE)
             RETURNING {COLUMNAS_BANNER}
             """,
             (secure_url, public_id_final, alt, orden),
@@ -432,6 +436,57 @@ def actualizar_banner(banner_id: int, datos: BannerActualizar):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No se pudo actualizar el banner",
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@router.put("/banners/orden", dependencies=[Depends(verificar_admin)])
+def reordenar_banners(datos: BannersReordenar):
+    """Fija el orden de todos los banners de una sola vez (posiciones 0, 1, 2...).
+
+    Debe traer exactamente los ids existentes: si la lista cambio mientras el
+    administrador la miraba (otro banner subido o borrado), responde 409.
+    """
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        # FOR UPDATE: nadie altera el conjunto de banners durante la operacion.
+        cursor.execute("SELECT id FROM banners FOR UPDATE")
+        existentes = {f[0] for f in cursor.fetchall()}
+        if existentes != set(datos.ids):
+            conn.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="La lista de banners cambio. Recargue la lista e intente de nuevo",
+            )
+
+        cursor.execute(
+            """
+            UPDATE banners AS b
+            SET orden = t.posicion - 1
+            FROM unnest(%s::int[]) WITH ORDINALITY AS t(id, posicion)
+            WHERE b.id = t.id
+            """,
+            (datos.ids,),
+        )
+        conn.commit()
+        return {"status": "ok", "ids": datos.ids}
+    except HTTPException:
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("Error reordenando banners:", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo reordenar los banners",
         )
     finally:
         if cursor:

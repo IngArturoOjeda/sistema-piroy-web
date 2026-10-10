@@ -228,8 +228,9 @@ Ya realizado (`backend/app/routers/admin.py`, protegido con `X-Admin-Key`):
 - subir imagen de un artículo a Cloudinary (`POST /api/admin/articulos/{art_cod}/imagen`);
 - backend de banners del carrusel (`/api/admin/banners` y `GET /api/banners/`,
   tabla `banners` ya creada en PostgreSQL; ver `ARCHITECTURE.md`, "Banners del carrusel");
-- panel de banners (`frontend/admin-banners.html`): subir, editar, activar y borrar
-  (falta probarlo en un navegador);
+- panel de banners (`frontend/admin-banners.html`): subir, editar texto, reordenar
+  con ▲ ▼ (`PUT /api/admin/banners/orden`), activar y borrar (falta probarlo en un
+  navegador real);
 - `/docs`, `/redoc` y `/openapi.json` apagados por defecto (`HABILITAR_DOCS=1` en local).
 
 Pendiente:

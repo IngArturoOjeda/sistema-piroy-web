@@ -7,7 +7,6 @@ const formBannerUI = document.getElementById("form-banner");
 const inputArchivoUI = document.getElementById("banner-archivo");
 const previewUI = document.getElementById("banner-preview");
 const inputAltUI = document.getElementById("banner-alt");
-const inputOrdenUI = document.getElementById("banner-orden");
 const btnSubirUI = document.getElementById("banner-btn-subir");
 const estadoSubidaUI = document.getElementById("banner-estado-subida");
 const estadoListaUI = document.getElementById("banners-estado-lista");
@@ -78,6 +77,7 @@ function dibujarBanners(banners) {
     listaBannersUI.replaceChildren();
     banners.forEach(banner => listaBannersUI.appendChild(crearFilaBanner(banner)));
     actualizarContador();
+    actualizarBotonesMover();
 }
 
 function actualizarContador() {
@@ -87,21 +87,18 @@ function actualizarContador() {
         : `${total} banner(s). Solo los activos se ven en la tienda.`;
 }
 
-// Agrega un banner recién subido en su lugar (por orden, luego por id) sin
-// redibujar la lista: así no se pierden ediciones sin guardar en otras filas.
+// Agrega un banner recién subido al final (el servidor lo creó con el último
+// orden) sin redibujar la lista: así no se pierden ediciones sin guardar.
 function insertarFilaBanner(banner) {
-    const fila = crearFilaBanner(banner);
-    const siguiente = [...listaBannersUI.children].find(
-        li => Number(li.dataset.orden) > banner.orden
-    );
-    listaBannersUI.insertBefore(fila, siguiente || null);
+    listaBannersUI.appendChild(crearFilaBanner(banner));
     actualizarContador();
+    actualizarBotonesMover();
 }
 
 function crearFilaBanner(banner) {
     const li = document.createElement("li");
     li.className = "banner-item";
-    li.dataset.orden = banner.orden; // último orden guardado en el servidor
+    li.dataset.id = banner.id;
 
     const img = document.createElement("img");
     img.className = "banner-miniatura";
@@ -122,16 +119,17 @@ function crearFilaBanner(banner) {
     inputAlt.value = banner.alt;
     campoAlt.append(tituloAlt, inputAlt);
 
-    const campoOrden = document.createElement("label");
-    campoOrden.className = "campo-banner campo-orden";
-    const tituloOrden = document.createElement("span");
-    tituloOrden.textContent = "Orden";
-    const inputOrden = document.createElement("input");
-    inputOrden.type = "number";
-    inputOrden.min = "0";
-    inputOrden.max = "2147483647";
-    inputOrden.value = banner.orden;
-    campoOrden.append(tituloOrden, inputOrden);
+    const filaMover = document.createElement("div");
+    filaMover.className = "banner-mover";
+    const btnSubir = document.createElement("button");
+    btnSubir.type = "button";
+    btnSubir.className = "btn-secundario btn-mover btn-mover-subir";
+    btnSubir.textContent = "▲ Subir";
+    const btnBajar = document.createElement("button");
+    btnBajar.type = "button";
+    btnBajar.className = "btn-secundario btn-mover btn-mover-bajar";
+    btnBajar.textContent = "▼ Bajar";
+    filaMover.append(btnSubir, btnBajar);
 
     const filaSwitch = document.createElement("label");
     filaSwitch.className = "fila-switch banner-activo";
@@ -152,7 +150,7 @@ function crearFilaBanner(banner) {
     const btnGuardar = document.createElement("button");
     btnGuardar.type = "button";
     btnGuardar.className = "btn-subir-imagen";
-    btnGuardar.textContent = "Guardar texto y orden";
+    btnGuardar.textContent = "Guardar texto";
     const btnBorrar = document.createElement("button");
     btnBorrar.type = "button";
     btnBorrar.className = "btn-borrar-banner";
@@ -163,15 +161,17 @@ function crearFilaBanner(banner) {
     estado.className = "estado-subida";
     estado.setAttribute("role", "status");
 
-    cuerpo.append(campoAlt, campoOrden, filaSwitch, botones, estado);
+    cuerpo.append(campoAlt, filaMover, filaSwitch, botones, estado);
     li.append(img, cuerpo);
 
     btnGuardar.addEventListener("click", () =>
-        guardarCambios(banner.id, { alt: inputAlt.value.trim(), orden: Number(inputOrden.value) }, [btnGuardar, btnBorrar], estado, li));
+        guardarCambios(banner.id, { alt: inputAlt.value.trim() }, [btnGuardar, btnBorrar], estado));
     checkActivo.addEventListener("change", () =>
         alternarActivo(banner.id, checkActivo, estado));
     btnBorrar.addEventListener("click", () =>
         borrarBanner(banner.id, [btnGuardar, btnBorrar, checkActivo], estado, li));
+    btnSubir.addEventListener("click", () => moverBanner(li, -1, btnSubir));
+    btnBajar.addEventListener("click", () => moverBanner(li, 1, btnBajar));
 
     return li;
 }
@@ -185,13 +185,9 @@ async function enviarPatch(id, datos) {
     });
 }
 
-async function guardarCambios(id, datos, controles, estado, fila) {
+async function guardarCambios(id, datos, controles, estado) {
     if (!datos.alt) {
         mostrarEstado(estado, "estado-error", "El texto alternativo no puede estar vacío.");
-        return;
-    }
-    if (!Number.isInteger(datos.orden) || datos.orden < 0) {
-        mostrarEstado(estado, "estado-error", "El orden debe ser un número entero, 0 o mayor.");
         return;
     }
 
@@ -203,8 +199,7 @@ async function guardarCambios(id, datos, controles, estado, fila) {
             mostrarEstado(estado, "estado-error", await mensajeDeError(respuesta, "No se pudo guardar."));
             return;
         }
-        fila.dataset.orden = datos.orden;
-        mostrarEstado(estado, "estado-exito", "Guardado. El nuevo orden se aplica al recargar la lista.");
+        mostrarEstado(estado, "estado-exito", "Guardado.");
     } catch (error) {
         mostrarEstado(estado, "estado-error", error.message);
     } finally {
@@ -232,6 +227,65 @@ async function alternarActivo(id, checkbox, estado) {
     }
 }
 
+// 4b. SUBIR / BAJAR (PUT /api/admin/banners/orden con la lista completa de ids)
+let reordenando = false;
+
+// Habilita o deshabilita ▲ ▼ según la posición (el primero no sube, el último no baja)
+function actualizarBotonesMover() {
+    const filas = [...listaBannersUI.children];
+    filas.forEach((fila, i) => {
+        fila.querySelector(".btn-mover-subir").disabled = reordenando || i === 0;
+        fila.querySelector(".btn-mover-bajar").disabled = reordenando || i === filas.length - 1;
+    });
+}
+
+// Vuelve al orden anterior sin revivir filas borradas ni perder las agregadas
+// mientras se esperaba la respuesta del servidor.
+function restaurarOrden(antes) {
+    const agregadas = [...listaBannersUI.children].filter(li => !antes.includes(li));
+    listaBannersUI.replaceChildren(...antes.filter(li => li.isConnected), ...agregadas);
+}
+
+async function moverBanner(fila, delta, boton) {
+    if (reordenando) return;
+
+    const antes = [...listaBannersUI.children];
+    const destino = antes.indexOf(fila) + delta;
+    if (destino < 0 || destino >= antes.length) return;
+
+    // Se mueve la fila en pantalla de inmediato; si el servidor falla, se revierte
+    // con los mismos elementos (no se pierden ediciones sin guardar).
+    const referencia = delta < 0 ? antes[destino] : antes[destino].nextSibling;
+    listaBannersUI.insertBefore(fila, referencia);
+
+    reordenando = true;
+    actualizarBotonesMover();
+    estadoListaUI.textContent = "Guardando el orden...";
+
+    try {
+        const ids = [...listaBannersUI.children].map(li => Number(li.dataset.id));
+        const respuesta = await fetchAdmin("/api/admin/banners/orden", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids }),
+        });
+        if (!respuesta.ok) {
+            restaurarOrden(antes);
+            estadoListaUI.textContent = await mensajeDeError(respuesta, "No se pudo guardar el orden.");
+            return;
+        }
+        actualizarContador();
+    } catch (error) {
+        restaurarOrden(antes);
+        estadoListaUI.textContent = error.message;
+    } finally {
+        reordenando = false;
+        actualizarBotonesMover();
+        // Mantiene el foco en la fila movida (para quien usa el teclado)
+        (boton.disabled ? fila.querySelector(".btn-mover:not(:disabled)") : boton)?.focus();
+    }
+}
+
 // 5. BORRAR (DELETE)
 async function borrarBanner(id, controles, estado, fila) {
     if (!confirm("¿Borrar este banner? También se elimina la imagen. No se puede deshacer.")) {
@@ -249,6 +303,7 @@ async function borrarBanner(id, controles, estado, fila) {
         // Solo se quita esta fila: las demás conservan sus ediciones sin guardar.
         fila.remove();
         actualizarContador();
+        actualizarBotonesMover();
     } catch (error) {
         mostrarEstado(estado, "estado-error", error.message);
         controles.forEach(c => { c.disabled = false; });
@@ -277,7 +332,6 @@ formBannerUI.addEventListener("submit", async evento => {
 
     const archivo = inputArchivoUI.files[0];
     const alt = inputAltUI.value.trim();
-    const orden = Number(inputOrdenUI.value);
 
     if (!archivo) return;
     if (!TIPOS_PERMITIDOS.includes(archivo.type)) {
@@ -292,18 +346,13 @@ formBannerUI.addEventListener("submit", async evento => {
         mostrarEstado(estadoSubidaUI, "estado-error", "Escribí el texto alternativo.");
         return;
     }
-    if (!Number.isInteger(orden) || orden < 0) {
-        mostrarEstado(estadoSubidaUI, "estado-error", "El orden debe ser un número entero, 0 o mayor.");
-        return;
-    }
 
     btnSubirUI.disabled = true;
     mostrarEstado(estadoSubidaUI, "estado-subiendo", "Subiendo banner...");
 
     const formData = new FormData();
     formData.append("archivo", archivo);
-    formData.append("alt", alt);
-    formData.append("orden", String(orden));
+    formData.append("alt", alt); // sin "orden": el servidor lo agrega al final
 
     try {
         const respuesta = await fetchAdmin("/api/admin/banners", { method: "POST", body: formData });

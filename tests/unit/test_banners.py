@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from starlette.datastructures import Headers, UploadFile
 
 from backend.app.routers import admin, banners
-from backend.app.schemas import BannerActualizar
+from backend.app.schemas import BannerActualizar, BannersReordenar
 
 JPEG = b"\xff\xd8\xff" + b"0" * 100
 FECHA = datetime(2026, 10, 9, 12, 0, tzinfo=timezone.utc)
@@ -190,6 +190,15 @@ def test_subir_crea_inactivo_con_id_generado(escenario):
     assert conn.commits == 1
 
 
+def test_subir_sin_orden_lo_agrega_al_final(escenario):
+    fila = (1, "u", "p", "a", 5, False, FECHA)
+    cursor, _, _ = escenario(filas=[fila])
+    subir(orden=None)
+    consulta, params = cursor.consultas[0]
+    assert "COALESCE(%s, (SELECT COALESCE(MAX(orden) + 1, 0) FROM banners))" in consulta
+    assert params[3] is None
+
+
 def test_subir_dos_veces_usa_ids_distintos(escenario):
     fila = (1, "u", "p", "a", 0, False, FECHA)
     _, _, nube = escenario(filas=[fila, fila])
@@ -299,6 +308,54 @@ def test_actualizar_banner_inexistente_es_404(escenario):
     with pytest.raises(HTTPException) as e:
         admin.actualizar_banner(99, BannerActualizar(activo=False))
     assert e.value.status_code == 404 and conn.commits == 0
+
+
+# --- Reordenar ------------------------------------------------------------
+
+def test_reordenar_rechaza_lista_vacia_repetidos_o_invalidos():
+    with pytest.raises(ValidationError):
+        BannersReordenar(ids=[])
+    with pytest.raises(ValidationError):
+        BannersReordenar(ids=[1, 2, 1])
+    with pytest.raises(ValidationError):
+        BannersReordenar(ids=[0, 1])
+    with pytest.raises(ValidationError):
+        BannersReordenar(ids=[1], otro="x")
+
+
+def test_reordenar_aplica_el_orden_en_una_sola_transaccion(escenario):
+    cursor, conn, _ = escenario(filas=[(1,), (2,), (3,)])
+    r = admin.reordenar_banners(BannersReordenar(ids=[3, 1, 2]))
+    assert r == {"status": "ok", "ids": [3, 1, 2]}
+    assert "FOR UPDATE" in cursor.consultas[0][0]
+    update, params = cursor.consultas[1]
+    assert update.startswith("UPDATE banners") and "WITH ORDINALITY" in update
+    assert params == ([3, 1, 2],)
+    assert conn.commits == 1 and conn.rollbacks == 0
+
+
+@pytest.mark.parametrize("ids", [[1, 2], [1, 2, 3, 4], [1, 2, 9]])
+def test_reordenar_si_la_lista_cambio_es_409_y_no_escribe(escenario, ids):
+    cursor, conn, _ = escenario(filas=[(1,), (2,), (3,)])
+    with pytest.raises(HTTPException) as e:
+        admin.reordenar_banners(BannersReordenar(ids=ids))
+    assert e.value.status_code == 409
+    assert len(cursor.consultas) == 1  # solo el SELECT, ningun UPDATE
+    assert conn.commits == 0 and conn.rollbacks == 1
+
+
+def test_reordenar_error_de_base_es_500_con_rollback(escenario):
+    _, conn, _ = escenario(filas=[(1,)], fallar_en="UPDATE banners")
+    with pytest.raises(HTTPException) as e:
+        admin.reordenar_banners(BannersReordenar(ids=[1]))
+    assert e.value.status_code == 500
+    assert conn.commits == 0 and conn.rollbacks == 1
+
+
+def test_reordenar_esta_registrada_como_put_antes_que_las_rutas_con_id():
+    rutas = [(r.path, r.methods) for r in admin.router.routes]
+    assert ("/admin/banners/orden", {"PUT"}) in rutas
+    assert all("PUT" not in m for p, m in rutas if p == "/admin/banners/{banner_id}")
 
 
 # --- Eliminar -------------------------------------------------------------

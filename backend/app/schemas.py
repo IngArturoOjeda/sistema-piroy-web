@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List, Literal, Optional
+from typing import Annotated, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -72,6 +72,19 @@ class BannerActualizar(BaseModel):
         if any(getattr(self, c) is None for c in self.model_fields_set):
             raise ValueError("Los campos enviados no pueden ser null")
         return self
+
+# 4c. Nuevo orden completo de los banners (panel administrativo)
+class BannersReordenar(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ids: List[Annotated[int, Field(gt=0, le=2147483647)]] = Field(min_length=1, max_length=500)
+
+    @field_validator("ids")
+    @classmethod
+    def sin_ids_repetidos(cls, valor):
+        if len(set(valor)) != len(valor):
+            raise ValueError("La lista de ids tiene elementos repetidos")
+        return valor
 
 # 5. Composicion de un kit (SQL Server -> PostgreSQL)
 class ComponenteKit(BaseModel):
