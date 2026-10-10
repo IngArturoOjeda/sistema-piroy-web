@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgroVetzo - Panel de Banners</title>
+  <link rel="icon" type="image/png" href="/frontend/assets/images/favicon.png">
+  <link rel="stylesheet" href="/frontend/css/admin-imagenes.css">
+</head>
+<body>
+  <header class="admin-header">
+    <img src="/frontend/assets/images/logo-vete.jpg" alt="AgroVetzo" class="admin-logo">
+    <h1>Panel de Banners</h1>
+    <nav class="admin-nav">
+      <a href="/frontend/admin-imagenes.html">Imágenes de productos</a>
+    </nav>
+  </header>
+
+  <main class="banners-contenido">
+    <section class="banners-tarjeta">
+      <h2>Subir un banner nuevo</h2>
+      <p class="banners-ayuda">
+        Imagen completa con el texto ya incluido. Tamaño recomendado: 1920 × 660 px
+        (jpg, png o webp, hasta 5 MB). Se crea oculto: activalo cuando esté listo.
+      </p>
+      <form id="form-banner" class="form-banner">
+        <label class="campo-banner">
+          <span>Imagen</span>
+          <input type="file" id="banner-archivo" accept="image/jpeg,image/png,image/webp" required>
+        </label>
+        <img id="banner-preview" class="banner-preview" alt="Vista previa del banner nuevo">
+        <label class="campo-banner">
+          <span>Texto alternativo (describí el mensaje del banner)</span>
+          <input type="text" id="banner-alt" maxlength="500" required
+                 placeholder="Ej: Envío sin costo en compras web hasta diciembre">
+        </label>
+        <label class="campo-banner campo-orden">
+          <span>Orden</span>
+          <input type="number" id="banner-orden" min="0" max="2147483647" value="0" required>
+        </label>
+        <button type="submit" class="btn-subir-imagen" id="banner-btn-subir">Subir banner</button>
+      </form>
+      <p id="banner-estado-subida" class="estado-subida" role="status"></p>
+    </section>
+
+    <section class="banners-tarjeta">
+      <div class="banners-titulo-fila">
+        <h2>Banners cargados</h2>
+        <button type="button" id="btn-recargar-banners" class="btn-secundario">Recargar lista</button>
+      </div>
+      <p id="banners-estado-lista" class="banners-ayuda" role="status">Cargando...</p>
+      <ul id="lista-banners" class="lista-banners"></ul>
+    </section>
+  </main>
+
+  <script src="/frontend/js/admin-banners.js"></script>
+</body>
+</html>

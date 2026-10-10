@@ -61,7 +61,8 @@ def conexion_solo_lectura():
 @pytest.fixture
 def api_url():
     try:
-        urllib.request.urlopen(API_BASE_URL + "/docs", timeout=3).close()
+        # "/" y no "/docs": la documentacion automatica puede estar apagada.
+        urllib.request.urlopen(API_BASE_URL + "/", timeout=3).close()
     except Exception:
         pytest.skip(f"servidor no disponible en {API_BASE_URL}")
     return API_BASE_URL

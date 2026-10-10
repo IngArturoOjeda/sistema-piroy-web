@@ -476,7 +476,13 @@ Endpoints:
 
 Reglas: el `public_id` lo genera el backend (aleatorio, `overwrite=False`). Al borrar se destruye primero la imagen en Cloudinary (aceptando "not found") y después la fila; si Cloudinary falla, la fila queda y se reintenta. Si el INSERT falla al subir, se intenta borrar la imagen recién subida; si el resultado del COMMIT es incierto, la imagen se conserva.
 
-Estado: backend implementado y probado con mocks (`tests/unit/test_banners.py`). Falta la sección del panel (`admin-imagenes.html`) y que `index.html` lea la API (hoy el carrusel sigue con las 3 imágenes locales y textos de prueba).
+Panel: `frontend/admin-banners.html` + `frontend/js/admin-banners.js` (estilos en `admin-imagenes.css`), enlazado desde el panel de imágenes de productos. Permite subir (con texto alternativo y orden), editar texto y orden, activar o desactivar y borrar. Pide la clave de administrador y la guarda solo en memoria. Todo dato del servidor se pinta con `textContent`.
+
+Estado: backend probado con mocks (`tests/unit/test_banners.py`) y con el circuito real en producción (crear inactivo, editar, listar, borrar; Cloudinary quedó vacío). Falta que `index.html` lea la API: hoy el carrusel sigue con las 3 imágenes locales y textos de prueba (etapa 3). El panel todavía no se probó en un navegador.
+
+### Documentación automática de la API
+
+`/docs`, `/redoc` y `/openapi.json` están apagados por defecto (`main.py`) porque listan todas las rutas, incluidas las de administración. Para verlos en local: `HABILITAR_DOCS=1` en el `.env`. En Render no se define.
 
 ## Modelo de artículos compuestos: PRESENTACION vs COMBO
 

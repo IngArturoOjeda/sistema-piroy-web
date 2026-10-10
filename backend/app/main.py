@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
@@ -11,7 +12,15 @@ from backend.app.routers.items import router as articulos_router
 from backend.app.routers.sync import router as sync_router
 from backend.app.routers.admin import router as admin_router
 from backend.app.routers.banners import router as banners_router
-app = FastAPI()
+# La documentacion automatica (/docs, /redoc, /openapi.json) lista todas las
+# rutas, incluidas las de administracion. Queda apagada salvo HABILITAR_DOCS=1
+# (para desarrollo local; en Render no se define).
+DOCS_HABILITADAS = os.getenv("HABILITAR_DOCS") == "1"
+app = FastAPI(
+    docs_url="/docs" if DOCS_HABILITADAS else None,
+    redoc_url="/redoc" if DOCS_HABILITADAS else None,
+    openapi_url="/openapi.json" if DOCS_HABILITADAS else None,
+)
 
 RUTA_PROYECTO = Path(__file__).resolve().parents[2]  # Ruta del proyecto
 RUTA_FRONTEND = RUTA_PROYECTO / "frontend"  # Ruta del frontend
