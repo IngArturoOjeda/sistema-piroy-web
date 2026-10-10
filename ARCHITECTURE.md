@@ -210,7 +210,8 @@ Estado actual, por router:
 categories.py  -> PostgreSQL  (migrado)
 items.py       -> PostgreSQL  (migrado: catálogo, presentaciones, combos, confirmar-pedido)
 sync.py        -> PostgreSQL  (siempre fue así: recibe del sincronizador)
-admin.py       -> PostgreSQL + Cloudinary (siempre fue así)
+admin.py       -> PostgreSQL + Cloudinary (siempre fue así; incluye banners)
+banners.py     -> PostgreSQL  (lista pública del carrusel)
 promos.py      -> SQL Server  (sin migrar todavía, es el único que queda)
 ```
 
@@ -455,6 +456,20 @@ Debe administrar datos propios del ecommerce, por ejemplo:
 - contenido web.
 
 No debe reemplazar VFP ni administrar directamente SQL Server.
+
+### Banners del carrusel
+
+Los banners son imágenes completas (con el texto ya incluido en la imagen), pensadas en 1920 × 660 px, que se suben desde el administrador y se guardan en Cloudinary (carpeta `agrovetzo/banners`). Solo viven en PostgreSQL; no existen en SQL Server.
+
+Tabla `banners` (definición en `scripts/crear_tabla_banners.sql`, creada con `scripts/crear_tabla_banners.py`): `id`, `imagen_url`, `public_id` (único, empieza con `agrovetzo/banners/`), `alt` (1 a 500 caracteres), `orden` (entero >= 0), `activo` (por defecto `false`) y `creado_en`.
+
+Endpoints:
+- `GET /api/banners/` — público; solo activos, ordenados por `orden, id`; responde `Cache-Control: no-store`.
+- `GET /api/admin/banners`, `POST /api/admin/banners` (multipart: `archivo`, `alt`, `orden`; se crea inactivo), `PATCH /api/admin/banners/{id}` (`alt`, `orden`, `activo`) y `DELETE /api/admin/banners/{id}` — protegidos con `X-Admin-Key`.
+
+Reglas: el `public_id` lo genera el backend (aleatorio, `overwrite=False`). Al borrar se destruye primero la imagen en Cloudinary (aceptando "not found") y después la fila; si Cloudinary falla, la fila queda y se reintenta. Si el INSERT falla al subir, se intenta borrar la imagen recién subida; si el resultado del COMMIT es incierto, la imagen se conserva.
+
+Estado: backend implementado y probado con mocks (`tests/unit/test_banners.py`). Falta la sección del panel (`admin-imagenes.html`) y que `index.html` lea la API (hoy el carrusel sigue con las 3 imágenes locales y textos de prueba).
 
 ## Modelo de artículos compuestos: PRESENTACION vs COMBO
 

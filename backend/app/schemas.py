@@ -57,6 +57,22 @@ class ArticuloSync(BaseModel):
 class MostrarWebEntrada(BaseModel):
     mostrar_web: bool
 
+# 4b. Cambio parcial de un banner (panel administrativo)
+class BannerActualizar(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    alt: Optional[str] = Field(default=None, min_length=1, max_length=500)
+    orden: Optional[int] = Field(default=None, ge=0, le=2147483647)  # integer de PostgreSQL
+    activo: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def al_menos_un_campo(self):
+        if not self.model_fields_set:
+            raise ValueError("Indique al menos un campo: alt, orden o activo")
+        if any(getattr(self, c) is None for c in self.model_fields_set):
+            raise ValueError("Los campos enviados no pueden ser null")
+        return self
+
 # 5. Composicion de un kit (SQL Server -> PostgreSQL)
 class ComponenteKit(BaseModel):
     idkit: int = Field(gt=0)

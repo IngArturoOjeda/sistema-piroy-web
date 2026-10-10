@@ -1,17 +1,21 @@
 import os
 import secrets
+import uuid
 from io import BytesIO
 
 import cloudinary
 import cloudinary.uploader
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 
 from backend.app.database_postgres import obtener_conexion_postgres
-from backend.app.schemas import MostrarWebEntrada
+from backend.app.schemas import BannerActualizar, MostrarWebEntrada
 
 router = APIRouter(prefix="/admin", tags=["Administracion"])
 
 CARPETA_CLOUDINARY = "agrovetzo/productos"
+CARPETA_CLOUDINARY_BANNERS = "agrovetzo/banners"
+ORDEN_BANNER_MAXIMO = 2147483647  # tope del integer de PostgreSQL
 TAMANO_MAXIMO_BYTES = 5 * 1024 * 1024  # 5 MB
 
 FIRMAS_PERMITIDAS = {
@@ -235,6 +239,256 @@ async def subir_imagen_articulo(art_cod: int, archivo: UploadFile = File(...)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No se pudo actualizar la imagen del articulo",
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Banners del carrusel
+# ---------------------------------------------------------------------------
+
+COLUMNAS_BANNER = "id, imagen_url, public_id, alt, orden, activo, creado_en"
+CAMPOS_BANNER_EDITABLES = ("alt", "orden", "activo")
+
+
+def banner_a_dict(fila):
+    return {
+        "id": fila[0],
+        "imagen_url": fila[1],
+        "public_id": fila[2],
+        "alt": fila[3],
+        "orden": fila[4],
+        "activo": fila[5],
+        "creado_en": fila[6].isoformat() if fila[6] else None,
+    }
+
+
+@router.get("/banners", dependencies=[Depends(verificar_admin)])
+def listar_banners_admin():
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT {COLUMNAS_BANNER} FROM banners ORDER BY orden, id")
+        return [banner_a_dict(f) for f in cursor.fetchall()]
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("Error listando banners (admin):", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudieron listar los banners",
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@router.post(
+    "/banners",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verificar_admin)],
+)
+async def subir_banner(
+    archivo: UploadFile = File(...),
+    alt: str = Form(..., max_length=500),
+    orden: int = Form(0, ge=0, le=ORDEN_BANNER_MAXIMO),
+):
+    alt_limpio = alt.strip()
+    if not alt_limpio:
+        raise HTTPException(
+            status_code=422,
+            detail="El texto alternativo (alt) no puede estar vacio",
+        )
+
+    contenido = await archivo.read(TAMANO_MAXIMO_BYTES + 1)
+    if len(contenido) > TAMANO_MAXIMO_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="La imagen supera el tamano maximo de 5 MB",
+        )
+    validar_imagen(contenido, archivo.content_type)
+
+    # Cloudinary y psycopg son sincronos: se ejecutan fuera del event loop
+    # para no frenar al resto de las solicitudes durante la subida.
+    return await run_in_threadpool(
+        crear_banner, contenido, archivo.filename or "banner", alt_limpio, orden
+    )
+
+
+def crear_banner(contenido: bytes, nombre_archivo: str, alt: str, orden: int):
+    configurar_cloudinary()
+
+    archivo_memoria = BytesIO(contenido)
+    archivo_memoria.name = nombre_archivo
+
+    # Identificador generado aqui: nunca se usa el nombre del archivo ni se
+    # pisa un banner existente.
+    public_id = f"{CARPETA_CLOUDINARY_BANNERS}/banner_{uuid.uuid4().hex}"
+    try:
+        resultado = cloudinary.uploader.upload(
+            archivo_memoria,
+            public_id=public_id,
+            overwrite=False,
+        )
+    except Exception as e:
+        print("Error subiendo banner a Cloudinary:", e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="No se pudo subir la imagen a Cloudinary",
+        )
+
+    public_id_final = resultado.get("public_id", public_id)
+    secure_url = resultado["secure_url"]
+
+    conn = None
+    cursor = None
+    commit_iniciado = False
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+        # Se crea inactivo: el administrador lo activa cuando esta listo.
+        cursor.execute(
+            f"""
+            INSERT INTO banners (imagen_url, public_id, alt, orden, activo)
+            VALUES (%s, %s, %s, %s, FALSE)
+            RETURNING {COLUMNAS_BANNER}
+            """,
+            (secure_url, public_id_final, alt, orden),
+        )
+        fila = cursor.fetchone()
+        commit_iniciado = True
+        conn.commit()
+        return {"status": "ok", **banner_a_dict(fila)}
+    except Exception as e:
+        print("Error guardando banner:", e)
+        try:
+            if conn:
+                conn.rollback()
+        except Exception as e_rollback:
+            print("Fallo el rollback al guardar banner:", e_rollback)
+
+        if commit_iniciado:
+            # Resultado incierto: el COMMIT pudo haberse confirmado. No se
+            # borra la imagen para no dejar una fila apuntando a la nada;
+            # una imagen sobrante es inofensiva y queda identificada en el log.
+            print("COMMIT incierto; se conserva la imagen en Cloudinary:", public_id_final)
+        else:
+            # El INSERT no se confirmo: evita dejar una imagen huerfana.
+            try:
+                cloudinary.uploader.destroy(public_id_final, invalidate=True)
+            except Exception as e_limpieza:
+                print("No se pudo limpiar la imagen huerfana", public_id_final, ":", e_limpieza)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo guardar el banner",
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@router.patch("/banners/{banner_id}", dependencies=[Depends(verificar_admin)])
+def actualizar_banner(banner_id: int, datos: BannerActualizar):
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        # Solo columnas de la lista fija: nunca se arma SQL con texto del cliente.
+        campos = [c for c in CAMPOS_BANNER_EDITABLES if c in datos.model_fields_set]
+        asignaciones = ", ".join(f"{c} = %s" for c in campos)
+        valores = [getattr(datos, c) for c in campos]
+
+        cursor.execute(
+            f"UPDATE banners SET {asignaciones} WHERE id = %s RETURNING {COLUMNAS_BANNER}",
+            (*valores, banner_id),
+        )
+        fila = cursor.fetchone()
+        if fila is None:
+            conn.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"El banner {banner_id} no existe",
+            )
+        conn.commit()
+        return {"status": "ok", **banner_a_dict(fila)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("Error actualizando banner:", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo actualizar el banner",
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@router.delete("/banners/{banner_id}", dependencies=[Depends(verificar_admin)])
+def eliminar_banner(banner_id: int):
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT public_id FROM banners WHERE id = %s", (banner_id,))
+        fila = cursor.fetchone()
+        if fila is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"El banner {banner_id} no existe",
+            )
+        public_id = fila[0]
+
+        # Primero Cloudinary: si falla, la fila queda y se puede reintentar.
+        # "not found" cuenta como exito (el archivo ya no esta).
+        configurar_cloudinary()
+        try:
+            resultado = cloudinary.uploader.destroy(public_id, invalidate=True)
+        except Exception as e:
+            print("Error borrando banner en Cloudinary:", e)
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="No se pudo borrar la imagen en Cloudinary. Reintente",
+            )
+        if resultado.get("result") not in ("ok", "not found"):
+            print("Respuesta inesperada de Cloudinary al borrar:", resultado)
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="No se pudo borrar la imagen en Cloudinary. Reintente",
+            )
+
+        cursor.execute("DELETE FROM banners WHERE id = %s", (banner_id,))
+        conn.commit()
+        return {"status": "ok", "id": banner_id}
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("Error eliminando banner:", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo eliminar el banner",
         )
     finally:
         if cursor:
