@@ -934,45 +934,114 @@ window.addEventListener("scroll", () => {
     }
 });
 
-// 🌟 LÓGICA DEL BANNER DINÁMICO AUTOMÁTICO
-document.addEventListener("DOMContentLoaded", () => {
-    const slides = document.querySelectorAll(".banner-slide");
-    const puntos = document.querySelectorAll(".punto");
+// 🌟 CARRUSEL DE BANNERS (se arma con GET /api/banners/)
+// Los banners son imágenes completas con el texto incluido, cargadas desde el
+// panel de administración. Sin banners activos, el carrusel no se muestra.
+document.addEventListener("DOMContentLoaded", iniciarCarruselBanners);
+
+async function iniciarCarruselBanners() {
+    const contenedor = document.getElementById("contenedor-banner");
+    const carrusel = document.getElementById("carrusel-imagenes");
+    const indicadores = document.getElementById("carrusel-indicadores");
+    if (!contenedor || !carrusel || !indicadores) return;
+
+    let banners;
+    try {
+        const respuesta = await fetch("/api/banners/");
+        if (!respuesta.ok) return;
+        banners = await respuesta.json();
+    } catch (error) {
+        console.error("No se pudieron cargar los banners:", error);
+        return; // el carrusel queda oculto: la tienda funciona igual
+    }
+    if (!Array.isArray(banners) || banners.length === 0) return;
+
+    const slides = [];
+    const puntos = [];
     let slideActual = 0;
-    const tiempoCambio = 5000; // 5000 milisegundos = 5 segundos
+
+    // Cambio automático: solo con 2 o más banners y si el cliente no pidió
+    // "menos movimiento". Se declara antes de crear los puntitos porque sus
+    // clics llaman a reiniciarTemporizador().
+    const sinMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const cambioAutomatico = banners.length > 1 && !sinMovimiento;
+    const tiempoCambio = 5000; // 5 segundos
+    let intervalo = null;
+    let apuntando = false; // el mouse está sobre el carrusel
+    let enfocado = false;  // el foco del teclado está dentro del carrusel
+
+    function detenerTemporizador() {
+        if (intervalo !== null) {
+            clearInterval(intervalo);
+            intervalo = null;
+        }
+    }
+    // Solo corre mientras el cliente no apunta ni enfoca el carrusel
+    function iniciarTemporizador() {
+        detenerTemporizador();
+        if (!cambioAutomatico || apuntando || enfocado) return;
+        intervalo = setInterval(() => cambiarSlide((slideActual + 1) % slides.length), tiempoCambio);
+    }
+
+    banners.forEach((banner, i) => {
+        const slide = document.createElement("div");
+        slide.className = "banner-slide" + (i === 0 ? " activo" : "");
+        slide.setAttribute("aria-hidden", i === 0 ? "false" : "true");
+
+        const img = document.createElement("img");
+        img.src = banner.imagen_url;
+        img.alt = banner.alt;
+        img.decoding = "async";
+        if (i === 0) img.setAttribute("fetchpriority", "high"); // el primero es el que se ve al entrar
+
+        slide.appendChild(img);
+        carrusel.appendChild(slide);
+        slides.push(slide);
+
+        if (banners.length > 1) {
+            const punto = document.createElement("button");
+            punto.type = "button";
+            punto.className = "punto" + (i === 0 ? " activo" : "");
+            punto.setAttribute("aria-label", `Ir al banner ${i + 1} de ${banners.length}`);
+            if (i === 0) punto.setAttribute("aria-current", "true");
+            punto.addEventListener("click", () => {
+                cambiarSlide(i);
+                iniciarTemporizador(); // reinicia la cuenta para que no cambie de golpe
+            });
+            indicadores.appendChild(punto);
+            puntos.push(punto);
+        }
+    });
 
     function cambiarSlide(indice) {
-        // Quitamos la clase activo de todos los slides y puntos
-        slides.forEach(slide => slide.classList.remove("activo"));
-        puntos.forEach(punto => punto.classList.remove("activo"));
-
-        // Activamos el slide y punto correspondiente
-        slides[indice].classList.add("activo");
-        puntos[indice].classList.add("activo");
+        slides.forEach((slide, i) => {
+            slide.classList.toggle("activo", i === indice);
+            slide.setAttribute("aria-hidden", i === indice ? "false" : "true");
+        });
+        puntos.forEach((punto, i) => {
+            punto.classList.toggle("activo", i === indice);
+            if (i === indice) punto.setAttribute("aria-current", "true");
+            else punto.removeAttribute("aria-current");
+        });
         slideActual = indice;
     }
 
-    function siguienteSlide() {
-        let siguiente = slideActual + 1;
-        if (siguiente >= slides.length) {
-            siguiente = 0; // Si llega al final, vuelve al primero
-        }
-        cambiarSlide(siguiente);
-    }
+    contenedor.hidden = false;
 
-    // Iniciar el temporizador automático
-    let intervaloBanner = setInterval(siguienteSlide, tiempoCambio);
+    if (!cambioAutomatico) return;
 
-    // Permitir hacer clic en los puntitos para saltar a una imagen
-    puntos.forEach((punto, index) => {
-        punto.addEventListener("click", () => {
-            cambiarSlide(index);
-            // Reiniciamos el temporizador para que no cambie de golpe justo después del clic
-            clearInterval(intervaloBanner);
-            intervaloBanner = setInterval(siguienteSlide, tiempoCambio);
-        });
+    // Se pausa mientras el cliente apunta o enfoca el carrusel
+    contenedor.addEventListener("mouseenter", () => { apuntando = true; iniciarTemporizador(); });
+    contenedor.addEventListener("mouseleave", () => { apuntando = false; iniciarTemporizador(); });
+    contenedor.addEventListener("focusin", () => { enfocado = true; iniciarTemporizador(); });
+    contenedor.addEventListener("focusout", evento => {
+        // Si el foco pasa a otro elemento del mismo carrusel, sigue enfocado
+        enfocado = contenedor.contains(evento.relatedTarget);
+        iniciarTemporizador();
     });
-});
+
+    iniciarTemporizador();
+}
 
 // Variable de control para no saturar a SQL Server con llamadas repetidas
 let promosDescargadas = false;

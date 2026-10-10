@@ -231,12 +231,15 @@ Ya realizado (`backend/app/routers/admin.py`, protegido con `X-Admin-Key`):
 - panel de banners (`frontend/admin-banners.html`): subir, editar texto, reordenar
   con ▲ ▼ (`PUT /api/admin/banners/orden`), activar y borrar (falta probarlo en un
   navegador real);
+- carrusel de la tienda alimentado por `GET /api/banners/` (imagen completa, oculto
+  si no hay banners activos); se eliminaron `banner1-3.jpg`;
 - `/docs`, `/redoc` y `/openapi.json` apagados por defecto (`HABILITAR_DOCS=1` en local).
 
 Pendiente:
-- banners, etapa 3: `index.html` lee `GET /api/banners/` (carrusel con imagen
-  completa y `aspect-ratio`, oculto si no hay banners) y se borran
-  `banner1-3.jpg`; antes, probar el diseño real en celular;
+- banners: subir el diseño real de AGRO-VETZO (1920 × 660 px) y comprobar en un
+  celular que el texto de la imagen se lee; si no, sumar una imagen alterna para
+  celular;
+- accesibilidad pendiente del carrusel: aún faltan flechas anterior/siguiente;
 - descripción comercial;
 - destacados;
 - administración de promociones (hoy `promos.py` sigue sobre SQL Server,

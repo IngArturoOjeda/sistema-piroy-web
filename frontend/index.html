@@ -47,42 +47,12 @@
             </div>        
         </header>
 
-                <!-- 🌟 NUEVO: BANNER DINÁMICO (CARRUSEL MODERNO) -->
-        <div class="contenedor-banner">
-            <div class="carrusel-deslizable" id="carrusel-imagenes">
-                <!-- Imagen 1: Promoción Herramientas -->
-                <div class="banner-slide activo">
-                    <img src="/frontend/assets/images/banner1.jpg" alt="Herramientas Profesionales">
-                    <div class="banner-texto">
-                        <h2>Herramientas de Alta Calidad</h2>
-                        <p>Equípate con lo mejor para tus proyectos y construcciones.</p>
-                    </div>
-                </div>
-                <!-- Imagen 2: Promoción Pinturas o Temporada -->
-                <div class="banner-slide">
-                    <img src="/frontend/assets/images/banner2.jpg" alt="Todo en Pinturas">
-                    <div class="banner-texto">
-                        <h2>Renueva tus Espacios</h2>
-                        <p>Gran variedad de colores y marcas con los mejores precios del país.</p>
-                    </div>
-                </div>
-                <!-- Imagen 3: Ofertas Especiales -->
-                <div class="banner-slide">
-                    <img src="/frontend/assets/images/banner3.jpg" alt="Ofertas de la Semana">
-                    <div class="banner-texto">
-                        <h2>Ofertas Imperdibles</h2>
-                        <p>Descuentos exclusivos en materiales eléctricos y de plomería.</p>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Indicadores puntitos (opcional pero muy moderno) -->
-            <div class="carrusel-indicadores" id="carrusel-indicadores">
-                <span class="punto activo" data-slide="0"></span>
-                <span class="punto" data-slide="1"></span>
-                <span class="punto" data-slide="2"></span>
-            </div>
-        </div>
+        <!-- Carrusel de banners: se arma desde GET /api/banners/ (ver main.js).
+             Queda oculto hasta que haya al menos un banner activo. -->
+        <section class="contenedor-banner" id="contenedor-banner" aria-label="Promociones y novedades" hidden>
+            <div class="carrusel-deslizable" id="carrusel-imagenes"></div>
+            <div class="carrusel-indicadores" id="carrusel-indicadores"></div>
+        </section>
 
         <div class="contenedor-principal">
 
