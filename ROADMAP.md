@@ -28,8 +28,9 @@ Confirmado:
   (`style="display: none;"`), la ruta de página `GET /promos` está comentada
   en `main.py` y el router de promos no se registra (necesario para que el
   backend arranque en Render sin `pyodbc`); reactivar todo al migrar el router;
-- `render.yaml` y `requirements-render.txt` creados; falta el primer despliegue
-  y verificarlo (crear el Blueprint en Render, cargar las variables secretas);
+- backend desplegado en Render con `render.yaml` + `requirements-render.txt`
+  (servicio `agrovetzo-web`, plan free, `https://agrovetzo-web.onrender.com`;
+  ver Fase 15);
 - `main.py` sirve frontend y monta routers;
 - `models.py` está vacío;
 - `frontend/js/api.js` está vacío.
@@ -258,16 +259,28 @@ Ya realizado:
 - PostgreSQL creado en Render;
 - tablas base creadas en esquema `public`;
 - conexión externa probada con `psql`;
-- `DATABASE_URL` utilizada localmente para validar categorías contra Render.
+- `DATABASE_URL` utilizada localmente para validar categorías contra Render;
+- FastAPI desplegado en Render (2026-10-09) mediante Blueprint (`render.yaml`),
+  servicio web `agrovetzo-web` en plan free, con despliegue automático en cada
+  push a `main`; verificado en vivo: `/`, `/api/categorias/`, `/api/articulos/` y
+  `/api/banners/` responden 200, `/api/promos/` y `/promos` dan 404 (desactivados),
+  las rutas de administración y sincronización dan 401 sin clave, y la tienda
+  muestra los banners cargados desde el panel;
+- variables de entorno de producción cargadas en el panel de Render (`DATABASE_URL`,
+  `SYNC_API_KEY`, `ADMIN_API_KEY`, `CLOUDINARY_*`; nunca en el repo);
+- HTTPS (lo provee Render);
+- autenticación del sincronizador (`X-API-Key`, 401 sin clave verificado);
+- `/docs`, `/redoc` y `/openapi.json` apagados en producción.
 
 Pendiente:
-- FastAPI en Render;
-- variables de entorno de producción;
-- mismo regionamiento entre FastAPI y PostgreSQL;
-- HTTPS;
-- autenticación del sincronizador;
-- logs;
-- backups/plan persistente para producción.
+- confirmar que FastAPI y PostgreSQL estén en la misma región de Render;
+- apuntar el sincronizador local (`SYNC_API_URL*`) a la URL de producción y repetir
+  la prueba real de sincronización contra el servicio desplegado;
+- logs y monitoreo;
+- backups y plan de pago/persistente para producción: en el plan free el servicio
+  se duerme tras un tiempo sin visitas y la primera carga tarda;
+- el servicio quedó fuera del proyecto "AgroVetzo" de Render (aparece en "Ungrouped
+  Services"); es solo organización, opcional.
 
 ## Fase 16 — Modelo PRESENTACION / COMBO (`tipo_kit`)
 Estado: PARCIALMENTE COMPLETADA (pendientes: pasos 1, 3, 6 y la verificación visual del paso 10)

@@ -151,10 +151,16 @@ Este controla si el artículo ya sincronizado se muestra públicamente.
 
 ## Render
 
-La idea es usar Render para:
-- FastAPI/Uvicorn;
-- aplicación web;
+Render se usa para:
+- FastAPI/Uvicorn y la aplicación web: ya desplegados con `render.yaml`
+  (servicio `agrovetzo-web`, `https://agrovetzo-web.onrender.com`, plan free,
+  despliegue automático en cada push a `main`);
 - PostgreSQL administrado.
+
+Los secretos del servicio se cargan a mano en el panel de Render (`sync: false`
+en `render.yaml`). El backend publicado usa `requirements-render.txt` (sin
+`pyodbc`); `promos.py` no se registra en `main.py` hasta migrarlo a PostgreSQL.
+Como cada push a `main` despliega, correr `tests/unit` antes de subir.
 
 El sincronizador NO se ejecutará en Render. Correrá dentro de la agroveterinaria y se comunicará hacia Render mediante HTTPS.
 

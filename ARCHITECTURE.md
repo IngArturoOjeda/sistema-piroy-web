@@ -462,7 +462,7 @@ No debe reemplazar VFP ni administrar directamente SQL Server.
 
 `render.yaml` (Blueprint) declara solo el servicio web `agrovetzo-web` (plan free, Python 3.13.5, `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`, build con `requirements-render.txt`). La base PostgreSQL ya existente no se declara, para no crear otra. Las variables `DATABASE_URL`, `SYNC_API_KEY`, `ADMIN_API_KEY` y `CLOUDINARY_*` están como `sync: false`: se cargan a mano en el panel de Render y nunca van al repo.
 
-`requirements-render.txt` es igual a `backend/requirements.txt` sin `pyodbc`: el backend publicado no consulta SQL Server. Por eso `main.py` no registra el router de promos (importa `database.py`, que exige `pyodbc` y las variables `DB_*`). Estado: archivos creados, **todavía sin desplegar ni verificar en Render**; la versión de Python y el arranque real están por confirmar.
+`requirements-render.txt` es igual a `backend/requirements.txt` sin `pyodbc`: el backend publicado no consulta SQL Server. Por eso `main.py` no registra el router de promos (importa `database.py`, que exige `pyodbc` y las variables `DB_*`). Estado: **desplegado y verificado** (2026-10-09) en `https://agrovetzo-web.onrender.com`; Render aceptó Python 3.13.5 y el servicio arranca con solo estas variables de entorno. Cada push a `main` despliega automáticamente (`autoDeployTrigger: commit`). Detalle de lo verificado y lo pendiente en `ROADMAP.md`, Fase 15.
 
 ### Banners del carrusel
 
