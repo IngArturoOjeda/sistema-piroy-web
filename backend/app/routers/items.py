@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Optional, Literal
 
 from backend.app.database_postgres import obtener_conexion_postgres
-from fastapi import HTTPException, status, APIRouter, Query
+from fastapi import HTTPException, status, APIRouter, Path as RutaParam, Query
 # Subimos un nivel para buscar en la app global e importar el esquema
 from backend.app.schemas import PedidoEntrada
 
@@ -310,6 +310,67 @@ def trae_combos(
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al obtener combos")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@router.get("/{art_cod}")
+def trae_detalle_articulo(art_cod: int = RutaParam(gt=0, lt=10**18)):
+    """Detalle publico de UN articulo (pagina del producto).
+
+    Mismos datos y mismo calculo de stock que el catalogo, mas la descripcion.
+    Acepta articulos normales y kits (PRESENTACION y COMBO). Si no existe o no
+    esta publicado responde 404. Debe declararse despues de las rutas fijas
+    ("/presentaciones", "/combos") para no taparlas.
+    """
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        sql = f"""
+            SELECT
+                a.art_cod, a.art_nombre, a.art_preciobase, t.tipoart_desc, a.art_foto,
+                CASE
+                    WHEN a.art_kit THEN COALESCE(kit.stock_disponible, 0)
+                    ELSE COALESCE(s.cantidad, 0)
+                END AS stock_disponible,
+                um.uni_nombre AS unidad_venta,
+                COALESCE(um.fraccionable, FALSE) AS fraccionable,
+                a.descripcion
+            FROM articulos a
+            INNER JOIN tipo_articulo t ON a.tipoart_cod = t.tipoart_cod
+            LEFT JOIN stock s ON s.art_cod = a.art_cod
+            LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
+            {SQL_STOCK_KIT_LATERAL}
+            WHERE a.art_cod = %s
+              AND a.art_estado = 'S'
+              AND a.llevar_web = TRUE
+              AND a.mostrar_web = TRUE
+        """
+        cursor.execute(sql, (art_cod,))
+        fila = cursor.fetchone()
+
+        if fila is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Articulo no disponible"
+            )
+
+        articulo = formatear_articulo_catalogo(fila[:8])
+        descripcion = (fila[8] or "").strip()
+        articulo["descripcion"] = descripcion or None
+        return articulo
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al obtener el articulo")
     finally:
         if cursor:
             cursor.close()

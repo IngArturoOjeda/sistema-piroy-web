@@ -295,6 +295,16 @@ fraccionable
 comparten el mismo formato de respuesta; están descriptos en la sección
 "Modelo de artículos compuestos: PRESENTACION vs COMBO".
 
+## Página de detalle de un producto
+
+Cada artículo tiene página propia: `/producto/{art_cod}` o `/producto/{art_cod}-{nombre}` (el nombre es solo decorativo; manda el código). Es una **vista de `index.html`**, no un archivo aparte, porque el carrito vive en memoria (`let carrito = []` en `main.js`) y se perdería al cambiar de página. `main.py` sirve `index.html` en esa ruta (`GET /producto/{ref}`) y `main.js` lee la URL: funciona al recargar, con Atrás/Adelante y con el enlace compartido. Las tarjetas del catálogo y de combos llevan enlaces reales (`href`), así que también sirven Ctrl+clic y "abrir en pestaña nueva".
+
+`GET /api/articulos/{art_cod}` (público) devuelve el mismo formato del catálogo (`id`, `nombre`, `precio`, `tipo`, `imagen`, `stock_disponible`, `unidad_venta`, `fraccionable`) más `descripcion` (`null` si está vacía), con el mismo cálculo de stock, incluidos los kits. Acepta artículos normales y kits (PRESENTACION y COMBO) publicados (`art_estado = 'S'`, `llevar_web` y `mostrar_web`); si no existe o no está publicado, 404. Se declara después de `/presentaciones` y `/combos` para no taparlas.
+
+La página muestra imagen, categoría, nombre, precio, stock, unidad de venta y descripción (si la tiene), con dos acciones: **Agregar al carrito** (reutiliza `comprarArticulo()`, con sus reglas de stock y cantidad) y **Consultar por WhatsApp**, un enlace `https://wa.me/{número}?text=...` con el mensaje "Hola AGRO-VETZO, estoy interesado en este artículo: {nombre} - Gs. {precio}" y el enlace al producto. El número está en la constante `WHATSAPP_NUMERO` de `main.js` y hoy es **de prueba**. Todo dato del servidor se pinta con `textContent`. En esta vista el carrusel de banners se oculta (`body.en-producto`).
+
+Columna `articulos.descripcion` (`text`, máximo 2000 caracteres, nullable): dato propio del e-commerce, **no viene de SQL Server**; el upsert del sincronizador actualiza una lista fija de columnas que no la incluye, así que no la pisa. Se creó con `scripts/agregar_columna_descripcion.sql` (+ `.py`). **Todavía no hay forma de cargarla**: falta el campo en el panel de administración (ver `ROADMAP.md`, Fase 13).
+
 ## Endpoint actual de pedidos
 
 `POST /api/articulos/confirmar-pedido` ya corre sobre PostgreSQL, dentro de

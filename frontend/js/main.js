@@ -57,6 +57,17 @@ const txtOrdenConfirmadaUI = document.getElementById("txt-orden-confirmada");
 const btnEntendidoExitoUI = document.getElementById("btn-entendido-exito");
 
 
+// Capturas de la página propia de un producto (/producto/{id}-{nombre})
+const vistaProductoUI = document.getElementById("vista-producto");
+const detalleProductoUI = document.getElementById("detalle-producto");
+const enlaceVolverUI = document.getElementById("enlace-volver-tienda");
+
+// Contacto por WhatsApp. Número de PRUEBA: cambiarlo por el definitivo de la tienda.
+// Va con código de país y sin "+" ni espacios (formato de https://wa.me/).
+const WHATSAPP_NUMERO = "595982440750";
+const NOMBRE_TIENDA = "AGRO-VETZO";
+const TITULO_PAGINA_ORIGINAL = document.title;
+
 // Variables globales para la memoria de la aplicación
 let articulosGlobales = [];
 let categoriasGlobales = [];
@@ -67,7 +78,12 @@ let cargandoProductos = false; // Nos avisa si el sistema está ocupado hablando
 let finDeStock = false;     // Se volverá true cuando Python nos devuelva una lista vacía []
 let categoriaSeleccionadaActual = "Todos"; // 🌟 NUEVO: Sabe qué botón lateral está activo
 let promosGlobales = [];
-let vistaActual = "CATALOGO"; // "CATALOGO" | "PROMOCIONES" | "COMBOS"
+let vistaActual = "CATALOGO"; // "CATALOGO" | "PROMOCIONES" | "COMBOS" | "PRODUCTO"
+// Página de un producto: desde dónde se entró y qué artículo se está viendo
+let vistaAntesDeProducto = "CATALOGO";
+let scrollAntesDeProducto = 0;
+let articuloDetalleActual = null;
+let solicitudProducto = 0; // numera las cargas para descartar respuestas viejas
 // Combos: sección independiente, cargada al iniciar para saber si mostrar la entrada
 let combosGlobales = [];
 let paginaCombos = 1;
@@ -160,6 +176,7 @@ function dibujarCategorias(listacategorias) {
             document.getElementById("vista-catalogo").style.display = "block";
             document.getElementById("vista-promociones").style.display = "none";
             vistaCombosUI.style.display = "none";
+            ocultarVistaProducto();
             vistaActual = "CATALOGO";
 
             // Restablecemos el texto del botón enérgico de la cabecera
@@ -417,12 +434,17 @@ function dibujarArticulos(listaArticulos, contenedor = contenedorCardsUI) {
 
         const etiquetaUnidad = etiquetaUnidadVenta(articulo);
 
+        // El enlace es real (href): sirve con clic derecho, "abrir en pestaña nueva" y teclado
+        const hrefProducto = urlProducto(articulo);
+
         divCard.innerHTML = `
             <div class="imagen-producto">
-                <img src="${articulo.imagen}" alt="${articulo.nombre}" loading="lazy">
+                <a class="enlace-producto" href="${hrefProducto}" tabindex="-1" aria-hidden="true">
+                    <img src="${articulo.imagen}" alt="${articulo.nombre}" loading="lazy">
+                </a>
             </div>
             <div class="info-producto">
-                <h3>${articulo.nombre}</h3>
+                <h3><a class="enlace-producto" href="${hrefProducto}">${articulo.nombre}</a></h3>
                 <p class="precio"><span class="precio-moneda">PYG</span> ${articulo.precio.toLocaleString('es-ES', { maximumFractionDigits: 0 })}</p>
                 <div class="etiquetas-producto">
                     <span class="stock-info ${sinStock ? 'agotado' : 'disponible'}">
@@ -440,6 +462,15 @@ function dibujarArticulos(listaArticulos, contenedor = contenedorCardsUI) {
                 comprarArticulo(articulo.id);
             });
         }
+
+        divCard.querySelectorAll(".enlace-producto").forEach(enlace => {
+            enlace.addEventListener("click", evento => {
+                // Con Ctrl/Cmd/Mayús o botón del medio, el navegador abre el enlace normalmente
+                if (evento.button !== 0 || evento.ctrlKey || evento.metaKey || evento.shiftKey || evento.altKey) return;
+                evento.preventDefault();
+                abrirProducto(articulo);
+            });
+        });
 
         contenedor.appendChild(divCard);
     });
@@ -480,7 +511,13 @@ function comprarArticulo(idArticulo) {
         }
     } else {
         // 2. 🌟 BUSQUEDA INTELIGENTE: Primero intentamos buscarlo en la lista de Ofertas
-        let articuloBaseDeDatos = promosGlobales.find(art => art.id === idArticulo);
+        // Si se está viendo la página de este producto, sus datos (recién traídos del
+        // servidor) mandan sobre las copias del catálogo: precio y stock coinciden
+        // con lo que el cliente ve en pantalla.
+        let articuloBaseDeDatos =
+            (articuloDetalleActual && articuloDetalleActual.id === idArticulo)
+                ? articuloDetalleActual
+                : promosGlobales.find(art => art.id === idArticulo);
 
         if (articuloBaseDeDatos) {
             // 🌟 Si el mismo articulo tambien esta en el catalogo, completamos su metadata
@@ -752,6 +789,10 @@ async function cargarPromocionesDeLaAPI() {
 txtBuscarUI.addEventListener("input", (evento) => {
     // Si el cliente estaba en Promos o Combos, la búsqueda vuelve al catálogo para mostrar resultados
     if (vistaActual !== "CATALOGO") {
+        if (vistaActual === "PRODUCTO") {
+            ocultarVistaProducto();
+            window.history.pushState({}, "", "/");
+        }
         vistaCatalogoUI.style.display = "block";
         vistaPromocionesUI.style.display = "none";
         vistaCombosUI.style.display = "none";
@@ -1053,6 +1094,7 @@ btnVerPromosUI.addEventListener("click", async () => {
         vistaCatalogoUI.style.display = "none";
         vistaPromocionesUI.style.display = "block";
         vistaCombosUI.style.display = "none";
+        ocultarVistaProducto();
         vistaActual = "PROMOCIONES";
         btnVerPromosUI.innerHTML = "⬅️ Ver Catálogo"; // Cambia el texto del botón temporalmente
         irAlInicioDeLaVista(vistaPromocionesUI);
@@ -1106,6 +1148,7 @@ async function cargarCombosDeLaAPI(pagina = 1) {
 btnVerCombosUI.addEventListener("click", () => {
     vistaCatalogoUI.style.display = "none";
     vistaPromocionesUI.style.display = "none";
+    ocultarVistaProducto();
     vistaCombosUI.style.display = "block";
     vistaActual = "COMBOS";
     window.history.pushState({}, "", "/combos");
@@ -1117,6 +1160,242 @@ btnMasCombosUI.addEventListener("click", async () => {
     await cargarCombosDeLaAPI(paginaCombos + 1);
     dibujarArticulos(combosGlobales, contenedorCardsCombosUI);
 });
+
+// ----------------------------------------------------
+// PÁGINA PROPIA DE UN PRODUCTO: /producto/{id}-{nombre}
+// Es una vista de esta misma página (el carrito vive en memoria y no se debe
+// perder), con URL propia: funciona al recargar, con "Atrás" y al compartirla.
+// ----------------------------------------------------
+
+// "Botina en cuero Nº 38" -> "botina-en-cuero-n-38" (solo para que la URL sea legible)
+function slugArticulo(nombre) {
+    return String(nombre)
+        .normalize("NFD").replace(/[̀-ͯ]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 60)
+        .replace(/-+$/g, "");
+}
+
+function urlProducto(articulo) {
+    const slug = slugArticulo(articulo.nombre);
+    return `/producto/${articulo.id}${slug ? "-" + slug : ""}`;
+}
+
+// "/producto/1000-botina" -> "1000". Lo que sigue al código es decorativo.
+function idDesdeRutaProducto(ruta) {
+    const coincidencia = /^\/producto\/(\d+)(?:-[^/]*)?\/?$/.exec(ruta);
+    return coincidencia ? coincidencia[1] : null;
+}
+
+// Mensaje de WhatsApp: "Hola AGRO-VETZO, estoy interesado en este artículo: ..."
+function urlWhatsApp(articulo) {
+    const precio = articulo.precio.toLocaleString("es-ES", { maximumFractionDigits: 0 });
+    const enlace = `${window.location.origin}${urlProducto(articulo)}`;
+    const mensaje =
+        `Hola ${NOMBRE_TIENDA}, estoy interesado en este artículo: ${articulo.nombre} - Gs. ${precio}\n${enlace}`;
+    return `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(mensaje)}`;
+}
+
+function ocultarVistaProducto() {
+    solicitudProducto++; // cualquier carga en curso queda descartada
+    vistaProductoUI.style.display = "none";
+    document.body.classList.remove("en-producto");
+    document.title = TITULO_PAGINA_ORIGINAL;
+    articuloDetalleActual = null;
+}
+
+// Muestra la vista que corresponde a la URL de destino (no a la de donde se entró:
+// con Atrás/Adelante el destino puede ser otro, por ejemplo "/" tras elegir una categoría)
+function restaurarVistaTrasProducto() {
+    ocultarVistaProducto();
+    const destino = window.location.pathname === "/combos" ? "COMBOS" : "CATALOGO";
+    if (destino === "COMBOS") {
+        vistaCombosUI.style.display = "block";
+    } else {
+        vistaCatalogoUI.style.display = "block";
+    }
+    vistaActual = destino;
+    // Recupera la posición solo si se vuelve a la misma vista de la que se salió
+    window.scrollTo(0, destino === vistaAntesDeProducto ? scrollAntesDeProducto : 0);
+}
+
+// Entrada desde una tarjeta: cambia la URL sin recargar
+function abrirProducto(articulo) {
+    if (vistaActual !== "PRODUCTO") {
+        vistaAntesDeProducto = vistaActual;
+        scrollAntesDeProducto = window.scrollY;
+    }
+    window.history.pushState({ desdeTienda: true }, "", urlProducto(articulo));
+    mostrarProducto(String(articulo.id));
+}
+
+function mostrarMensajeProducto(texto) {
+    const caja = document.createElement("div");
+    caja.className = "detalle-mensaje";
+    const parrafo = document.createElement("p");
+    parrafo.textContent = texto;
+    caja.appendChild(parrafo);
+    detalleProductoUI.replaceChildren(caja);
+}
+
+async function mostrarProducto(idTexto) {
+    const turno = ++solicitudProducto;
+
+    vistaCatalogoUI.style.display = "none";
+    vistaPromocionesUI.style.display = "none";
+    vistaCombosUI.style.display = "none";
+    vistaProductoUI.style.display = "block";
+    vistaActual = "PRODUCTO";
+    document.body.classList.add("en-producto");
+    articuloDetalleActual = null;
+    window.scrollTo(0, 0);
+    mostrarMensajeProducto("Cargando producto...");
+
+    try {
+        const respuesta = await fetch(`/api/articulos/${idTexto}`);
+        if (turno !== solicitudProducto) return;
+
+        if (respuesta.status === 404) {
+            mostrarMensajeProducto("Este producto no está disponible.");
+            document.title = `Producto no disponible | ${NOMBRE_TIENDA}`;
+            return;
+        }
+        if (!respuesta.ok) throw new Error(`Error ${respuesta.status} al cargar el producto`);
+
+        const articulo = await respuesta.json();
+        if (turno !== solicitudProducto) return;
+
+        articuloDetalleActual = articulo;
+        dibujarDetalleProducto(articulo);
+        document.title = `${articulo.nombre} | ${NOMBRE_TIENDA}`;
+    } catch (error) {
+        if (turno !== solicitudProducto) return;
+        console.error("No se pudo cargar el producto:", error);
+        mostrarMensajeProducto("No pudimos cargar el producto. Intentá de nuevo en unos minutos.");
+    }
+}
+
+// Todo dato del servidor se escribe con textContent/propiedades (nunca innerHTML)
+function dibujarDetalleProducto(articulo) {
+    const sinStock = estaSinStock(articulo);
+    const etiquetaUnidad = etiquetaUnidadVenta(articulo);
+
+    const contenedor = document.createElement("article");
+    contenedor.className = "detalle-producto";
+
+    // Imagen
+    const marcoImagen = document.createElement("div");
+    marcoImagen.className = "detalle-imagen";
+    const imagen = document.createElement("img");
+    imagen.src = articulo.imagen;
+    imagen.alt = articulo.nombre;
+    marcoImagen.appendChild(imagen);
+
+    // Datos
+    const datos = document.createElement("div");
+    datos.className = "detalle-datos";
+
+    const categoria = document.createElement("p");
+    categoria.className = "detalle-categoria";
+    categoria.textContent = articulo.tipo;
+
+    const nombre = document.createElement("h1");
+    nombre.className = "detalle-nombre";
+    nombre.textContent = articulo.nombre;
+
+    const precio = document.createElement("p");
+    precio.className = "detalle-precio";
+    const moneda = document.createElement("span");
+    moneda.className = "precio-moneda";
+    moneda.textContent = "PYG";
+    precio.append(moneda, ` ${articulo.precio.toLocaleString("es-ES", { maximumFractionDigits: 0 })}`);
+
+    const etiquetas = document.createElement("div");
+    etiquetas.className = "etiquetas-producto";
+    const stock = document.createElement("span");
+    stock.className = `stock-info ${sinStock ? "agotado" : "disponible"}`;
+    stock.textContent = sinStock
+        ? "Sin stock"
+        : `Stock: ${esUnidadWebEntera(articulo) ? maximoVendibleWeb(articulo) : articulo.stock_disponible}`;
+    etiquetas.appendChild(stock);
+    if (etiquetaUnidad) {
+        const unidad = document.createElement("span");
+        unidad.className = "unidad-producto";
+        unidad.textContent = etiquetaUnidad;
+        etiquetas.appendChild(unidad);
+    }
+
+    datos.append(categoria, nombre, precio, etiquetas);
+
+    // Descripción (solo si el artículo la tiene cargada)
+    if (articulo.descripcion) {
+        const bloque = document.createElement("div");
+        bloque.className = "detalle-descripcion";
+        const titulo = document.createElement("h2");
+        titulo.textContent = "Descripción";
+        const texto = document.createElement("p");
+        texto.textContent = articulo.descripcion;
+        bloque.append(titulo, texto);
+        datos.appendChild(bloque);
+    }
+
+    // Acciones: agregar al carrito y consultar por WhatsApp
+    const acciones = document.createElement("div");
+    acciones.className = "detalle-acciones";
+
+    const btnAgregar = document.createElement("button");
+    btnAgregar.type = "button";
+    btnAgregar.className = "btn-comprar";
+    btnAgregar.textContent = sinStock ? "Sin stock" : "🛒 AGREGAR AL CARRITO";
+    btnAgregar.disabled = sinStock;
+    if (!sinStock) {
+        btnAgregar.addEventListener("click", () => comprarArticulo(articulo.id));
+    }
+
+    const btnWhatsApp = document.createElement("a");
+    btnWhatsApp.className = "btn-whatsapp";
+    btnWhatsApp.href = urlWhatsApp(articulo);
+    btnWhatsApp.target = "_blank";
+    btnWhatsApp.rel = "noopener noreferrer";
+    btnWhatsApp.textContent = "💬 Consultar por WhatsApp";
+
+    acciones.append(btnAgregar, btnWhatsApp);
+    datos.appendChild(acciones);
+
+    contenedor.append(marcoImagen, datos);
+    detalleProductoUI.replaceChildren(contenedor);
+}
+
+// "← Volver a la tienda": si se entró desde la tienda, es un "Atrás"; si se llegó
+// directo por la URL, lleva a la portada
+enlaceVolverUI.addEventListener("click", evento => {
+    if (evento.button !== 0 || evento.ctrlKey || evento.metaKey || evento.shiftKey || evento.altKey) return;
+    evento.preventDefault();
+    if (window.history.state && window.history.state.desdeTienda) {
+        window.history.back(); // popstate restaura la vista anterior
+    } else {
+        window.history.pushState({}, "", "/");
+        restaurarVistaTrasProducto();
+    }
+});
+
+// Botones Atrás/Adelante del navegador
+window.addEventListener("popstate", () => {
+    const id = idDesdeRutaProducto(window.location.pathname);
+    if (id !== null) {
+        mostrarProducto(id);
+    } else if (vistaActual === "PRODUCTO") {
+        restaurarVistaTrasProducto();
+    }
+});
+
+// Entrada directa por la URL del producto (recarga o enlace compartido)
+const idProductoInicial = idDesdeRutaProducto(window.location.pathname);
+if (idProductoInicial !== null) {
+    mostrarProducto(idProductoInicial);
+}
 
 // Arrancamos la aplicación leyendo la API
 cargarDatosDeLaAPI();

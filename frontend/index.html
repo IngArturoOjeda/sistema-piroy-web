@@ -113,6 +113,13 @@
                 </div>
 
              </main>
+
+             <!-- Página propia de un producto: /producto/{id}-{nombre} (oculta por defecto).
+                  main.js la llena con GET /api/articulos/{id}. -->
+             <main class="contenido-productos" id="vista-producto" style="display: none;">
+                <a href="/" class="enlace-volver" id="enlace-volver-tienda">← Volver a la tienda</a>
+                <div id="detalle-producto" aria-live="polite"></div>
+             </main>
         </div>
 
                 <!-- 🌟 VENTANA EMERGENTE DEL CARRITO (Oculta por defecto) -->

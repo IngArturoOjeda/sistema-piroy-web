@@ -1115,6 +1115,201 @@ header {
     }
 }
 
+/* ---------- Enlaces de las tarjetas hacia la página del producto ---------- */
+.enlace-producto {
+    color: inherit;
+    text-decoration: none;
+}
+
+.imagen-producto .enlace-producto {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card-producto h3 .enlace-producto:hover {
+    text-decoration: underline;
+}
+
+.enlace-producto:focus-visible {
+    outline: 3px solid var(--marron);
+    outline-offset: 2px;
+}
+
+/* ---------- Página propia de un producto ---------- */
+/* El carrusel de banners es de la portada: no se muestra dentro de un producto */
+body.en-producto .contenedor-banner {
+    display: none;
+}
+
+.enlace-volver {
+    display: inline-block;
+    margin-bottom: 16px;
+    padding: 6px 0;
+    color: var(--marron);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.enlace-volver:hover {
+    text-decoration: underline;
+}
+
+.enlace-volver:focus-visible {
+    outline: 3px solid var(--marron);
+    outline-offset: 3px;
+}
+
+.detalle-producto {
+    display: grid;
+    grid-template-columns: minmax(0, 480px) minmax(0, 1fr);
+    gap: 32px;
+    align-items: start;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    padding: 24px;
+}
+
+.detalle-imagen {
+    aspect-ratio: 1 / 1;
+    background-color: var(--fondo);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.detalle-imagen img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 16px;
+}
+
+.detalle-categoria {
+    margin: 0 0 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6B5B4D;
+}
+
+.detalle-nombre {
+    margin: 0 0 12px;
+    font-size: 1.6rem;
+    line-height: 1.25;
+    color: var(--texto);
+}
+
+.detalle-precio {
+    margin: 0 0 10px;
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--marron);
+}
+
+.detalle-datos .etiquetas-producto {
+    margin-bottom: 18px;
+}
+
+.detalle-datos .stock-info {
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 12px;
+}
+
+.detalle-datos .stock-info.disponible {
+    color: var(--verde-accion);
+    background-color: var(--verde-suave);
+}
+
+.detalle-datos .stock-info.agotado {
+    color: #B91C1C;
+    background-color: #FDE8E8;
+}
+
+.detalle-descripcion h2 {
+    margin: 0 0 6px;
+    font-size: 1.05rem;
+    color: var(--texto);
+}
+
+.detalle-descripcion p {
+    margin: 0 0 18px;
+    line-height: 1.55;
+    color: #3d2c1c;
+    white-space: pre-line; /* respeta los saltos de línea que se escriben en el panel */
+}
+
+.detalle-acciones {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 420px;
+}
+
+.detalle-acciones .btn-comprar {
+    margin-top: 0;
+    border-radius: 8px;
+}
+
+.btn-whatsapp {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 48px;
+    border-radius: 8px;
+    background-color: #0B7A6B; /* verde WhatsApp oscurecido: texto blanco con contraste AA */
+    color: white;
+    font-size: 0.95rem;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.btn-whatsapp:hover {
+    background-color: #075E54;
+}
+
+.btn-whatsapp:focus-visible {
+    outline: 3px solid var(--marron);
+    outline-offset: 3px;
+}
+
+.detalle-mensaje {
+    background-color: white;
+    border-radius: 10px;
+    padding: 32px 20px;
+    text-align: center;
+    color: var(--texto);
+}
+
+@media (max-width: 768px) {
+    .detalle-producto {
+        grid-template-columns: 1fr;
+        gap: 20px;
+        padding: 16px;
+    }
+
+    .detalle-nombre {
+        font-size: 1.3rem;
+    }
+
+    .detalle-precio {
+        font-size: 1.7rem;
+    }
+
+    .detalle-acciones {
+        max-width: none;
+    }
+}
+
 /* Título de la sección de artículos (con la paleta de marca) */
 .titulo-seccion {
     color: var(--marron);

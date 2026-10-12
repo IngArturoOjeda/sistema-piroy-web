@@ -232,6 +232,9 @@ Ya realizado (`backend/app/routers/admin.py`, protegido con `X-Admin-Key`):
 - panel de banners (`frontend/admin-banners.html`): subir, editar texto, reordenar
   con ▲ ▼ (`PUT /api/admin/banners/orden`), activar y borrar (falta probarlo en un
   navegador real);
+- página propia de cada producto (`/producto/{id}-{nombre}`, `GET /api/articulos/{art_cod}`)
+  con descripción, agregar al carrito y consulta por WhatsApp (ver `ARCHITECTURE.md`,
+  "Página de detalle de un producto");
 - carrusel de la tienda alimentado por `GET /api/banners/` (imagen completa, oculto
   si no hay banners activos); se eliminaron `banner1-3.jpg`;
 - `/docs`, `/redoc` y `/openapi.json` apagados por defecto (`HABILITAR_DOCS=1` en local).
@@ -241,7 +244,15 @@ Pendiente:
   celular que el texto de la imagen se lee; si no, sumar una imagen alterna para
   celular;
 - accesibilidad pendiente del carrusel: aún faltan flechas anterior/siguiente;
-- descripción comercial;
+- descripción comercial: la columna `articulos.descripcion` ya existe y la página del
+  producto la muestra, pero falta cargarla desde el panel de administración (campo
+  de texto, `PATCH /api/admin/articulos/{art_cod}/descripcion`, máx. 2000 caracteres);
+- página del producto: reemplazar el número de WhatsApp de prueba (`WHATSAPP_NUMERO`
+  en `main.js`) por el definitivo; falta la vista previa al compartir el enlace en
+  WhatsApp (etiquetas `og:` generadas en el servidor, porque los rastreadores no
+  ejecutan JavaScript); y probarla en un navegador real y en celular;
+- las rutas `/combos` y `/promos` cambian la barra de direcciones con `pushState` pero el
+  servidor no las sirve: al recargar dan 404 (solo `/producto/...` está resuelta);
 - destacados;
 - administración de promociones (hoy `promos.py` sigue sobre SQL Server,
   sin panel propio — ver Fase 0 y la sección "Promociones" de

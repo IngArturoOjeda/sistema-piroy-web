@@ -46,6 +46,14 @@ async def read_index():
     ruta_index = f"{RUTA_FRONTEND}/index.html"
     return FileResponse(ruta_index)
 
+# 4b. PÁGINA PROPIA DE UN PRODUCTO: /producto/1000 o /producto/1000-botina-en-cuero
+# Sirve la misma página principal; main.js lee la URL y muestra el detalle. Así
+# el enlace funciona al recargar o al compartirlo, y el carrito (que vive en
+# memoria) no se pierde al entrar a un producto desde la tienda.
+@app.get("/producto/{ref}")
+async def read_producto(ref: str):
+    return FileResponse(f"{RUTA_FRONTEND}/index.html")
+
 # 5. ENDPOINT PARA MOSTRAR LA PÁGINA DE PROMOCIONES
 # Desactivado hasta migrar promos.py a PostgreSQL (descomentar para reactivar).
 # @app.get("/promos")
