@@ -51,9 +51,9 @@ def base(monkeypatch):
     return armar
 
 
-# art_cod, nombre, precio, tipo, foto, stock, unidad_venta, fraccionable, descripcion
+# art_cod, nombre, precio, tipo, foto, stock, unidad_venta, fraccionable, precio_promo, descripcion
 FILA = (1000, "BOTINA EN CUERO Nº 38", 80000, "CALZADOS",
-        "https://res.cloudinary.com/x/1000.jpg", 3, "UNIDAD", False, "Botina de trabajo.\nSuela antideslizante.")
+        "https://res.cloudinary.com/x/1000.jpg", 3, "UNIDAD", False, None, "Botina de trabajo.\nSuela antideslizante.")
 
 
 def test_devuelve_los_mismos_campos_del_catalogo_mas_la_descripcion(base):
@@ -63,6 +63,8 @@ def test_devuelve_los_mismos_campos_del_catalogo_mas_la_descripcion(base):
         "id": 1000,
         "nombre": "BOTINA EN CUERO Nº 38",
         "precio": 80000,
+        "precio_original": None,
+        "descuento_porcentaje": None,
         "tipo": "CALZADOS",
         "imagen": "https://res.cloudinary.com/x/1000.jpg",
         "stock_disponible": 3.0,
@@ -74,7 +76,7 @@ def test_devuelve_los_mismos_campos_del_catalogo_mas_la_descripcion(base):
 
 @pytest.mark.parametrize("valor", [None, "", "   \n "])
 def test_descripcion_vacia_se_devuelve_como_null(base, valor):
-    base(FILA[:8] + (valor,))
+    base(FILA[:9] + (valor,))
     assert items.trae_detalle_articulo(1000)["descripcion"] is None
 
 

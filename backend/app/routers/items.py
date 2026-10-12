@@ -1,5 +1,5 @@
 from pathlib import Path
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional, Literal
 
 from backend.app.database_postgres import obtener_conexion_postgres
@@ -44,6 +44,33 @@ SQL_STOCK_KIT_LATERAL = """
     ) kit ON a.art_kit = TRUE
 """
 
+# Precio promocional vigente de un articulo (tabla `promocion`). Requiere el alias "a".
+# - vigente: fec_desde <= hoy <= fec_hasta, con "hoy" en hora de Paraguay (Render corre en UTC);
+# - solo cuenta si es MENOR al precio base (una promo que no rebaja no es una promo);
+# - con varias promos vigentes para el mismo articulo se toma el precio mas bajo.
+# El agregado sin GROUP BY siempre devuelve una fila: promo.precio_promo es NULL si no hay promo.
+SQL_PROMO_LATERAL = """
+    LEFT JOIN LATERAL (
+        SELECT MIN(p.art_valor) AS precio_promo
+        FROM promocion p
+        WHERE p.art_cod = a.art_cod
+          AND p.art_valor < a.art_preciobase
+          AND (NOW() AT TIME ZONE 'America/Asuncion')::date BETWEEN p.fec_desde AND p.fec_hasta
+    ) promo ON TRUE
+"""
+
+# Columnas comunes de las consultas de catalogo (el orden lo espera formatear_articulo_catalogo)
+SQL_COLUMNAS_CATALOGO = """
+    a.art_cod, a.art_nombre, a.art_preciobase, t.tipoart_desc, a.art_foto,
+    CASE
+        WHEN a.art_kit THEN COALESCE(kit.stock_disponible, 0)
+        ELSE COALESCE(s.cantidad, 0)
+    END AS stock_disponible,
+    um.uni_nombre AS unidad_venta,
+    COALESCE(um.fraccionable, FALSE) AS fraccionable,
+    promo.precio_promo
+"""
+
 
 def url_imagen_articulo(foto):
     if not foto or not foto.strip():
@@ -69,12 +96,32 @@ def url_imagen_articulo(foto):
     return f"/{parte_relativa}"
 
 
+def calcular_descuento(precio_base, precio_promo):
+    """Porcentaje de descuento, redondeado a entero (mitad hacia arriba).
+
+    Devuelve None si no hay promo valida (sin precio promocional, o que no rebaja)
+    o si el descuento redondeado es menor a 1% (no vale una insignia "-0%").
+    """
+    if precio_promo is None or precio_base is None or precio_base <= 0 or precio_promo >= precio_base:
+        return None
+    porcentaje = ((Decimal(precio_base) - Decimal(precio_promo)) * 100 / Decimal(precio_base)).quantize(
+        Decimal(1), rounding=ROUND_HALF_UP
+    )
+    return int(porcentaje) if porcentaje >= 1 else None
+
+
 def formatear_articulo_catalogo(fila):
-    art_cod, nombre, precio, tipo, foto, stock_disponible, unidad_venta, fraccionable = fila
+    art_cod, nombre, precio_base, tipo, foto, stock_disponible, unidad_venta, fraccionable, precio_promo = fila
+
+    # Con promo vigente, "precio" es el precio efectivo (el que se cobra) y
+    # "precio_original" el de lista, para mostrarlo tachado. Sin promo: precio_original = None.
+    hay_promo = precio_promo is not None and precio_promo < precio_base
     return {
         "id": art_cod,
         "nombre": nombre,
-        "precio": int(precio),
+        "precio": int(precio_promo if hay_promo else precio_base),
+        "precio_original": int(precio_base) if hay_promo else None,
+        "descuento_porcentaje": calcular_descuento(precio_base, precio_promo),
         "tipo": tipo,
         "imagen": url_imagen_articulo(foto),
         "stock_disponible": float(stock_disponible),
@@ -148,18 +195,13 @@ def trae_articulos(
 
         sql = f"""
             SELECT
-                a.art_cod, a.art_nombre, a.art_preciobase, t.tipoart_desc, a.art_foto,
-                CASE
-                    WHEN a.art_kit THEN COALESCE(kit.stock_disponible, 0)
-                    ELSE COALESCE(s.cantidad, 0)
-                END AS stock_disponible,
-                um.uni_nombre AS unidad_venta,
-                COALESCE(um.fraccionable, FALSE) AS fraccionable
+                {SQL_COLUMNAS_CATALOGO}
             FROM articulos a
             INNER JOIN tipo_articulo t ON a.tipoart_cod = t.tipoart_cod
             LEFT JOIN stock s ON s.art_cod = a.art_cod
             LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
             {SQL_STOCK_KIT_LATERAL}
+            {SQL_PROMO_LATERAL}
             WHERE a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
@@ -282,18 +324,13 @@ def trae_combos(
 
         sql = f"""
             SELECT
-                a.art_cod, a.art_nombre, a.art_preciobase, t.tipoart_desc, a.art_foto,
-                CASE
-                    WHEN a.art_kit THEN COALESCE(kit.stock_disponible, 0)
-                    ELSE COALESCE(s.cantidad, 0)
-                END AS stock_disponible,
-                um.uni_nombre AS unidad_venta,
-                COALESCE(um.fraccionable, FALSE) AS fraccionable
+                {SQL_COLUMNAS_CATALOGO}
             FROM articulos a
             INNER JOIN tipo_articulo t ON a.tipoart_cod = t.tipoart_cod
             LEFT JOIN stock s ON s.art_cod = a.art_cod
             LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
             {SQL_STOCK_KIT_LATERAL}
+            {SQL_PROMO_LATERAL}
             WHERE a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
@@ -310,6 +347,55 @@ def trae_combos(
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al obtener combos")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@router.get("/promociones")
+def trae_promociones(
+    pagina: int = Query(1, ge=1, description="Número de página (empieza en 1)"),
+    limite: int = Query(30, ge=1, le=100, description="Cantidad de productos por lote"),
+):
+    """Articulos publicados con una promocion vigente hoy (hora de Paraguay).
+
+    Los de mayor descuento primero; el codigo desempata para que la paginacion sea estable.
+    Incluye normales y kits (PRESENTACION y COMBO). Debe declararse antes de "/{art_cod}".
+    """
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        registros_a_saltear = (pagina - 1) * limite
+
+        sql = f"""
+            SELECT
+                {SQL_COLUMNAS_CATALOGO}
+            FROM articulos a
+            INNER JOIN tipo_articulo t ON a.tipoart_cod = t.tipoart_cod
+            LEFT JOIN stock s ON s.art_cod = a.art_cod
+            LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
+            {SQL_STOCK_KIT_LATERAL}
+            {SQL_PROMO_LATERAL}
+            WHERE a.art_estado = 'S'
+              AND a.llevar_web = TRUE
+              AND a.mostrar_web = TRUE
+              AND promo.precio_promo IS NOT NULL
+            ORDER BY (a.art_preciobase - promo.precio_promo) / a.art_preciobase DESC, a.art_cod
+            LIMIT %s OFFSET %s
+        """
+        cursor.execute(sql, (limite, registros_a_saltear))
+        return [formatear_articulo_catalogo(fila) for fila in cursor.fetchall()]
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al obtener promociones")
     finally:
         if cursor:
             cursor.close()
@@ -334,19 +420,14 @@ def trae_detalle_articulo(art_cod: int = RutaParam(gt=0, lt=10**18)):
 
         sql = f"""
             SELECT
-                a.art_cod, a.art_nombre, a.art_preciobase, t.tipoart_desc, a.art_foto,
-                CASE
-                    WHEN a.art_kit THEN COALESCE(kit.stock_disponible, 0)
-                    ELSE COALESCE(s.cantidad, 0)
-                END AS stock_disponible,
-                um.uni_nombre AS unidad_venta,
-                COALESCE(um.fraccionable, FALSE) AS fraccionable,
+                {SQL_COLUMNAS_CATALOGO},
                 a.descripcion
             FROM articulos a
             INNER JOIN tipo_articulo t ON a.tipoart_cod = t.tipoart_cod
             LEFT JOIN stock s ON s.art_cod = a.art_cod
             LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
             {SQL_STOCK_KIT_LATERAL}
+            {SQL_PROMO_LATERAL}
             WHERE a.art_cod = %s
               AND a.art_estado = 'S'
               AND a.llevar_web = TRUE
@@ -361,8 +442,8 @@ def trae_detalle_articulo(art_cod: int = RutaParam(gt=0, lt=10**18)):
                 detail="Articulo no disponible"
             )
 
-        articulo = formatear_articulo_catalogo(fila[:8])
-        descripcion = (fila[8] or "").strip()
+        articulo = formatear_articulo_catalogo(fila[:9])
+        descripcion = (fila[9] or "").strip()
         articulo["descripcion"] = descripcion or None
         return articulo
 

@@ -283,17 +283,21 @@ opcional). Siempre excluye `tipo_kit='COMBO'`, en todos los modos (ver
 ```text
 id
 nombre
-precio
-tipo            (nombre de la categoría)
+precio                (precio EFECTIVO: el promocional si hay promo vigente, si no el de lista)
+precio_original       (precio de lista, solo con promo vigente; si no, null)
+descuento_porcentaje  (entero, solo con promo vigente y descuento >= 1 %; si no, null)
+tipo                  (nombre de la categoría)
 imagen
 stock_disponible
 unidad_venta
 fraccionable
 ```
 
-`GET /api/articulos/presentaciones?categoria=` y `GET /api/articulos/combos`
-comparten el mismo formato de respuesta; están descriptos en la sección
-"Modelo de artículos compuestos: PRESENTACION vs COMBO".
+`GET /api/articulos/presentaciones?categoria=`, `GET /api/articulos/combos`,
+`GET /api/articulos/promociones` y `GET /api/articulos/{art_cod}` comparten el
+mismo formato de respuesta (el detalle agrega `descripcion`); los dos primeros
+están descriptos en la sección "Modelo de artículos compuestos: PRESENTACION vs
+COMBO" y los dos últimos en "Promociones" y "Página de detalle de un producto".
 
 ## Página de detalle de un producto
 
@@ -441,20 +445,21 @@ Debe definirse más adelante una estrategia de imágenes accesibles desde la nub
 
 ## Promociones
 
-El router actual de promociones usa:
+Diseño aprobado (2026-10-11), por etapas. Hasta que se cargue la tabla `promocion`, la tienda se ve igual que antes.
 
-```text
-ARTICULOS
-TIPOARTICULO
-PROMOCION
-```
+**Origen de los datos.** La tabla `PROMOCION` del sistema local (SQL Server) tiene, según el viejo `promos.py`, las columnas `art_cod`, `art_valor` (precio promocional), `fec_desde` y `fec_hasta`; su estructura completa (clave, duplicados por artículo) **está por confirmar**. Se cargará en PostgreSQL con el sincronizador (etapa posterior; todavía no existe `POST /api/sync/promociones`).
 
-con campos como:
-- `fec_desde`;
-- `fec_hasta`;
-- `art_valor`.
+**Tabla `promocion` (PostgreSQL)**, definida en `scripts/crear_tabla_promocion.sql` (+ `.py`): `id`, `art_cod` (FK a `articulos`, `ON DELETE CASCADE`), `art_valor` (`numeric(14,0)` > 0), `fec_desde`, `fec_hasta` (`fec_hasta >= fec_desde`) e índice por `(art_cod, fec_desde, fec_hasta)`. Cada fila es el **precio promocional** de un artículo entre dos fechas.
 
-Debe definirse si las promociones se sincronizan desde SQL Server o si serán administradas desde el futuro administrador web.
+**Reglas de vigencia** (`SQL_PROMO_LATERAL` en `items.py`, usado por el catálogo, los combos, el detalle y el listado de promociones):
+- vigente si `fec_desde <= hoy <= fec_hasta` (ambas fechas inclusivas), con "hoy" en hora de Paraguay (`America/Asuncion`). Render corre en UTC: la fecha del servidor puede ir un día adelante de la de Paraguay, y se comprobó que ocurre;
+- solo cuenta si el precio promocional es **menor** al precio de lista (si no rebaja, se ignora);
+- con varias promos vigentes para el mismo artículo se aplica el **precio más bajo**;
+- el porcentaje se calcula a partir del nuevo precio, `(lista − promo) / lista`, redondeado a entero (mitad hacia arriba); si da menos de 1 % no se muestra insignia (el precio rebajado sí se aplica).
+
+**Endpoints**: `GET /api/articulos/promociones?pagina&limite` (limite máx. 100) devuelve los artículos publicados (normales, PRESENTACION y COMBO) con promo vigente, de mayor a menor descuento (el código desempata). Declarado antes de `/{art_cod}`.
+
+**Pendiente** (ver `ROADMAP.md`): cobrar el precio promocional en `confirmar_pedido` (hoy se sigue cobrando `art_preciobase`), mostrar el precio tachado, la insignia y la sección "Promoción vigente" en la web, retirar el `promos.py` viejo, y la sincronización. **No cargar filas en `promocion` en producción antes de que `confirmar_pedido` cobre el precio promocional**: la web mostraría un precio y cobraría otro.
 
 ## Administrador web
 

@@ -19,7 +19,10 @@ from fastapi import HTTPException
 from backend.app.routers import items
 
 PALABRAS_DE_ESCRITURA = ("INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER", "TRUNCATE")
-CLAVES_ARTICULO = {"id", "nombre", "precio", "tipo", "imagen", "stock_disponible", "unidad_venta", "fraccionable"}
+CLAVES_ARTICULO = {
+    "id", "nombre", "precio", "precio_original", "descuento_porcentaje", "tipo", "imagen",
+    "stock_disponible", "unidad_venta", "fraccionable",
+}
 PREDICADO_COMBO_CATALOGO = "AND a.tipo_kit IS DISTINCT FROM 'COMBO'"
 PREDICADO_COMBO_SQL = (
     "a.art_kit = TRUE", "a.tipo_kit = 'COMBO'", "a.art_estado = 'S'",
@@ -74,9 +77,9 @@ class FakeConn:
         pass
 
 
-def fila(art_cod, tipo, stock, unidad="BOLSA", fraccionable=False, foto=None, precio=Decimal("5000")):
-    # Orden de columnas de las consultas: art_cod, nombre, precio, tipo, foto, stock, unidad, fraccionable
-    return (art_cod, f"ARTICULO {art_cod}", precio, tipo, foto, stock, unidad, fraccionable)
+def fila(art_cod, tipo, stock, unidad="BOLSA", fraccionable=False, foto=None, precio=Decimal("5000"), precio_promo=None):
+    # Orden de columnas de las consultas: art_cod, nombre, precio, tipo, foto, stock, unidad, fraccionable, precio_promo
+    return (art_cod, f"ARTICULO {art_cod}", precio, tipo, foto, stock, unidad, fraccionable, precio_promo)
 
 
 # Datos de prueba con IDs ficticios (900xxx y 910xxx). No existen en produccion.

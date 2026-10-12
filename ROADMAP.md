@@ -332,6 +332,26 @@ Estado: COMPLETADA en su primera versión (commit `01e0034`)
 - Pendiente: versionar las suites de frontend (jsdom), que hoy viven en el scratchpad. Requieren un `package.json` con `jsdom`.
 - Pendiente: reescribir `test_carrito_fraccionable` y `test_carrito_full` con datos controlados (hecho en el scratchpad, sin versionar).
 
+## Fase 19 — Promociones y novedades en la portada
+Estado: EN PROGRESO (plan aprobado el 2026-10-11; el usuario pidió **no sincronizar todavía**)
+
+Diseño completo en `ARCHITECTURE.md`, sección "Promociones". Referencia: portada de tiempodemascotas.com.py.
+Flujo: portada con sección "Promoción vigente" (carrusel con flechas) → botón "Ver promoción" → `/promociones`
+(todos los artículos en promoción) → cada tarjeta lleva a `/producto/{id}-{nombre}`.
+
+1. Etapa 1 — tabla `promocion` y precios en las lecturas: **código y pruebas hechos** (`SQL_PROMO_LATERAL`, `precio`
+   efectivo, `precio_original`, `descuento_porcentaje`, `GET /api/articulos/promociones`). Validado contra la base real en
+   una transacción con rollback. Falta crear la tabla en producción (`scripts/crear_tabla_promocion.py`) y desplegar.
+2. Etapa 2 — cobrar el precio promocional en `confirmar_pedido` y responder 409 si el precio del carrito ya no coincide.
+   **Hasta que esté hecha, no cargar filas en `promocion` en producción** (se mostraría un precio y se cobraría otro).
+3. Etapa 3 — precio tachado + insignia "-X %" en tarjetas y página del producto, carrusel "Promoción vigente", página
+   `/promociones`, rutas `/promociones` y `/combos` servidas al recargar, y retiro de `promos.py`, `database.py` y
+   `promos-Exclusivos.html`.
+4. Etapa 4 — Novedades con caducidad manual (`articulos.novedad_hasta`), sección "Novedades" en carrusel.
+5. Etapa 5 — DIFERIDA: `POST /api/sync/promociones` y lectura de `PROMOCION` en el sincronizador. Requiere que el usuario
+   confirme la estructura de `PROMOCION` y si la tabla de artículos guarda la fecha de inserción (para sumar una regla
+   automática de Novedades).
+
 ## Versión 2
 
 Sincronizar estados comerciales:
