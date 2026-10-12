@@ -342,8 +342,9 @@ Flujo: portada con sección "Promoción vigente" (carrusel con flechas) → bot�
 1. Etapa 1 — tabla `promocion` y precios en las lecturas: **código y pruebas hechos** (`SQL_PROMO_LATERAL`, `precio`
    efectivo, `precio_original`, `descuento_porcentaje`, `GET /api/articulos/promociones`). Validado contra la base real en
    una transacción con rollback. Falta crear la tabla en producción (`scripts/crear_tabla_promocion.py`) y desplegar.
-2. Etapa 2 — cobrar el precio promocional en `confirmar_pedido` y responder 409 si el precio del carrito ya no coincide.
-   **Hasta que esté hecha, no cargar filas en `promocion` en producción** (se mostraría un precio y se cobraría otro).
+2. Etapa 2 — HECHA: `confirmar_pedido` cobra el precio promocional vigente (se guarda en `pedido_detalle.precio_unitario`) y
+   responde 409 con los precios vigentes si el carrito trae otro; la web actualiza el carrito y pide confirmar de nuevo.
+   Recomendación: no cargar promociones reales hasta tener la Etapa 3 (el cliente vería un precio rebajado sin el precio tachado).
 3. Etapa 3 — precio tachado + insignia "-X %" en tarjetas y página del producto, carrusel "Promoción vigente", página
    `/promociones`, rutas `/promociones` y `/combos` servidas al recargar, y retiro de `promos.py`, `database.py` y
    `promos-Exclusivos.html`.

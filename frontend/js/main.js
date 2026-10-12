@@ -864,6 +864,19 @@ txtClienteTelefonoUI.addEventListener("input", (evento) => {
 });
 
 
+// Aplica al carrito los precios vigentes que informó el servidor (respuesta 409).
+// Solo toca los artículos que siguen en el carrito; el servidor es la fuente del precio.
+function actualizarPreciosDelCarrito(precios) {
+    if (!Array.isArray(precios)) return;
+    precios.forEach(vigente => {
+        const itemCarrito = carrito.find(item => item.id === vigente.id);
+        if (!itemCarrito) return;
+        itemCarrito.precio = vigente.precio;
+        itemCarrito.precio_original = vigente.precio_original;
+        itemCarrito.descuento_porcentaje = vigente.descuento_porcentaje;
+    });
+}
+
 // 🌟 ESCUCHADOR PARA ENVIAR EL PEDIDO COMPLETO
 formPedidoUI.addEventListener("submit", async (evento) => {
     // 1. FRENAR EL COMPORTAMIENTO POR DEFECTO:
@@ -930,8 +943,20 @@ formPedidoUI.addEventListener("submit", async (evento) => {
             cerrarCarrito();                        // Cerramos la ventana flotante
 
         } else {
-            const datosError = await respuestaServer.json();
-            alert(`❌ No se pudo guardar el pedido: ${datosError.detail || 'Error desconocido'}`);
+            const datosError = await respuestaServer.json().catch(() => ({}));
+            const detalle = datosError.detail;
+
+            // 409: el precio de algún artículo cambió (una promoción empezó o terminó) desde que
+            // el cliente lo agregó. No se guardó nada: se actualiza el carrito y se pide revisar.
+            if (respuestaServer.status === 409 && detalle && detalle.codigo === "PRECIOS_CAMBIARON") {
+                actualizarPreciosDelCarrito(detalle.precios);
+                dibujarCarrito();
+                alert(`⚠️ ${detalle.mensaje}\n\nYa actualizamos los precios en tu carrito. Revisá el total y volvé a confirmar el pedido.`);
+                return;
+            }
+
+            const motivo = typeof detalle === "string" ? detalle : "Error desconocido";
+            alert(`❌ No se pudo guardar el pedido: ${motivo}`);
         }
 
     } catch (error) {

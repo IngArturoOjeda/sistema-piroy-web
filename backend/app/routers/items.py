@@ -110,12 +110,17 @@ def calcular_descuento(precio_base, precio_promo):
     return int(porcentaje) if porcentaje >= 1 else None
 
 
+def hay_promo_valida(precio_base, precio_promo):
+    """Una promo solo cuenta si existe y rebaja el precio de lista."""
+    return precio_promo is not None and precio_promo < precio_base
+
+
 def formatear_articulo_catalogo(fila):
     art_cod, nombre, precio_base, tipo, foto, stock_disponible, unidad_venta, fraccionable, precio_promo = fila
 
     # Con promo vigente, "precio" es el precio efectivo (el que se cobra) y
     # "precio_original" el de lista, para mostrarlo tachado. Sin promo: precio_original = None.
-    hay_promo = precio_promo is not None and precio_promo < precio_base
+    hay_promo = hay_promo_valida(precio_base, precio_promo)
     return {
         "id": art_cod,
         "nombre": nombre,
@@ -480,17 +485,21 @@ def confirmar_pedido(pedido: PedidoEntrada):
         conn = obtener_conexion_postgres()
         cursor = conn.cursor()
 
-        # FASE 1: metadatos de los articulos del pedido (existencia/publicado, precio, tipo)
-        sql_articulos = """
+        # FASE 1: metadatos de los articulos del pedido (existencia/publicado, precio, tipo).
+        # El precio a cobrar es el de la promocion vigente (si la hay) o el de lista:
+        # el mismo calculo que muestra la web (SQL_PROMO_LATERAL).
+        sql_articulos = f"""
             SELECT
                 a.art_cod,
                 a.art_nombre,
                 a.art_preciobase,
                 a.art_kit,
                 COALESCE(um.fraccionable, FALSE) AS fraccionable,
-                um.uni_nombre AS unidad_venta
+                um.uni_nombre AS unidad_venta,
+                promo.precio_promo
             FROM articulos a
             LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
+            {SQL_PROMO_LATERAL}
             WHERE a.art_cod = ANY(%s)
               AND a.art_estado = 'S'
               AND a.llevar_web = TRUE
@@ -501,11 +510,14 @@ def confirmar_pedido(pedido: PedidoEntrada):
             art_cod: {
                 "art_nombre": art_nombre,
                 "art_preciobase": art_preciobase,
+                "precio_unitario": precio_promo if hay_promo_valida(art_preciobase, precio_promo) else art_preciobase,
+                "precio_promo": precio_promo if hay_promo_valida(art_preciobase, precio_promo) else None,
                 "art_kit": art_kit,
                 "fraccionable": fraccionable,
                 "unidad_venta": unidad_venta,
             }
-            for art_cod, art_nombre, art_preciobase, art_kit, fraccionable, unidad_venta in cursor.fetchall()
+            for art_cod, art_nombre, art_preciobase, art_kit, fraccionable, unidad_venta, precio_promo
+            in cursor.fetchall()
         }
 
         # FASE 2: existencia + tipo de cantidad, y consumo fisico directo de los NO-kit
@@ -537,6 +549,31 @@ def confirmar_pedido(pedido: PedidoEntrada):
                 ids_kit_en_pedido.append(item.id)
             else:
                 consumo_fisico[item.id] = consumo_fisico.get(item.id, Decimal(0)) + item.cantidad
+
+        # FASE 2b: el precio que el cliente vio en su carrito debe coincidir con el vigente.
+        # Si una promocion empezo o termino mientras compraba, NO se cobra en silencio un
+        # precio distinto: se responde 409 con los precios vigentes y no se escribe nada.
+        # (El navegador manda el precio solo para esta comparacion; nunca se usa para cobrar.)
+        precios_cambiados = []
+        for item in pedido.productos:
+            articulo = articulos_por_id[item.id]
+            vigente = articulo["precio_unitario"]
+            if abs(Decimal(str(item.precio)) - Decimal(vigente)) > Decimal("0.5"):
+                precios_cambiados.append({
+                    "id": item.id,
+                    "precio": int(vigente),
+                    "precio_original": int(articulo["art_preciobase"]) if articulo["precio_promo"] is not None else None,
+                    "descuento_porcentaje": calcular_descuento(articulo["art_preciobase"], articulo["precio_promo"]),
+                })
+        if precios_cambiados:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "codigo": "PRECIOS_CAMBIARON",
+                    "mensaje": "El precio de algunos artículos cambió desde que los agregaste al carrito.",
+                    "precios": precios_cambiados,
+                },
+            )
 
         # FASE 3: composicion de TODOS los kits del pedido, en una sola consulta batch
         componentes_por_kit = {}
@@ -635,7 +672,7 @@ def confirmar_pedido(pedido: PedidoEntrada):
             articulo = articulos_por_id[item.id]
             cursor.execute(
                 sql_detalle,
-                (id_pedido_nuevo, item.id, item.cantidad, articulo["art_preciobase"])
+                (id_pedido_nuevo, item.id, item.cantidad, articulo["precio_unitario"])
             )
             id_detalle_nuevo = cursor.fetchone()[0]
 

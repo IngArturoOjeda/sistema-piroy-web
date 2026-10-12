@@ -37,7 +37,7 @@ class FakeCursor:
         elif "LEFT JOIN stock s" in q and "FROM articulos a" in q:
             self._resultado = self.escenario.get("stock_fisico", [])
         elif "unidad_medida" in q:
-            self._resultado = self.escenario["articulos"]
+            self._resultado = [f + (None,) * (7 - len(f)) for f in self.escenario["articulos"]]
         else:
             raise AssertionError(q[:80])
 
@@ -82,7 +82,7 @@ def correr_mock(monkeypatch, unidad, fraccionable, cantidad, stock):
     monkeypatch.setattr(items, "obtener_conexion_postgres", lambda: conn)
     pedido = PedidoEntrada(
         cliente_nombre="T", cliente_direccion="T", cliente_telefono="0981000000",
-        productos=[{"id": 700001, "nombre": "x", "precio": 1, "cantidad": cantidad}],
+        productos=[{"id": 700001, "nombre": "x", "precio": 1000, "cantidad": cantidad}],  # = precio oficial
     )
     try:
         items.confirmar_pedido(pedido)

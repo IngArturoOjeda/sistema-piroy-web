@@ -126,7 +126,10 @@ El frontend actual envía:
 Regla de seguridad:
 - confiar en `id/art_cod` y `cantidad` después de validarlos;
 - NO confiar en `nombre` ni `precio` enviados por el navegador;
-- FastAPI debe consultar PostgreSQL y obtener allí nombre/precio oficiales.
+- FastAPI debe consultar PostgreSQL y obtener allí nombre/precio oficiales. El precio oficial es el
+  de la promoción vigente (tabla `promocion`) si la hay, o el de lista;
+- el `precio` del navegador solo se **compara** con el oficial: si difiere (una promoción empezó o
+  terminó), el servidor responde 409 y no guarda nada; nunca se usa para cobrar.
 
 ## Artículos web
 

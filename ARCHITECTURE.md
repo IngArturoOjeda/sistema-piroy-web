@@ -317,19 +317,30 @@ una única transacción (rollback si cualquier fase falla):
 1. valida que el pedido no esté vacío y no tenga artículos repetidos;
 2. trae metadatos de los artículos pedidos (precio oficial, si es kit,
    fraccionable, unidad de venta) — nunca confía en lo que mandó el
-   navegador;
+   navegador. El **precio oficial es el promocional vigente** si lo hay
+   (mismo `SQL_PROMO_LATERAL` que usa el catálogo) o el de lista;
 3. valida reglas de cantidad: enteros para no-fraccionables, y enteros
    también para KG/LITROS/METROS por política web (ver "Política de
    cantidades" más abajo);
+3b. **compara el precio que el cliente vio en su carrito con el oficial**
+   (tolerancia de medio guaraní). Si alguno difiere —una promoción empezó o
+   terminó mientras compraba— responde **409** y no escribe nada:
+   `{"detail": {"codigo": "PRECIOS_CAMBIARON", "mensaje": "...", "precios":
+   [{"id", "precio", "precio_original", "descuento_porcentaje"}]}}`, con solo
+   los artículos cuyo precio cambió. La web actualiza esos precios en el
+   carrito, avisa y pide volver a confirmar. El precio del navegador se usa
+   **solo para esta comparación, nunca para cobrar**. Se evalúa antes del
+   chequeo de stock; un artículo no disponible sigue dando 400 antes;
 4. para los kits del pedido, trae su composición (`articulos_kit`) y la
    expande a consumo físico de sus componentes;
 5. valida el stock físico **agregado**: si un artículo directo y un kit
    comparten el mismo componente, se suman antes de comparar contra el
    stock real; detecta también kits anidados (no soportado) y kits sin
    componentes configurados (inconsistencia interna, 500);
-6. recién con todo validado, inserta `pedido_cabecera`, `pedido_detalle` y
-   un snapshot por componente en `pedido_detalle_componentes`, y hace
-   commit.
+6. recién con todo validado, inserta `pedido_cabecera`, `pedido_detalle`
+   (con `precio_unitario` = el precio oficial vigente en ese momento, es
+   decir, el realmente cobrado) y un snapshot por componente en
+   `pedido_detalle_componentes`, y hace commit.
 
 Ya no inserta nada en SQL Server directamente. El flujo hacia SQL Server
 (sincronizador descargando pedidos desde PostgreSQL) sigue pendiente —
@@ -459,7 +470,9 @@ Diseño aprobado (2026-10-11), por etapas. Hasta que se cargue la tabla `promoci
 
 **Endpoints**: `GET /api/articulos/promociones?pagina&limite` (limite máx. 100) devuelve los artículos publicados (normales, PRESENTACION y COMBO) con promo vigente, de mayor a menor descuento (el código desempata). Declarado antes de `/{art_cod}`.
 
-**Pendiente** (ver `ROADMAP.md`): cobrar el precio promocional en `confirmar_pedido` (hoy se sigue cobrando `art_preciobase`), mostrar el precio tachado, la insignia y la sección "Promoción vigente" en la web, retirar el `promos.py` viejo, y la sincronización. **No cargar filas en `promocion` en producción antes de que `confirmar_pedido` cobre el precio promocional**: la web mostraría un precio y cobraría otro.
+**Cobro del precio promocional** (hecho): `confirmar_pedido` cobra el precio promocional vigente y lo guarda en `pedido_detalle.precio_unitario`; si el carrito trae un precio distinto responde 409 (ver "Endpoint actual de pedidos"). Cuando se arme la bajada de pedidos al sistema local, cada renglón ya lleva el precio realmente cobrado.
+
+**Pendiente** (ver `ROADMAP.md`, Fase 19): mostrar el precio tachado y la insignia "-X %" en la web, la sección "Promoción vigente" y la página `/promociones`, retirar el `promos.py` viejo, y la sincronización de `PROMOCION`. El backend ya cobra bien, pero mientras la web no muestre el precio tachado conviene no cargar promociones reales en producción: el cliente vería solo un precio rebajado sin contexto.
 
 ## Administrador web
 
