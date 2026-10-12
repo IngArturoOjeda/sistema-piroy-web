@@ -22,9 +22,16 @@ const txtBuscarUI = document.getElementById("txt-buscar");
 const contadorCarritoUI = document.getElementById("contador-carrito"); 
 const vistaCatalogoUI = document.getElementById("vista-catalogo");
 const tituloCatalogoUI = document.getElementById("titulo-catalogo");
+// Promoción vigente: carrusel de la portada y página /promociones
 const vistaPromocionesUI = document.getElementById("vista-promociones");
 const contenedorCardsPromosUI = document.getElementById("contenedor-cards-promos");
-const btnVerPromosUI = document.getElementById("btn-ver-promos");
+const btnMasPromosUI = document.getElementById("btn-mas-promos");
+const mensajeSinPromosUI = document.getElementById("mensaje-sin-promos");
+const seccionPromoUI = document.getElementById("seccion-promo");
+const carruselPromoUI = document.getElementById("carrusel-promo");
+const enlaceVerPromocionUI = document.getElementById("enlace-ver-promocion");
+const promoAnteriorUI = document.getElementById("promo-anterior");
+const promoSiguienteUI = document.getElementById("promo-siguiente");
 // Capturas de la Ventana Emergente (Modal)
 const btnVerCarritoUI = document.getElementById("btn-ver-carrito");
 const modalCarritoUI = document.getElementById("modal-carrito");
@@ -60,7 +67,6 @@ const btnEntendidoExitoUI = document.getElementById("btn-entendido-exito");
 // Capturas de la página propia de un producto (/producto/{id}-{nombre})
 const vistaProductoUI = document.getElementById("vista-producto");
 const detalleProductoUI = document.getElementById("detalle-producto");
-const enlaceVolverUI = document.getElementById("enlace-volver-tienda");
 
 // Contacto por WhatsApp. Número de PRUEBA: cambiarlo por el definitivo de la tienda.
 // Va con código de país y sin "+" ni espacios (formato de https://wa.me/).
@@ -77,13 +83,16 @@ let paginaActual = 1;       // Empezamos siempre mostrando el primer lote (Pági
 let cargandoProductos = false; // Nos avisa si el sistema está ocupado hablando con FastAPI
 let finDeStock = false;     // Se volverá true cuando Python nos devuelva una lista vacía []
 let categoriaSeleccionadaActual = "Todos"; // 🌟 NUEVO: Sabe qué botón lateral está activo
-let promosGlobales = [];
 let vistaActual = "CATALOGO"; // "CATALOGO" | "PROMOCIONES" | "COMBOS" | "PRODUCTO"
 // Página de un producto: desde dónde se entró y qué artículo se está viendo
 let vistaAntesDeProducto = "CATALOGO";
 let scrollAntesDeProducto = 0;
 let articuloDetalleActual = null;
-let solicitudProducto = 0; // numera las cargas para descartar respuestas viejas
+let turnoVista = 0; // numera los cambios de vista para descartar respuestas viejas (ver mostrarVista)
+// Promoción vigente: las primeras para el carrusel de la portada, y la lista paginada de /promociones
+let promosPortada = [];
+let promosPagina = [];
+let paginaPromos = 1;
 // Combos: sección independiente, cargada al iniciar para saber si mostrar la entrada
 let combosGlobales = [];
 let paginaCombos = 1;
@@ -173,15 +182,7 @@ function dibujarCategorias(listacategorias) {
   
         boton.addEventListener("click", () => {
             // 🌟 NUEVO: Si el usuario hace clic en una categoría, lo regresamos al catálogo regular
-            document.getElementById("vista-catalogo").style.display = "block";
-            document.getElementById("vista-promociones").style.display = "none";
-            vistaCombosUI.style.display = "none";
-            ocultarVistaProducto();
-            vistaActual = "CATALOGO";
-
-            // Restablecemos el texto del botón enérgico de la cabecera
-            const btnVerPromosUI = document.getElementById("btn-ver-promos");
-            if (btnVerPromosUI) btnVerPromosUI.innerHTML = "🔥 Ver Promos";
+            mostrarVista("CATALOGO");
 
             // Regresamos la URL estéticamente al inicio sin recargar
             window.history.pushState({}, "", "/");
@@ -205,6 +206,7 @@ function dibujarCategorias(listacategorias) {
 
             // 🌟 PASO A: Guardamos la categoría seleccionada
             categoriaSeleccionadaActual = categoria.nombre;
+            actualizarSeccionPromo(); // la promoción vigente solo se ve con "Todos"
             // 🌟 PASO B: REINICIAMOS LOS CONTROLES DEL MOTOR DE SCROLL
             paginaActual = 1;          // Volvemos al primer lote de 30
             finDeStock = false;        // Encendemos el motor por si estaba apagado
@@ -408,6 +410,21 @@ function etiquetaUnidadVenta(articulo) {
     return ETIQUETAS_UNIDAD_VENTA[articulo.unidad_venta] || `Por ${articulo.unidad_venta}`;
 }
 
+// Escapa texto del servidor antes de ponerlo dentro de HTML ("<b>" se ve como texto, no como etiqueta)
+function escaparHtml(texto) {
+    return String(texto)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+// 80000 -> "80.000"
+function formatoPrecio(valor) {
+    return valor.toLocaleString("es-ES", { maximumFractionDigits: 0 });
+}
+
 // 4. DIBUJAR TARJETAS DE PRODUCTOS
 function dibujarArticulos(listaArticulos, contenedor = contenedorCardsUI) {
     contenedor.innerHTML = "";
@@ -437,20 +454,34 @@ function dibujarArticulos(listaArticulos, contenedor = contenedorCardsUI) {
         // El enlace es real (href): sirve con clic derecho, "abrir en pestaña nueva" y teclado
         const hrefProducto = urlProducto(articulo);
 
+        // Con promoción vigente: precio original tachado + precio promocional + insignia "-X %".
+        // (los números del servidor son enteros; ningún texto del servidor va en estos fragmentos)
+        const enPromo = articulo.precio_original != null;
+        const insigniaHtml = (enPromo && articulo.descuento_porcentaje)
+            ? `<span class="insignia-descuento">-${articulo.descuento_porcentaje}%<span class="solo-lectores"> de descuento</span></span>`
+            : "";
+        const precioHtml = enPromo
+            ? `<p class="precio precio-con-promo">
+                    <s class="precio-original"><span class="solo-lectores">Precio anterior: </span>PYG ${formatoPrecio(articulo.precio_original)}</s>
+                    <span class="precio-vigente"><span class="solo-lectores">Precio promocional: </span><span class="precio-moneda">PYG</span> ${formatoPrecio(articulo.precio)}</span>
+               </p>`
+            : `<p class="precio"><span class="precio-moneda">PYG</span> ${formatoPrecio(articulo.precio)}</p>`;
+
         divCard.innerHTML = `
             <div class="imagen-producto">
+                ${insigniaHtml}
                 <a class="enlace-producto" href="${hrefProducto}" tabindex="-1" aria-hidden="true">
-                    <img src="${articulo.imagen}" alt="${articulo.nombre}" loading="lazy">
+                    <img src="${escaparHtml(articulo.imagen)}" alt="${escaparHtml(articulo.nombre)}" loading="lazy">
                 </a>
             </div>
             <div class="info-producto">
-                <h3><a class="enlace-producto" href="${hrefProducto}">${articulo.nombre}</a></h3>
-                <p class="precio"><span class="precio-moneda">PYG</span> ${articulo.precio.toLocaleString('es-ES', { maximumFractionDigits: 0 })}</p>
+                <h3><a class="enlace-producto" href="${hrefProducto}">${escaparHtml(articulo.nombre)}</a></h3>
+                ${precioHtml}
                 <div class="etiquetas-producto">
                     <span class="stock-info ${sinStock ? 'agotado' : 'disponible'}">
                         ${sinStock ? 'Sin stock' : `Stock: ${esUnidadWebEntera(articulo) ? maximoVendibleWeb(articulo) : articulo.stock_disponible}`}
                     </span>
-                    ${etiquetaUnidad ? `<span class="unidad-producto">${etiquetaUnidad}</span>` : ''}
+                    ${etiquetaUnidad ? `<span class="unidad-producto">${escaparHtml(etiquetaUnidad)}</span>` : ''}
                 </div>
             </div>
             <button class="btn-comprar" ${bloqueado ? "disabled" : ""}>${textoBoton}</button>
@@ -459,7 +490,7 @@ function dibujarArticulos(listaArticulos, contenedor = contenedorCardsUI) {
         const botonComprar = divCard.querySelector(".btn-comprar");
         if (!bloqueado) {
             botonComprar.addEventListener("click", () => {
-                comprarArticulo(articulo.id);
+                comprarArticulo(articulo.id, articulo);
             });
         }
 
@@ -477,7 +508,10 @@ function dibujarArticulos(listaArticulos, contenedor = contenedorCardsUI) {
 }
 
 // 5. SELECCIONAR Y AGRUPAR ARTÍCULO EN EL CARRITO
-function comprarArticulo(idArticulo) {
+// articuloOrigen: el artículo tal como lo muestra la tarjeta que se tocó. Es la fuente preferida:
+// lo que el cliente ve (precio, stock) es lo que entra al carrito, aunque otra lista cargada antes
+// (por ejemplo el catálogo) tenga una copia más vieja del mismo artículo.
+function comprarArticulo(idArticulo, articuloOrigen = null) {
     // Buscamos si el artículo ya existía en la canasta
     const articuloEnCarrito = carrito.find(art => art.id === idArticulo);
     let agregado = false;
@@ -510,33 +544,18 @@ function comprarArticulo(idArticulo) {
             agregado = true;
         }
     } else {
-        // 2. 🌟 BUSQUEDA INTELIGENTE: Primero intentamos buscarlo en la lista de Ofertas
-        // Si se está viendo la página de este producto, sus datos (recién traídos del
-        // servidor) mandan sobre las copias del catálogo: precio y stock coinciden
-        // con lo que el cliente ve en pantalla.
-        let articuloBaseDeDatos =
-            (articuloDetalleActual && articuloDetalleActual.id === idArticulo)
-                ? articuloDetalleActual
-                : promosGlobales.find(art => art.id === idArticulo);
-
-        if (articuloBaseDeDatos) {
-            // 🌟 Si el mismo articulo tambien esta en el catalogo, completamos su metadata
-            // (stock_disponible, unidad_venta, fraccionable), manteniendo el precio promocional.
-            const articuloCatalogo =
-                articulosGlobales.find(art => art.id === idArticulo)
-                || combosGlobales.find(art => art.id === idArticulo);
-            if (articuloCatalogo) {
-                articuloBaseDeDatos = { ...articuloCatalogo, ...articuloBaseDeDatos };
-            }
-        } else {
-            // Si no estaba en las ofertas, significa que es un producto normal del inicio
-            articuloBaseDeDatos = articulosGlobales.find(art => art.id === idArticulo);
-        }
-
-        // Fallback: solo si no estaba en promociones ni en el catálogo
-        if (!articuloBaseDeDatos) {
-            articuloBaseDeDatos = combosGlobales.find(art => art.id === idArticulo);
-        }
+        // 2. BÚSQUEDA del artículo en lo que la web ya tiene cargado. Todas las listas
+        // (catálogo, combos, promociones) traen el mismo formato, con el precio efectivo
+        // (promocional si hay promo vigente). Si se está viendo la página de este
+        // producto, sus datos (recién traídos del servidor) mandan sobre las copias de
+        // las listas: precio y stock coinciden con lo que el cliente ve en pantalla.
+        const articuloBaseDeDatos =
+            (articuloOrigen && articuloOrigen.id === idArticulo ? articuloOrigen : null)
+            || (articuloDetalleActual && articuloDetalleActual.id === idArticulo ? articuloDetalleActual : null)
+            || articulosGlobales.find(art => art.id === idArticulo)
+            || combosGlobales.find(art => art.id === idArticulo)
+            || promosPagina.find(art => art.id === idArticulo)
+            || promosPortada.find(art => art.id === idArticulo);
 
         if (articuloBaseDeDatos) {
             const esFraccionable = articuloBaseDeDatos.fraccionable === true;
@@ -736,68 +755,17 @@ function actualizarBurbujaCabecera() {
     contadorCarritoUI.textContent = carrito.length;
 }
 
-// Función para conectar el Frontend con tu endpoint corregido de FastAPI
-async function cargarPromocionesDeLaAPI() {
-    try {
-        // Conexión directa a tu endpoint con la barra '/' al final para evitar desvíos
-        const respuesta = await fetch("/api/promos/");
-        if (!respuesta.ok) throw new Error("Error en el servidor de ofertas");
-        
-        const productosPromos = await respuesta.json();
-        // 🌟 LA CLAVE: Guardamos las ofertas en la memoria global antes de vaciar la pantalla
-        promosGlobales = productosPromos; 
-        contenedorCardsPromosUI.innerHTML = "";
-
-        if (productosPromos.length === 0) {
-            contenedorCardsPromosUI.innerHTML = `<h3>⚠️ No hay promociones activas por el momento. ¡Vuelve pronto!</h3>`;
-            return;
-        }
-
-        // Dibujamos las tarjetas usando exactamente tu misma lógica de tarjetas de inicio
-        productosPromos.forEach(articulo => {
-            const divCard = document.createElement("div");
-            divCard.className = "card-producto"; // Tu misma clase CSS de tarjetas
-
-            divCard.innerHTML = `
-                <img src="${articulo.imagen}" alt="${articulo.nombre}">
-                <h3>${articulo.nombre}</h3>
-                <p class="precio" style="color: #e74c3c;">PYG ${articulo.precio.toLocaleString('es-ES', { maximumFractionDigits: 0 })}</p>
-                <button class="btn-comprar">🛒 AGREGAR AL CARRITO </button>
-            `;
-            
-            // Al hacer clic, ejecuta tu función comprarArticulo original (La que ya suma a la burbuja)
-            const botonComprar = divCard.querySelector(".btn-comprar");
-            botonComprar.addEventListener("click", () => {
-                comprarArticulo(articulo.id); 
-            });
-
-            contenedorCardsPromosUI.appendChild(divCard);
-        });
-
-        promosDescargadas = true; // Bloqueamos para no repetir la consulta si vuelve a hacer clic
-    } catch (error) {
-        console.error("Error crítico en la sección de promociones:", error);
-        contenedorCardsPromosUI.innerHTML = "<p>Error al conectar con el servidor de ofertas.</p>";
-    }
-}
-
 // ----------------------------------------------------
 // ESCUCHADORES DE EVENTOS PRINCIPALES
 // ----------------------------------------------------
 
 // Evento para la barra de búsqueda por texto
 txtBuscarUI.addEventListener("input", (evento) => {
-    // Si el cliente estaba en Promos o Combos, la búsqueda vuelve al catálogo para mostrar resultados
+    // Si el cliente estaba en otra vista (combos, promociones, un producto), la búsqueda
+    // vuelve al catálogo para mostrar resultados
     if (vistaActual !== "CATALOGO") {
-        if (vistaActual === "PRODUCTO") {
-            ocultarVistaProducto();
-            window.history.pushState({}, "", "/");
-        }
-        vistaCatalogoUI.style.display = "block";
-        vistaPromocionesUI.style.display = "none";
-        vistaCombosUI.style.display = "none";
-        vistaActual = "CATALOGO";
-        btnVerPromosUI.innerHTML = "🔥 Ver Promos";
+        if (window.location.pathname !== "/") window.history.pushState({}, "", "/");
+        mostrarVista("CATALOGO");
     }
 
     const textoUsuario = evento.target.value.toLowerCase();
@@ -805,6 +773,7 @@ txtBuscarUI.addEventListener("input", (evento) => {
         return articulo.nombre.toLowerCase().includes(textoUsuario);
     });
     dibujarArticulos(articulosFiltrados);
+    actualizarSeccionPromo(); // con texto en el buscador, la portada muestra solo los resultados
 });
 
 // Enter en la búsqueda: cierra el teclado (celular) y sube a los resultados
@@ -1109,41 +1078,229 @@ async function iniciarCarruselBanners() {
     iniciarTemporizador();
 }
 
-// Variable de control para no saturar a SQL Server con llamadas repetidas
-let promosDescargadas = false;
+// ----------------------------------------------------
+// VISTAS Y RUTAS
+// Cada "página" de la tienda es una vista de esta misma página (index.html) con su propia URL:
+// "/" (portada), "/promociones", "/combos" y "/producto/{id}-{nombre}". El carrito vive en memoria
+// y no se debe perder al navegar, por eso no son archivos aparte. main.py sirve index.html en todas
+// esas direcciones, así que funcionan al recargar y al compartirlas.
+// ----------------------------------------------------
 
-// Evento para el botón enérgico de Promociones
-btnVerPromosUI.addEventListener("click", async () => {
-    // Si la pantalla de ofertas está oculta, la encendemos y apagamos el catálogo normal
-    if (vistaPromocionesUI.style.display === "none") {
-        vistaCatalogoUI.style.display = "none";
-        vistaPromocionesUI.style.display = "block";
-        vistaCombosUI.style.display = "none";
-        ocultarVistaProducto();
-        vistaActual = "PROMOCIONES";
-        btnVerPromosUI.innerHTML = "⬅️ Ver Catálogo"; // Cambia el texto del botón temporalmente
-        irAlInicioDeLaVista(vistaPromocionesUI);
+const VISTAS = {
+    CATALOGO: vistaCatalogoUI,
+    PROMOCIONES: vistaPromocionesUI,
+    COMBOS: vistaCombosUI,
+    PRODUCTO: vistaProductoUI,
+};
 
-        // Cambiamos la URL estéticamente a nivel profesional sin recargar el navegador
-        window.history.pushState({}, "", "/promos");
-        
-        // Si es la primera vez que hace clic, vamos a buscar los datos a SQL Server
-        if (!promosDescargadas) {
-            await cargarPromocionesDeLaAPI();
-        }
-    } else {
-        // Si ya estaba visible, el usuario quiere regresar a ver todos los artículos
-        vistaPromocionesUI.style.display = "none";
-        vistaCatalogoUI.style.display = "block";
-        vistaActual = "CATALOGO";
-        btnVerPromosUI.innerHTML = "🔥 Ver Promos"; // Restablece el texto original del botón
-        irAlInicioDeLaVista(vistaCatalogoUI);
+// Muestra UNA vista y oculta las demás. No toca la URL.
+function mostrarVista(nombre) {
+    turnoVista++; // cualquier carga en curso de otra vista queda descartada
+    Object.entries(VISTAS).forEach(([clave, elemento]) => {
+        elemento.style.display = clave === nombre ? "block" : "none";
+    });
+    vistaActual = nombre;
+    document.body.classList.toggle("en-producto", nombre === "PRODUCTO");
+    document.body.classList.toggle("en-promociones", nombre === "PROMOCIONES");
+    if (nombre !== "PRODUCTO") articuloDetalleActual = null;
+    document.title = TITULO_PAGINA_ORIGINAL; // la página del producto y la de promociones lo cambian después
+    actualizarSeccionPromo();
+}
 
-        // Regresamos la URL al inicio estéticamente
-        window.history.pushState({}, "", "/");
+// "/producto/1000-botina" -> { vista: "PRODUCTO", id: "1000" }
+function resolverRuta(ruta) {
+    const idProducto = idDesdeRutaProducto(ruta);
+    if (idProducto !== null) return { vista: "PRODUCTO", id: idProducto };
+    if (ruta === "/promociones") return { vista: "PROMOCIONES" };
+    if (ruta === "/combos") return { vista: "COMBOS" };
+    return { vista: "CATALOGO" };
+}
+
+// Muestra la vista que corresponde a la URL actual, sin cambiarla. Se usa al cargar la página y con
+// Atrás/Adelante: el destino es el de la URL, no el de donde se entró (por ejemplo "/" tras elegir
+// una categoría estando en un producto).
+async function mostrarRutaActual() {
+    const destino = resolverRuta(window.location.pathname);
+    const veniaDeProducto = vistaActual === "PRODUCTO";
+
+    if (destino.vista === "PRODUCTO") {
+        await mostrarProducto(destino.id);
+        return;
     }
+
+    if (destino.vista === "PROMOCIONES") {
+        await mostrarPaginaPromociones({ conservar: veniaDeProducto });
+    } else if (destino.vista === "COMBOS") {
+        await mostrarPaginaCombos();
+    } else {
+        mostrarVista("CATALOGO");
+    }
+
+    // Al volver de un producto a la misma vista de la que se salió, recupera la posición
+    if (veniaDeProducto) {
+        window.scrollTo(0, vistaActual === vistaAntesDeProducto ? scrollAntesDeProducto : 0);
+    }
+}
+
+// Navegación interna (botones y enlaces de la tienda): cambia la URL sin recargar y muestra la vista
+async function irA(ruta) {
+    const veniaDeProducto = vistaActual === "PRODUCTO";
+    if (window.location.pathname !== ruta) {
+        window.history.pushState({ desdeTienda: true }, "", ruta);
+    }
+    await mostrarRutaActual();
+    if (!veniaDeProducto) irAlInicioDeLaVista(VISTAS[vistaActual]);
+}
+
+// Clic "normal" (sin Ctrl/Cmd/Mayús/Alt ni botón del medio): el navegador abre los demás en pestaña nueva
+function esClicNormal(evento) {
+    return evento.button === 0 && !evento.ctrlKey && !evento.metaKey && !evento.shiftKey && !evento.altKey;
+}
+
+// "← Volver a la tienda": si se entró desde la tienda es un "Atrás"; si se llegó directo por
+// la URL, lleva a la portada
+function volverALaTienda(evento) {
+    if (!esClicNormal(evento)) return;
+    evento.preventDefault();
+    if (window.history.state && window.history.state.desdeTienda) {
+        window.history.back(); // popstate muestra la vista anterior
+    } else {
+        window.history.pushState({}, "", "/");
+        mostrarRutaActual();
+    }
+}
+document.querySelectorAll(".enlace-volver").forEach(enlace => enlace.addEventListener("click", volverALaTienda));
+
+// Botones Atrás/Adelante del navegador
+window.addEventListener("popstate", () => {
+    mostrarRutaActual();
 });
 
+// ----------------------------------------------------
+// CARRUSEL DE TARJETAS (flechas anterior/siguiente). Lo usa "Promoción vigente".
+// Es una fila con desplazamiento nativo (también con el dedo en el celular); las flechas
+// mueven casi un ancho completo y se deshabilitan en los extremos.
+// ----------------------------------------------------
+function enlazarCarrusel(pista, btnAnterior, btnSiguiente) {
+    const paso = () => Math.max(pista.clientWidth * 0.9, 220);
+    const sinMovimiento = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const actualizar = () => {
+        const maximo = pista.scrollWidth - pista.clientWidth;
+        btnAnterior.disabled = pista.scrollLeft <= 1;
+        btnSiguiente.disabled = pista.scrollLeft >= maximo - 1;
+    };
+    const mover = direccion => {
+        const cantidad = direccion * paso();
+        if (typeof pista.scrollBy === "function") {
+            pista.scrollBy({ left: cantidad, behavior: sinMovimiento() ? "auto" : "smooth" });
+        } else {
+            pista.scrollLeft += cantidad;
+        }
+    };
+
+    btnAnterior.addEventListener("click", () => mover(-1));
+    btnSiguiente.addEventListener("click", () => mover(1));
+    pista.addEventListener("scroll", actualizar, { passive: true });
+    window.addEventListener("resize", actualizar);
+    return actualizar;
+}
+
+// ----------------------------------------------------
+// PROMOCIÓN VIGENTE: carrusel de la portada y página /promociones
+// Los artículos vienen de GET /api/articulos/promociones, con el precio ya rebajado
+// (precio), el original (precio_original) y el porcentaje (descuento_porcentaje).
+// ----------------------------------------------------
+const LIMITE_PROMO_PORTADA = 12;
+const LIMITE_PROMOS_PAGINA = 30;
+const TEXTO_SIN_PROMOS = "Por el momento no hay promociones vigentes. ¡Volvé pronto!";
+
+const actualizarFlechasPromo = enlazarCarrusel(carruselPromoUI, promoAnteriorUI, promoSiguienteUI);
+
+// La sección solo se ve en la portada (categoría "Todos", sin búsqueda) y si hay promociones
+function actualizarSeccionPromo() {
+    const visible =
+        promosPortada.length > 0
+        && vistaActual === "CATALOGO"
+        && categoriaSeleccionadaActual === "Todos"
+        && txtBuscarUI.value.trim() === "";
+    seccionPromoUI.hidden = !visible;
+    if (visible) actualizarFlechasPromo();
+}
+
+// Se llama al iniciar. Si falla o no hay promociones, la sección queda oculta y la tienda funciona igual.
+async function cargarPromosPortada() {
+    try {
+        const respuesta = await fetch(`/api/articulos/promociones?pagina=1&limite=${LIMITE_PROMO_PORTADA}`);
+        if (!respuesta.ok) throw new Error(`Error ${respuesta.status} al cargar las promociones`);
+        promosPortada = await respuesta.json();
+    } catch (error) {
+        console.error("No se pudieron cargar las promociones de la portada:", error);
+        promosPortada = [];
+    }
+    if (promosPortada.length > 0) {
+        dibujarArticulos(promosPortada, carruselPromoUI);
+    }
+    actualizarSeccionPromo();
+}
+
+enlaceVerPromocionUI.addEventListener("click", evento => {
+    if (!esClicNormal(evento)) return;
+    evento.preventDefault();
+    irA("/promociones");
+});
+
+// Página /promociones: TODOS los artículos con promoción vigente, de a 30
+async function mostrarPaginaPromociones({ conservar = false } = {}) {
+    mostrarVista("PROMOCIONES");
+    document.title = `Promoción vigente | ${NOMBRE_TIENDA}`;
+    window.scrollTo(0, 0);
+    // Al volver desde un producto se conserva la lista ya cargada (y la posición)
+    if (conservar && promosPagina.length > 0) return;
+    await cargarPromosPagina(1);
+}
+
+async function cargarPromosPagina(pagina) {
+    const turno = turnoVista;
+    try {
+        const respuesta = await fetch(`/api/articulos/promociones?pagina=${pagina}&limite=${LIMITE_PROMOS_PAGINA}`);
+        if (!respuesta.ok) throw new Error(`Error ${respuesta.status} al cargar las promociones`);
+        const nuevos = await respuesta.json();
+        if (turno !== turnoVista) return;
+
+        promosPagina = pagina === 1 ? nuevos : [...promosPagina, ...nuevos];
+        paginaPromos = pagina;
+
+        mensajeSinPromosUI.textContent = TEXTO_SIN_PROMOS;
+        mensajeSinPromosUI.hidden = promosPagina.length > 0;
+        if (promosPagina.length > 0) {
+            dibujarArticulos(promosPagina, contenedorCardsPromosUI);
+        } else {
+            contenedorCardsPromosUI.replaceChildren();
+        }
+        btnMasPromosUI.style.display = nuevos.length === LIMITE_PROMOS_PAGINA ? "inline-block" : "none";
+    } catch (error) {
+        if (turno !== turnoVista) return;
+        console.error("No se pudieron cargar las promociones:", error);
+        mensajeSinPromosUI.textContent = "No pudimos cargar las promociones. Intentá de nuevo en unos minutos.";
+        mensajeSinPromosUI.hidden = false;
+        btnMasPromosUI.style.display = "none";
+    }
+}
+
+// Un solo pedido a la vez: dos toques seguidos no deben pedir (y agregar) la misma página dos veces
+let cargandoMasPromos = false;
+btnMasPromosUI.addEventListener("click", async () => {
+    if (cargandoMasPromos) return;
+    cargandoMasPromos = true;
+    btnMasPromosUI.disabled = true;
+    try {
+        await cargarPromosPagina(paginaPromos + 1);
+    } finally {
+        cargandoMasPromos = false;
+        btnMasPromosUI.disabled = false;
+    }
+});
 
 // ----------------------------------------------------
 // SECCIÓN COMBOS (independiente de categorías y presentaciones)
@@ -1170,26 +1327,42 @@ async function cargarCombosDeLaAPI(pagina = 1) {
     }
 }
 
-btnVerCombosUI.addEventListener("click", () => {
-    vistaCatalogoUI.style.display = "none";
-    vistaPromocionesUI.style.display = "none";
-    ocultarVistaProducto();
-    vistaCombosUI.style.display = "block";
-    vistaActual = "COMBOS";
-    window.history.pushState({}, "", "/combos");
+// Página /combos. Si se entra directo por la URL hay que esperar a que terminen de cargar.
+async function mostrarPaginaCombos() {
+    mostrarVista("COMBOS");
+    const turno = turnoVista;
+    await promesaCombosInicial;
+    if (turno !== turnoVista) return;
+
+    if (combosGlobales.length === 0) {
+        // No hay combos publicados: no hay nada que mostrar, se vuelve a la portada
+        window.history.replaceState({}, "", "/");
+        mostrarVista("CATALOGO");
+        return;
+    }
     dibujarArticulos(combosGlobales, contenedorCardsCombosUI);
-    irAlInicioDeLaVista(vistaCombosUI);
+}
+
+btnVerCombosUI.addEventListener("click", () => {
+    irA("/combos");
 });
 
+let cargandoMasCombos = false;
 btnMasCombosUI.addEventListener("click", async () => {
-    await cargarCombosDeLaAPI(paginaCombos + 1);
-    dibujarArticulos(combosGlobales, contenedorCardsCombosUI);
+    if (cargandoMasCombos) return;
+    cargandoMasCombos = true;
+    btnMasCombosUI.disabled = true;
+    try {
+        await cargarCombosDeLaAPI(paginaCombos + 1);
+        dibujarArticulos(combosGlobales, contenedorCardsCombosUI);
+    } finally {
+        cargandoMasCombos = false;
+        btnMasCombosUI.disabled = false;
+    }
 });
 
 // ----------------------------------------------------
 // PÁGINA PROPIA DE UN PRODUCTO: /producto/{id}-{nombre}
-// Es una vista de esta misma página (el carrito vive en memoria y no se debe
-// perder), con URL propia: funciona al recargar, con "Atrás" y al compartirla.
 // ----------------------------------------------------
 
 // "Botina en cuero Nº 38" -> "botina-en-cuero-n-38" (solo para que la URL sea legible)
@@ -1215,35 +1388,13 @@ function idDesdeRutaProducto(ruta) {
 }
 
 // Mensaje de WhatsApp: "Hola AGRO-VETZO, estoy interesado en este artículo: ..."
+// (el precio es el vigente: el promocional si hay promoción)
 function urlWhatsApp(articulo) {
-    const precio = articulo.precio.toLocaleString("es-ES", { maximumFractionDigits: 0 });
+    const precio = formatoPrecio(articulo.precio);
     const enlace = `${window.location.origin}${urlProducto(articulo)}`;
     const mensaje =
         `Hola ${NOMBRE_TIENDA}, estoy interesado en este artículo: ${articulo.nombre} - Gs. ${precio}\n${enlace}`;
     return `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(mensaje)}`;
-}
-
-function ocultarVistaProducto() {
-    solicitudProducto++; // cualquier carga en curso queda descartada
-    vistaProductoUI.style.display = "none";
-    document.body.classList.remove("en-producto");
-    document.title = TITULO_PAGINA_ORIGINAL;
-    articuloDetalleActual = null;
-}
-
-// Muestra la vista que corresponde a la URL de destino (no a la de donde se entró:
-// con Atrás/Adelante el destino puede ser otro, por ejemplo "/" tras elegir una categoría)
-function restaurarVistaTrasProducto() {
-    ocultarVistaProducto();
-    const destino = window.location.pathname === "/combos" ? "COMBOS" : "CATALOGO";
-    if (destino === "COMBOS") {
-        vistaCombosUI.style.display = "block";
-    } else {
-        vistaCatalogoUI.style.display = "block";
-    }
-    vistaActual = destino;
-    // Recupera la posición solo si se vuelve a la misma vista de la que se salió
-    window.scrollTo(0, destino === vistaAntesDeProducto ? scrollAntesDeProducto : 0);
 }
 
 // Entrada desde una tarjeta: cambia la URL sin recargar
@@ -1253,7 +1404,7 @@ function abrirProducto(articulo) {
         scrollAntesDeProducto = window.scrollY;
     }
     window.history.pushState({ desdeTienda: true }, "", urlProducto(articulo));
-    mostrarProducto(String(articulo.id));
+    mostrarRutaActual();
 }
 
 function mostrarMensajeProducto(texto) {
@@ -1266,21 +1417,14 @@ function mostrarMensajeProducto(texto) {
 }
 
 async function mostrarProducto(idTexto) {
-    const turno = ++solicitudProducto;
-
-    vistaCatalogoUI.style.display = "none";
-    vistaPromocionesUI.style.display = "none";
-    vistaCombosUI.style.display = "none";
-    vistaProductoUI.style.display = "block";
-    vistaActual = "PRODUCTO";
-    document.body.classList.add("en-producto");
-    articuloDetalleActual = null;
+    mostrarVista("PRODUCTO");
+    const turno = turnoVista;
     window.scrollTo(0, 0);
     mostrarMensajeProducto("Cargando producto...");
 
     try {
         const respuesta = await fetch(`/api/articulos/${idTexto}`);
-        if (turno !== solicitudProducto) return;
+        if (turno !== turnoVista) return;
 
         if (respuesta.status === 404) {
             mostrarMensajeProducto("Este producto no está disponible.");
@@ -1290,16 +1434,24 @@ async function mostrarProducto(idTexto) {
         if (!respuesta.ok) throw new Error(`Error ${respuesta.status} al cargar el producto`);
 
         const articulo = await respuesta.json();
-        if (turno !== solicitudProducto) return;
+        if (turno !== turnoVista) return;
 
         articuloDetalleActual = articulo;
         dibujarDetalleProducto(articulo);
         document.title = `${articulo.nombre} | ${NOMBRE_TIENDA}`;
     } catch (error) {
-        if (turno !== solicitudProducto) return;
+        if (turno !== turnoVista) return;
         console.error("No se pudo cargar el producto:", error);
         mostrarMensajeProducto("No pudimos cargar el producto. Intentá de nuevo en unos minutos.");
     }
+}
+
+// Texto que solo leen los lectores de pantalla ("Precio anterior: ")
+function crearTextoLector(texto) {
+    const span = document.createElement("span");
+    span.className = "solo-lectores";
+    span.textContent = texto;
+    return span;
 }
 
 // Todo dato del servidor se escribe con textContent/propiedades (nunca innerHTML)
@@ -1330,12 +1482,30 @@ function dibujarDetalleProducto(articulo) {
     nombre.className = "detalle-nombre";
     nombre.textContent = articulo.nombre;
 
+    // Precio: con promoción vigente, original tachado + promocional + insignia "-X %"
     const precio = document.createElement("p");
     precio.className = "detalle-precio";
     const moneda = document.createElement("span");
     moneda.className = "precio-moneda";
     moneda.textContent = "PYG";
-    precio.append(moneda, ` ${articulo.precio.toLocaleString("es-ES", { maximumFractionDigits: 0 })}`);
+    if (articulo.precio_original != null) {
+        precio.classList.add("precio-con-promo");
+        const original = document.createElement("s");
+        original.className = "precio-original";
+        original.append(crearTextoLector("Precio anterior: "), `PYG ${formatoPrecio(articulo.precio_original)}`);
+        const vigente = document.createElement("span");
+        vigente.className = "precio-vigente";
+        vigente.append(crearTextoLector("Precio promocional: "), moneda, ` ${formatoPrecio(articulo.precio)}`);
+        precio.append(original, vigente);
+        if (articulo.descuento_porcentaje) {
+            const insignia = document.createElement("span");
+            insignia.className = "insignia-descuento";
+            insignia.append(`-${articulo.descuento_porcentaje}%`, crearTextoLector(" de descuento"));
+            precio.appendChild(insignia);
+        }
+    } else {
+        precio.append(moneda, ` ${formatoPrecio(articulo.precio)}`);
+    }
 
     const etiquetas = document.createElement("div");
     etiquetas.className = "etiquetas-producto";
@@ -1393,35 +1563,10 @@ function dibujarDetalleProducto(articulo) {
     detalleProductoUI.replaceChildren(contenedor);
 }
 
-// "← Volver a la tienda": si se entró desde la tienda, es un "Atrás"; si se llegó
-// directo por la URL, lleva a la portada
-enlaceVolverUI.addEventListener("click", evento => {
-    if (evento.button !== 0 || evento.ctrlKey || evento.metaKey || evento.shiftKey || evento.altKey) return;
-    evento.preventDefault();
-    if (window.history.state && window.history.state.desdeTienda) {
-        window.history.back(); // popstate restaura la vista anterior
-    } else {
-        window.history.pushState({}, "", "/");
-        restaurarVistaTrasProducto();
-    }
-});
-
-// Botones Atrás/Adelante del navegador
-window.addEventListener("popstate", () => {
-    const id = idDesdeRutaProducto(window.location.pathname);
-    if (id !== null) {
-        mostrarProducto(id);
-    } else if (vistaActual === "PRODUCTO") {
-        restaurarVistaTrasProducto();
-    }
-});
-
-// Entrada directa por la URL del producto (recarga o enlace compartido)
-const idProductoInicial = idDesdeRutaProducto(window.location.pathname);
-if (idProductoInicial !== null) {
-    mostrarProducto(idProductoInicial);
-}
-
-// Arrancamos la aplicación leyendo la API
+// ----------------------------------------------------
+// ARRANQUE: se leen los datos y se muestra la vista de la URL actual (recarga o enlace compartido)
+// ----------------------------------------------------
 cargarDatosDeLaAPI();
-cargarCombosDeLaAPI();
+const promesaCombosInicial = cargarCombosDeLaAPI();
+cargarPromosPortada();
+mostrarRutaActual();

@@ -1115,6 +1115,149 @@ header {
     }
 }
 
+/* ---------- Texto solo para lectores de pantalla ---------- */
+.solo-lectores {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ---------- Promoción: precio original tachado, precio vigente e insignia "-X %" ---------- */
+.imagen-producto {
+    position: relative; /* ancla de la insignia de descuento */
+}
+
+.insignia-descuento {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 1;
+    padding: 3px 8px;
+    border-radius: 12px;
+    background-color: #B91C1C; /* texto blanco con contraste AA */
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+}
+
+.precio-original {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6B5B4D;
+    text-decoration: line-through;
+}
+
+.precio-con-promo .precio-vigente {
+    color: #B91C1C;
+}
+
+/* ---------- Carrusel de tarjetas (Promoción vigente, y luego Novedades) ---------- */
+.seccion-carrusel {
+    margin-bottom: 28px;
+}
+
+.seccion-carrusel-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.seccion-carrusel-cabecera .titulo-seccion {
+    margin-bottom: 0;
+}
+
+.seccion-carrusel-acciones {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+}
+
+.btn-ver-seccion {
+    padding: 6px 14px;
+    border: 2px solid var(--verde-accion);
+    border-radius: 20px;
+    color: var(--verde-accion);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.btn-ver-seccion:hover {
+    background-color: var(--verde-suave);
+}
+
+.btn-ver-seccion:focus-visible,
+.carrusel-flecha:focus-visible {
+    outline: 3px solid var(--marron);
+    outline-offset: 2px;
+}
+
+.carrusel-flechas {
+    display: flex;
+    gap: 8px;
+}
+
+.carrusel-flecha {
+    width: 40px;
+    height: 40px;
+    border: 2px solid var(--verde-accion);
+    border-radius: 50%;
+    background-color: white;
+    color: var(--verde-accion);
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.carrusel-flecha:hover:not(:disabled) {
+    background-color: var(--verde-accion);
+    color: white;
+}
+
+.carrusel-flecha:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.carrusel-cards {
+    display: flex;
+    gap: 20px;
+    padding: 4px 2px 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+}
+
+.carrusel-cards > .card-producto {
+    flex: 0 0 220px;
+    scroll-snap-align: start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .carrusel-cards {
+        scroll-behavior: auto;
+    }
+}
+
+@media (max-width: 768px) {
+    .carrusel-cards > .card-producto {
+        flex-basis: 65%;
+        max-width: 260px;
+    }
+}
+
 /* ---------- Enlaces de las tarjetas hacia la página del producto ---------- */
 .enlace-producto {
     color: inherit;
@@ -1139,8 +1282,9 @@ header {
 }
 
 /* ---------- Página propia de un producto ---------- */
-/* El carrusel de banners es de la portada: no se muestra dentro de un producto */
-body.en-producto .contenedor-banner {
+/* El carrusel de banners es de la portada: no se muestra dentro de un producto ni en /promociones */
+body.en-producto .contenedor-banner,
+body.en-promociones .contenedor-banner {
     display: none;
 }
 
@@ -1211,6 +1355,21 @@ body.en-producto .contenedor-banner {
     font-size: 2rem;
     font-weight: 800;
     color: var(--marron);
+}
+
+.detalle-precio .precio-original {
+    font-size: 1.05rem;
+}
+
+.detalle-precio.precio-con-promo .precio-vigente {
+    color: #B91C1C;
+}
+
+.detalle-precio .insignia-descuento {
+    position: static;
+    display: inline-block;
+    margin-left: 10px;
+    vertical-align: middle;
 }
 
 .detalle-datos .etiquetas-producto {

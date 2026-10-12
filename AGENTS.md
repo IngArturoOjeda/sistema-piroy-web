@@ -80,40 +80,37 @@ Debe:
 
 ## Regla final de acceso a bases
 
-El backend nació consultando SQL Server desde localhost. Esa migración ya
-se hizo para casi todos los routers; queda un solo pendiente.
+El backend nació consultando SQL Server desde localhost. Esa migración
+**ya está completa**: ningún router del backend consulta SQL Server.
 
-La arquitectura objetivo es:
+La arquitectura objetivo, ya alcanzada, es:
 
 ```text
 backend/app -> PostgreSQL
 sincronizador/ -> SQL Server
 ```
 
-Ya alcanzada para `categories.py`, `items.py`, `sync.py` y `admin.py`.
-Pendiente solo para `promos.py` (sigue consultando SQL Server directo; por eso
-hoy no está registrado en `main.py`).
+Vale para `categories.py`, `items.py`, `sync.py`, `admin.py` y `banners.py`. El viejo
+`promos.py` (que consultaba SQL Server) y `backend/app/database.py` (pyodbc) se retiraron:
+las promociones ahora viven en la tabla `promocion` de PostgreSQL.
 
-Los endpoints públicos del ecommerce NO deben consultar SQL Server (salvo
-el caso pendiente de arriba, a migrar).
+Los endpoints públicos del ecommerce NO deben consultar SQL Server.
 
 ## Código actual confirmado
 
 Actualmente existen:
-- `backend/app/database.py` -> SQL Server con pyodbc (usado solo por `promos.py`)
-- `backend/app/database_postgres.py` -> PostgreSQL con psycopg (usado por `categories.py`, `items.py`, `sync.py`, `admin.py`)
+- `backend/app/database_postgres.py` -> PostgreSQL con psycopg (usado por todos los routers)
 - `backend/app/routers/categories.py`
-- `backend/app/routers/items.py`
-- `backend/app/routers/promos.py`
+- `backend/app/routers/items.py` (catálogo, combos, promociones, detalle de producto, pedidos)
 - `backend/app/routers/sync.py`
 - `backend/app/routers/admin.py`
+- `backend/app/routers/banners.py`
 - `backend/app/schemas.py`
 - `frontend/js/main.js`
 
-Solo el router de promociones (`promos.py`) sigue usando `backend.app.database`
-y consultando SQL Server. Categorías, artículos, sincronización y
-administración ya consultan PostgreSQL. Detalle completo en
-`ARCHITECTURE.md`, sección "Backend actual vs arquitectura objetivo".
+Todos los routers consultan PostgreSQL; SQL Server solo lo usa el sincronizador
+(`sincronizador/database.py`). Detalle completo en `ARCHITECTURE.md`, sección
+"Backend actual vs arquitectura objetivo".
 
 ## Reglas para pedidos
 
@@ -162,7 +159,7 @@ Render se usa para:
 
 Los secretos del servicio se cargan a mano en el panel de Render (`sync: false`
 en `render.yaml`). El backend publicado usa `requirements-render.txt` (sin
-`pyodbc`); `promos.py` no se registra en `main.py` hasta migrarlo a PostgreSQL.
+`pyodbc`): el backend publicado no consulta SQL Server.
 Como cada push a `main` despliega, correr `tests/unit` antes de subir.
 
 El sincronizador NO se ejecutará en Render. Correrá dentro de la agroveterinaria y se comunicará hacia Render mediante HTTPS.

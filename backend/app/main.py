@@ -3,12 +3,8 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-# Importamos únicamente el router de categorías
 from backend.app.routers.categories import router as categorias_router
 from backend.app.routers.items import router as articulos_router
-# Desactivado: promos.py usa SQL Server (pyodbc) y no puede arrancar en Render.
-# Reactivar junto con su include_router al migrarlo a PostgreSQL.
-# from backend.app.routers.promos import router as promos_router
 from backend.app.routers.sync import router as sync_router
 from backend.app.routers.admin import router as admin_router
 from backend.app.routers.banners import router as banners_router
@@ -24,39 +20,46 @@ app = FastAPI(
 
 RUTA_PROYECTO = Path(__file__).resolve().parents[2]  # Ruta del proyecto
 RUTA_FRONTEND = RUTA_PROYECTO / "frontend"  # Ruta del frontend
-# 1. CONFIGURACIÓN DE RUTAS LOCALES 
-#RUTA_FRONTEND = "C:/Landing/sistema-piroy-web/frontend" ##"C:/sistema-piroy-web/frontend"
 
-# 2. PUENTE DE ARCHIVOS ESTÁTICOS (CSS, JS, IMÁGENES)
+# 1. PUENTE DE ARCHIVOS ESTÁTICOS (CSS, JS, IMÁGENES)
 app.mount("/frontend", StaticFiles(directory=RUTA_FRONTEND), name="frontend")
 
 
-# 3. ENLACE DE ROUTERS (Aquí es donde FastAPI mágicamente activa tus consultas a SQL Server)
-# Le agregamos el prefijo '/api' aquí de forma global para que coincida con tu main.js
+# 2. ENLACE DE ROUTERS (todos consultan PostgreSQL)
+# Le agregamos el prefijo '/api' aquí de forma global para que coincida con main.js
 app.include_router(categorias_router, prefix="/api")
 app.include_router(articulos_router, prefix="/api")
-# app.include_router(promos_router, prefix="/api")  # ver nota arriba
 app.include_router(sync_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(banners_router, prefix="/api")
 
-# 4. ENDPOINT PARA MOSTRAR LA PÁGINA WEB PRINCIPAL
-@app.get("/")
-async def read_index():
-    ruta_index = f"{RUTA_FRONTEND}/index.html"
-    return FileResponse(ruta_index)
 
-# 4b. PÁGINA PROPIA DE UN PRODUCTO: /producto/1000 o /producto/1000-botina-en-cuero
-# Sirve la misma página principal; main.js lee la URL y muestra el detalle. Así
-# el enlace funciona al recargar o al compartirlo, y el carrito (que vive en
-# memoria) no se pierde al entrar a un producto desde la tienda.
-@app.get("/producto/{ref}")
-async def read_producto(ref: str):
+# 3. PÁGINAS DE LA TIENDA
+# Todas sirven la misma página principal (frontend/index.html): main.js lee la URL y muestra
+# la vista que corresponde. Así cada dirección funciona al recargar o al compartirla, y el
+# carrito (que vive en memoria) no se pierde al navegar dentro de la tienda.
+def pagina_principal():
     return FileResponse(f"{RUTA_FRONTEND}/index.html")
 
-# 5. ENDPOINT PARA MOSTRAR LA PÁGINA DE PROMOCIONES
-# Desactivado hasta migrar promos.py a PostgreSQL (descomentar para reactivar).
-# @app.get("/promos")
-# async def read_promos():
-#     ruta_promos = f"{RUTA_FRONTEND}/promos-Exclusivos.html"
-#     return FileResponse(ruta_promos)
+
+@app.get("/")
+async def read_index():
+    return pagina_principal()
+
+
+# Página propia de un producto: /producto/1000 o /producto/1000-botina-en-cuero
+@app.get("/producto/{ref}")
+async def read_producto(ref: str):
+    return pagina_principal()
+
+
+# Todos los artículos con una promoción vigente (botón "Ver promoción" de la portada)
+@app.get("/promociones")
+async def read_promociones():
+    return pagina_principal()
+
+
+# Combos (antes cambiaba la barra de direcciones pero daba 404 al recargar)
+@app.get("/combos")
+async def read_combos():
+    return pagina_principal()

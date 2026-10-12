@@ -25,12 +25,6 @@
                         </div>
                     </div>  
 
-                    <!-- Botón de Promociones: oculto hasta migrar promos.py a PostgreSQL (quitar style para reactivar) -->
-                    <button id="btn-ver-promos" class="btn-promos-cabecera" style="display: none;">
-                        <span class="icono-promos-nav">🔥</span>
-                        <span class="texto-promos-nav">Ver Promos</span>
-                    </button>
-
                     <!-- Entrada a la sección COMBOS: oculta hasta confirmar que existen combos -->
                     <button id="btn-ver-combos" class="btn-promos-cabecera" style="display: none;">
                         <span class="icono-promos-nav">🎁</span>
@@ -70,6 +64,24 @@
             <!-- Sección Principal de Productos -->
              <main class="contenido-productos" id="vista-catalogo">
 
+                <!-- Promoción vigente: carrusel con los artículos en promoción (GET /api/articulos/promociones).
+                     Oculta hasta que haya promos; solo se ve en la portada (categoría "Todos" y sin búsqueda). -->
+                <section class="seccion-carrusel" id="seccion-promo" aria-labelledby="titulo-promo" hidden>
+                    <div class="seccion-carrusel-cabecera">
+                        <h2 class="titulo-seccion" id="titulo-promo">🔥 Promoción vigente</h2>
+                        <div class="seccion-carrusel-acciones">
+                            <a href="/promociones" class="btn-ver-seccion" id="enlace-ver-promocion">Ver promoción</a>
+                            <div class="carrusel-flechas">
+                                <button type="button" class="carrusel-flecha" id="promo-anterior" aria-label="Promociones anteriores">‹</button>
+                                <button type="button" class="carrusel-flecha" id="promo-siguiente" aria-label="Más promociones">›</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="carrusel-cards" id="carrusel-promo">
+                        <!-- JS cargará las tarjetas de promoción aquí adentro -->
+                    </div>
+                </section>
+
                 <!-- Título de la sección: cambia al nombre de la categoría elegida -->
                 <h2 class="titulo-seccion" id="titulo-catalogo">Nuestros Artículos</h2>
 
@@ -80,18 +92,25 @@
                 
              </main>
 
-             <!-- 2. 🌟 NUEVA SECCIÓN DE PROMOCIONES (Oculta por defecto con display: none) -->
+             <!-- Página /promociones: TODOS los artículos con promoción vigente (oculta por defecto) -->
              <main class="contenido-productos" id="vista-promociones" style="display: none;">
-                
-                <!-- Título interno decorativo para avisar al cliente que está en Ofertas -->
-                <div style="text-align: center; margin-bottom: 20px; width: 100%;">
-                    <h1 style="color: #e74c3c; font-size: 1.8rem;">🔥 ¡PROMOCIONES EXCLUSIVAS! 🔥</h1>
-                    <p>Aprovechá nuestras ofertas antes de que se agoten</p>
+                <a href="/" class="enlace-volver" id="enlace-volver-promociones">← Volver a la tienda</a>
+
+                <div class="encabezado-combos">
+                    <h1>🔥 PROMOCIÓN VIGENTE</h1>
+                    <p>Artículos con precio rebajado por tiempo limitado</p>
                 </div>
 
-                <!-- 🌟 Usamos tu misma clase cuadricula-productos para que las cards queden perfectas -->
                 <div id="contenedor-cards-promos" class="cuadricula-productos">
-                    <!-- JS cargará las "cards" de ofertas aquí adentro -->
+                    <!-- JS cargará las "cards" de promoción aquí adentro -->
+                </div>
+
+                <p id="mensaje-sin-promos" class="detalle-mensaje" hidden>
+                    Por el momento no hay promociones vigentes. ¡Volvé pronto!
+                </p>
+
+                <div class="paginacion-combos">
+                    <button id="btn-mas-promos" class="btn-comprar" style="display: none;">Ver más promociones</button>
                 </div>
 
              </main>

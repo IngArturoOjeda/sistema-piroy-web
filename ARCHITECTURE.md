@@ -208,15 +208,17 @@ Estado actual, por router:
 
 ```text
 categories.py  -> PostgreSQL  (migrado)
-items.py       -> PostgreSQL  (migrado: catálogo, presentaciones, combos, confirmar-pedido)
+items.py       -> PostgreSQL  (catálogo, presentaciones, combos, promociones, detalle de producto, confirmar-pedido)
 sync.py        -> PostgreSQL  (siempre fue así: recibe del sincronizador)
 admin.py       -> PostgreSQL + Cloudinary (siempre fue así; incluye banners)
 banners.py     -> PostgreSQL  (lista pública del carrusel)
-promos.py      -> SQL Server  (sin migrar todavía, es el único que queda; NO está
-                               registrado en main.py, así que /api/promos/ no se sirve)
 ```
 
-Arquitectura objetivo (ya alcanzada salvo `promos.py`):
+El viejo `promos.py` (SQL Server) y `database.py` (pyodbc) se **retiraron**: las promociones
+ahora salen de la tabla `promocion` de PostgreSQL (ver "Promociones"). Ningún router del backend
+consulta SQL Server.
+
+Arquitectura objetivo (**ya alcanzada**):
 
 ```text
 frontend
@@ -232,24 +234,21 @@ SQL Server
   -> FastAPI/PostgreSQL
 ```
 
-Pendiente: migrar `promos.py` a PostgreSQL (requiere antes decidir cómo se
-administran las promociones — ver sección "Promociones" más abajo).
-
 ## Conexiones actuales confirmadas
 
 ```text
-backend/app/database.py
--> pyodbc
--> SQL Server
--> usado solo por backend/app/routers/promos.py
-
 backend/app/database_postgres.py
 -> psycopg
 -> PostgreSQL en Render
--> usado por categories.py, items.py, sync.py y admin.py
+-> usado por todos los routers (categories, items, sync, admin, banners)
+
+sincronizador/database.py
+-> pyodbc
+-> SQL Server local
+-> usado solo por el sincronizador
 ```
 
-Objetivo final (pendiente solo para `promos.py`):
+Objetivo final (alcanzado):
 
 ```text
 backend/app
@@ -298,6 +297,10 @@ fraccionable
 mismo formato de respuesta (el detalle agrega `descripcion`); los dos primeros
 están descriptos en la sección "Modelo de artículos compuestos: PRESENTACION vs
 COMBO" y los dos últimos en "Promociones" y "Página de detalle de un producto".
+
+## Vistas y rutas de la tienda
+
+La tienda es una sola página (`index.html`) con cuatro vistas, cada una con su URL: `/` (portada y catálogo), `/promociones`, `/combos` y `/producto/{id}-{nombre}`. `main.py` sirve `index.html` en todas ellas, y `main.js` decide qué vista mostrar a partir de `location.pathname` (`resolverRuta`, `mostrarRutaActual`, `mostrarVista`; `irA` para la navegación interna y `popstate` para Atrás/Adelante). Por eso cada dirección funciona al recargar y al compartirla, y el carrito (que vive en memoria) no se pierde al navegar. `/combos` antes cambiaba la barra de direcciones pero daba 404 al recargar: quedó resuelto; sin combos publicados vuelve a la portada. Los enlaces "← Volver a la tienda" hacen "Atrás" si se entró desde la tienda y llevan a la portada si se llegó directo.
 
 ## Página de detalle de un producto
 
@@ -456,7 +459,7 @@ Debe definirse más adelante una estrategia de imágenes accesibles desde la nub
 
 ## Promociones
 
-Diseño aprobado (2026-10-11), por etapas. Hasta que se cargue la tabla `promocion`, la tienda se ve igual que antes.
+Implementado en el backend y en la web (etapas 1 a 3 del plan; ver `ROADMAP.md`, Fase 19). Hasta que se cargue la tabla `promocion`, la tienda se ve igual que antes: la sección "Promoción vigente" no aparece si no hay promociones.
 
 **Origen de los datos.** La tabla `PROMOCION` del sistema local (SQL Server) tiene, según el viejo `promos.py`, las columnas `art_cod`, `art_valor` (precio promocional), `fec_desde` y `fec_hasta`; su estructura completa (clave, duplicados por artículo) **está por confirmar**. Se cargará en PostgreSQL con el sincronizador (etapa posterior; todavía no existe `POST /api/sync/promociones`).
 
@@ -472,7 +475,12 @@ Diseño aprobado (2026-10-11), por etapas. Hasta que se cargue la tabla `promoci
 
 **Cobro del precio promocional** (hecho): `confirmar_pedido` cobra el precio promocional vigente y lo guarda en `pedido_detalle.precio_unitario`; si el carrito trae un precio distinto responde 409 (ver "Endpoint actual de pedidos"). Cuando se arme la bajada de pedidos al sistema local, cada renglón ya lleva el precio realmente cobrado.
 
-**Pendiente** (ver `ROADMAP.md`, Fase 19): mostrar el precio tachado y la insignia "-X %" en la web, la sección "Promoción vigente" y la página `/promociones`, retirar el `promos.py` viejo, y la sincronización de `PROMOCION`. El backend ya cobra bien, pero mientras la web no muestre el precio tachado conviene no cargar promociones reales en producción: el cliente vería solo un precio rebajado sin contexto.
+**En la web** (`index.html`, `main.js`, `styles.css`):
+- tarjetas y página del producto: precio original tachado (`<s>`, con texto "Precio anterior" para lectores de pantalla), precio promocional e insignia "-X %" sobre la imagen; el mensaje de WhatsApp usa el precio promocional; el carrito se arma con el precio vigente;
+- sección **Promoción vigente** en la portada: carrusel de las primeras 12 (`GET /api/articulos/promociones?limite=12`) con flechas anterior/siguiente (desplazamiento nativo y táctil, flechas deshabilitadas en los extremos, sin animación con "menos movimiento") y el enlace **Ver promoción**. Solo se muestra con categoría "Todos", sin texto en el buscador y si hay promociones; si no hay o la API falla, queda oculta y la tienda funciona igual;
+- página **`/promociones`**: todos los artículos con promoción vigente, de a 30 con "Ver más"; cada tarjeta lleva a `/producto/{id}-{nombre}`. Al volver desde un producto conserva la lista y la posición.
+
+**Sincronización de `PROMOCION`** (etapa posterior, "sincronizar aún no"): `POST /api/sync/promociones` reemplazando la tabla en una transacción, y lectura de `PROMOCION` en el sincronizador. Requiere antes que el usuario confirme la estructura real de `PROMOCION`. Hoy no hay forma de cargar promociones en producción salvo insertarlas a mano en PostgreSQL.
 
 ## Administrador web
 
@@ -592,11 +600,11 @@ El frontend (`frontend/index.html`, `frontend/css/styles.css`, `frontend/js/main
 
 - **Paleta de marca**: tokens en `:root` (`--marron`, `--verde-accion`, `--verde-claro`, `--fondo`, `--texto`), tomados del logo `frontend/assets/images/logo-vete.jpg`. El verde del logo tal cual no alcanza contraste AA con texto blanco, por eso los botones usan `--verde-accion`.
 - **Categorías**: en celular (≤ 768 px), un botón "Categorías: <actual> ▾" despliega la lista. En escritorio, el panel es `sticky`. Al elegir categoría se sube a la sección de artículos (`irAlInicioDeLaVista`), y el título de la sección muestra el nombre de la categoría.
-- **Cabecera**: en escritorio, una fila con logo, buscador, Promos, Combos y Carrito. En celular, tres filas: logo + Carrito, buscador completo, y Promos + Combos.
+- **Cabecera**: en escritorio, una fila con logo, buscador, Combos y Carrito. En celular, tres filas: logo + Carrito, buscador completo, y Combos. (El botón "Ver Promos" de la cabecera se retiró: las promociones ahora son la sección "Promoción vigente" de la portada.)
 - **Búsqueda**: al escribir, si la vista activa no es el catálogo, vuelve a él. Enter cierra el teclado y sube a los resultados.
 - **Carrito en celular**: cada renglón se parte en dos filas para que el tacho de basura quede dentro de la pantalla.
 - **Desplazamiento horizontal**: en celular, `overflow-x: clip` (con `hidden` como respaldo) evita arrastrar la página hacia los costados.
-- **Promos y Combos**: en celular, latido suave (`latidoSuave`, solo escala). En escritorio, el latido con giro (`latidoVibratorio`).
+- **Combos**: en celular, latido suave (`latidoSuave`, solo escala). En escritorio, el latido con giro (`latidoVibratorio`).
 - **Lógica sin cambios**: el rediseño no toca carrito, stock, presentaciones, combos ni paginación. Los IDs que usan las pruebas de frontend se conservaron.
 
 Pendiente: tarjetas, selector de presentaciones y modales (Etapa 3 de `ROADMAP.md`, Fase 17).

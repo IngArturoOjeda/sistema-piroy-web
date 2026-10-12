@@ -5,15 +5,16 @@
 Trabajar una etapa por vez.
 
 ## Fase 0 — Entender y separar arquitectura
-Estado: CASI COMPLETADA (falta solo `promos.py`)
+Estado: COMPLETADA (2026-10-12): ningún router del backend consulta SQL Server
 
 Ya confirmado:
 - el proyecto actual nació usando SQL Server desde FastAPI;
 - existe conexión PostgreSQL preparada con `psycopg`;
 - Render es la plataforma cloud prevista;
 - la arquitectura objetivo separa backend web y SQL Server local;
-- `categories.py`, `items.py`, `sync.py` y `admin.py` ya quedaron migrados
-  a PostgreSQL. Solo `promos.py` sigue sobre SQL Server.
+- todos los routers (`categories.py`, `items.py`, `sync.py`, `admin.py`, `banners.py`) usan
+  PostgreSQL. El viejo `promos.py`, que era el último sobre SQL Server, se retiró junto con
+  `database.py`: las promociones ahora salen de la tabla `promocion` (Fase 19).
 
 ### Fase 0.1 — Revisar routers actuales
 Estado: REVISADO (actualizado tras la migración de `items.py`)
@@ -23,11 +24,9 @@ Confirmado:
 - `items.py` ya fue migrado a PostgreSQL (catálogo, presentaciones, combos
   y confirmar-pedido — ver `ARCHITECTURE.md`, "Backend actual vs
   arquitectura objetivo");
-- `promos.py` todavía usa SQL Server (único router pendiente); mientras
-  tanto el botón "Ver Promos" está oculto en `frontend/index.html`
-  (`style="display: none;"`), la ruta de página `GET /promos` está comentada
-  en `main.py` y el router de promos no se registra (necesario para que el
-  backend arranque en Render sin `pyodbc`); reactivar todo al migrar el router;
+- `promos.py` (SQL Server) se **retiró** con `database.py` y `frontend/promos-Exclusivos.html`; el botón
+  "Ver Promos" y la ruta `/promos` ya no existen. Las promociones son la tabla `promocion`, la sección
+  "Promoción vigente" de la portada y la página `/promociones` (Fase 19);
 - backend desplegado en Render con `render.yaml` + `requirements-render.txt`
   (servicio `agrovetzo-web`, plan free, `https://agrovetzo-web.onrender.com`;
   ver Fase 15);
@@ -44,18 +43,18 @@ Confirmado:
 - no confiar en nombre/precio recibidos desde el navegador.
 
 ### Fase 0.3 — Separar conexiones
-Estado: CASI COMPLETADA (falta solo `promos.py`)
+Estado: COMPLETADA
 
 Actualmente:
 
 ```text
-backend/app/database.py
--> SQL Server
--> usado solo por promos.py
-
 backend/app/database_postgres.py
 -> PostgreSQL
--> usado por categories.py, items.py, sync.py y admin.py
+-> usado por todos los routers
+
+sincronizador/database.py
+-> SQL Server
+-> usado solo por el sincronizador
 ```
 
 Objetivo:
@@ -69,15 +68,10 @@ sincronizador/
 ```
 
 Avance:
-- `categories.py`, `items.py`, `sync.py` y `admin.py` ya usan
-  `database_postgres.py`;
-- `promos.py` sigue usando `database.py` (único router pendiente).
-
-Antes de mover/eliminar archivos:
-1. migrar routers uno por uno — hecho para todos salvo `promos.py`;
-2. validar funcionamiento después de cada migración;
-3. recién después retirar SQL Server del backend web (pendiente de
-   `promos.py`; `backend/app/database.py` no se puede eliminar todavía).
+- todos los routers usan `database_postgres.py`;
+- `backend/app/database.py` y `promos.py` se eliminaron; el backend publicado ya no necesita `pyodbc`
+  (`requirements-render.txt`). `backend/requirements.txt` lo conserva solo para el entorno local del
+  sincronizador.
 
 ## Fase 1 — Diseñar tablas mínimas en PostgreSQL
 Estado: COMPLETADA
@@ -253,12 +247,9 @@ Pendiente:
   en `main.js`) por el definitivo; falta la vista previa al compartir el enlace en
   WhatsApp (etiquetas `og:` generadas en el servidor, porque los rastreadores no
   ejecutan JavaScript); y probarla en un navegador real y en celular;
-- las rutas `/combos` y `/promos` cambian la barra de direcciones con `pushState` pero el
-  servidor no las sirve: al recargar dan 404 (solo `/producto/...` está resuelta);
 - destacados;
-- administración de promociones (hoy `promos.py` sigue sobre SQL Server,
-  sin panel propio — ver Fase 0 y la sección "Promociones" de
-  `ARCHITECTURE.md`).
+- administración de promociones desde el panel web (hoy las promociones solo se cargarán desde
+  el sistema local con el sincronizador, Fase 19 etapa 5; ver "Promociones" en `ARCHITECTURE.md`).
 
 ## Fase 14 — Servicio Windows
 Estado: PENDIENTE
@@ -276,7 +267,7 @@ Ya realizado:
 - FastAPI desplegado en Render (2026-10-09) mediante Blueprint (`render.yaml`),
   servicio web `agrovetzo-web` en plan free, con despliegue automático en cada
   push a `main`; verificado en vivo: `/`, `/api/categorias/`, `/api/articulos/` y
-  `/api/banners/` responden 200, `/api/promos/` y `/promos` dan 404 (desactivados),
+  `/api/banners/` responden 200, `/api/promos/` y `/promos` daban 404 (desactivados; luego retirados),
   las rutas de administración y sincronización dan 401 sin clave, y la tienda
   muestra los banners cargados desde el panel;
 - variables de entorno de producción cargadas en el panel de Render (`DATABASE_URL`,
@@ -330,6 +321,8 @@ Estado: COMPLETADA en su primera versión (commit `01e0034`)
 - `tests/unit/`: mock puro, sin base ni servidor. `psycopg.connect` queda bloqueado por `tests/conftest.py`.
 - `tests/integracion_lectura/`: requiere servidor local y PostgreSQL; solo `SELECT` y `GET`, con conexión de solo lectura.
 - Pendiente: versionar las suites de frontend (jsdom), que hoy viven en el scratchpad. Requieren un `package.json` con `jsdom`.
+- Pendiente de seguridad (misma técnica de escape que las tarjetas): el modal del carrito y la lista de categorías
+  todavía arman parte de su HTML con `innerHTML` y datos del servidor.
 - Pendiente: reescribir `test_carrito_fraccionable` y `test_carrito_full` con datos controlados (hecho en el scratchpad, sin versionar).
 
 ## Fase 19 — Promociones y novedades en la portada
@@ -339,15 +332,15 @@ Diseño completo en `ARCHITECTURE.md`, sección "Promociones". Referencia: porta
 Flujo: portada con sección "Promoción vigente" (carrusel con flechas) → botón "Ver promoción" → `/promociones`
 (todos los artículos en promoción) → cada tarjeta lleva a `/producto/{id}-{nombre}`.
 
-1. Etapa 1 — tabla `promocion` y precios en las lecturas: **código y pruebas hechos** (`SQL_PROMO_LATERAL`, `precio`
-   efectivo, `precio_original`, `descuento_porcentaje`, `GET /api/articulos/promociones`). Validado contra la base real en
-   una transacción con rollback. Falta crear la tabla en producción (`scripts/crear_tabla_promocion.py`) y desplegar.
+1. Etapa 1 — HECHA y desplegada: tabla `promocion` (creada en producción, vacía) y precios en las lecturas
+   (`SQL_PROMO_LATERAL`, `precio` efectivo, `precio_original`, `descuento_porcentaje`, `GET /api/articulos/promociones`).
 2. Etapa 2 — HECHA: `confirmar_pedido` cobra el precio promocional vigente (se guarda en `pedido_detalle.precio_unitario`) y
    responde 409 con los precios vigentes si el carrito trae otro; la web actualiza el carrito y pide confirmar de nuevo.
-   Recomendación: no cargar promociones reales hasta tener la Etapa 3 (el cliente vería un precio rebajado sin el precio tachado).
-3. Etapa 3 — precio tachado + insignia "-X %" en tarjetas y página del producto, carrusel "Promoción vigente", página
-   `/promociones`, rutas `/promociones` y `/combos` servidas al recargar, y retiro de `promos.py`, `database.py` y
-   `promos-Exclusivos.html`.
+3. Etapa 3 — HECHA (código y pruebas; falta verla en un navegador real): precio tachado + insignia "-X %" en tarjetas y
+   página del producto, carrusel "Promoción vigente" con flechas en la portada, página `/promociones`, rutas `/promociones` y
+   `/combos` servidas al recargar (`/combos` ya no da 404), retiro de `promos.py`, `database.py`, `promos-Exclusivos.html`, el
+   botón "Ver Promos" y la API vieja `/api/promos/`, y escape del nombre/imagen en las tarjetas. Falta ver la sección con una
+   promoción real: la tabla está vacía y no hay forma de cargarla hasta la etapa 5 (hoy solo insertando a mano en PostgreSQL).
 4. Etapa 4 — Novedades con caducidad manual (`articulos.novedad_hasta`), sección "Novedades" en carrusel.
 5. Etapa 5 — DIFERIDA: `POST /api/sync/promociones` y lectura de `PROMOCION` en el sincronizador. Requiere que el usuario
    confirme la estructura de `PROMOCION` y si la tabla de artículos guarda la fecha de inserción (para sumar una regla
