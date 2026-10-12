@@ -68,9 +68,9 @@ const btnEntendidoExitoUI = document.getElementById("btn-entendido-exito");
 const vistaProductoUI = document.getElementById("vista-producto");
 const detalleProductoUI = document.getElementById("detalle-producto");
 
-// Contacto por WhatsApp. Número de PRUEBA: cambiarlo por el definitivo de la tienda.
+// Contacto por WhatsApp. Número definitivo de la tienda.
 // Va con código de país y sin "+" ni espacios (formato de https://wa.me/).
-const WHATSAPP_NUMERO = "595982440750";
+const WHATSAPP_NUMERO = "595981100099";
 const NOMBRE_TIENDA = "AGRO-VETZO";
 const TITULO_PAGINA_ORIGINAL = document.title;
 

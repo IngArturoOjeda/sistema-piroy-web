@@ -243,8 +243,8 @@ Pendiente:
 - cargar las descripciones de los artículos (la columna, el campo del panel y la página
   del producto ya están; falta el trabajo de escribir las descripciones, de a una desde el
   panel; no hay carga masiva);
-- página del producto: reemplazar el número de WhatsApp de prueba (`WHATSAPP_NUMERO`
-  en `main.js`) por el definitivo; falta la vista previa al compartir el enlace en
+- página del producto: el número de WhatsApp definitivo (`WHATSAPP_NUMERO` en `main.js`)
+  ya está cargado; falta la vista previa al compartir el enlace en
   WhatsApp (etiquetas `og:` generadas en el servidor, porque los rastreadores no
   ejecutan JavaScript); y probarla en un navegador real y en celular;
 - destacados;
