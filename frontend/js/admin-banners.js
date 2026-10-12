@@ -1,5 +1,5 @@
 // Panel de banners del carrusel.
-// Usa /api/admin/banners (protegido con X-Admin-Key). Todo texto que viene del
+// Usa /api/admin/banners (protegido con la sesión de administrador). Todo texto que viene del
 // servidor se escribe con textContent / propiedades del DOM, nunca con innerHTML.
 
 // 1. CAPTURA DE ELEMENTOS
@@ -15,35 +15,7 @@ const listaBannersUI = document.getElementById("lista-banners");
 const TAMANO_MAXIMO_BYTES = 5 * 1024 * 1024; // igual que el backend
 const TIPOS_PERMITIDOS = ["image/jpeg", "image/png", "image/webp"];
 
-// 2. CLAVE DE ADMINISTRADOR: solo en memoria, nunca en sessionStorage/localStorage
-// Misma solución temporal que admin-imagenes.js (hasta tener login real).
-let claveAdminEnMemoria = null;
-
-function obtenerClaveAdmin() {
-    if (!claveAdminEnMemoria) {
-        const ingresada = prompt("Ingresá la clave de administrador:");
-        if (ingresada && ingresada.trim()) {
-            claveAdminEnMemoria = ingresada.trim();
-        }
-    }
-    return claveAdminEnMemoria;
-}
-
-async function fetchAdmin(url, opciones = {}) {
-    const clave = obtenerClaveAdmin();
-    if (!clave) {
-        throw new Error("Se necesita la clave de administrador para continuar.");
-    }
-
-    const headers = { ...(opciones.headers || {}), "X-Admin-Key": clave };
-    const respuesta = await fetch(url, { ...opciones, headers });
-
-    if (respuesta.status === 401) {
-        claveAdminEnMemoria = null; // la próxima operación la vuelve a pedir
-        throw new Error("Clave de administrador incorrecta.");
-    }
-    return respuesta;
-}
+// 2. SESIÓN: la maneja admin-sesion.js (fetchAdmin con cookie y vuelta al login si vence)
 
 // FastAPI devuelve "detail" como texto o como lista (errores 422 de validación)
 async function mensajeDeError(respuesta, porDefecto) {
@@ -376,7 +348,7 @@ document.getElementById("btn-recargar-banners").addEventListener("click", async 
     const boton = evento.currentTarget;
     boton.disabled = true;
     try {
-        await cargarBanners(); // vuelve a pedir la clave si hace falta
+        await cargarBanners();
     } finally {
         boton.disabled = false;
     }

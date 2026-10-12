@@ -312,7 +312,7 @@ Cada artículo tiene página propia: `/producto/{art_cod}` o `/producto/{art_cod
 
 La página muestra imagen, categoría, nombre, precio, stock, unidad de venta y descripción (si la tiene), con dos acciones: **Agregar al carrito** (reutiliza `comprarArticulo()`, con sus reglas de stock y cantidad) y **Consultar por WhatsApp**, un enlace `https://wa.me/{número}?text=...` con el mensaje "Hola AGRO-VETZO, estoy interesado en este artículo: {nombre} - Gs. {precio}" y el enlace al producto. El número está en la constante `WHATSAPP_NUMERO` de `main.js` y es el número definitivo de la tienda. Todo dato del servidor se pinta con `textContent`. En esta vista el carrusel de banners se oculta (`body.en-producto`).
 
-Columna `articulos.descripcion` (`text`, máximo 2000 caracteres, nullable): dato propio del e-commerce, **no viene de SQL Server**; el upsert del sincronizador actualiza una lista fija de columnas que no la incluye, así que no la pisa. Se creó con `scripts/agregar_columna_descripcion.sql` (+ `.py`). Se carga desde el panel de imágenes de productos (`frontend/admin-imagenes.html`): cuadro de texto con contador de caracteres y botón "Guardar descripción", que llama a `PATCH /api/admin/articulos/{art_cod}/descripcion` (cuerpo `{"descripcion": "..."}`, protegido con `X-Admin-Key`). El texto se recorta; si queda vacío se guarda como `NULL` ("sin descripción"); más de 2000 caracteres da 422 (y la base lo rechaza con un `CHECK`). La búsqueda del panel (`GET /api/admin/articulos`) devuelve la descripción actual.
+Columna `articulos.descripcion` (`text`, máximo 2000 caracteres, nullable): dato propio del e-commerce, **no viene de SQL Server**; el upsert del sincronizador actualiza una lista fija de columnas que no la incluye, así que no la pisa. Se creó con `scripts/agregar_columna_descripcion.sql` (+ `.py`). Se carga desde el panel de imágenes de productos (`frontend/admin-imagenes.html`): cuadro de texto con contador de caracteres y botón "Guardar descripción", que llama a `PATCH /api/admin/articulos/{art_cod}/descripcion` (cuerpo `{"descripcion": "..."}`, protegido con la sesión del administrador). El texto se recorta; si queda vacío se guarda como `NULL` ("sin descripción"); más de 2000 caracteres da 422 (y la base lo rechaza con un `CHECK`). La búsqueda del panel (`GET /api/admin/articulos`) devuelve la descripción actual.
 
 ## Endpoint actual de pedidos
 
@@ -497,9 +497,34 @@ Debe administrar datos propios del ecommerce, por ejemplo:
 
 No debe reemplazar VFP ni administrar directamente SQL Server.
 
+### Acceso al panel (usuario y contraseña)
+
+Todas las rutas `/api/admin/...` exigen una sesión iniciada (dependencia `verificar_admin`, en `backend/app/routers/admin_auth.py`). La antigua clave única `X-Admin-Key` / `ADMIN_API_KEY` **ya no se usa**: la variable puede borrarse del panel de Render.
+
+Tablas (definición en `scripts/crear_tablas_admin.sql`, creadas con `scripts/crear_tablas_admin.py`; `--probar` valida y deshace):
+- `admin_usuarios`: `usuario` (único, minúsculas, 3 a 50), `password_hash`, `activo`, `intentos_fallidos`, `bloqueado_hasta`, `creado_en`, `ultimo_acceso`.
+- `admin_sesiones`: `usuario_id` (se borra con el usuario), `token_hash` (único), `creada_en`, `vence_en`.
+
+Endpoints:
+- `POST /api/admin/login` (`{"usuario","password"}`): si es correcto crea una sesión y responde con la cookie `agrovetzo_admin` (`HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/admin`, 8 horas). Usuario inexistente, dado de baja o contraseña mala dan el mismo 401 "Usuario o contraseña incorrectos" y tardan lo mismo.
+- `POST /api/admin/logout`: borra la sesión en el servidor y la cookie.
+- `GET /api/admin/sesion`: devuelve el usuario de la sesión vigente (401 si no hay).
+
+Reglas (`backend/app/seguridad_admin.py`):
+- la contraseña se guarda solo como hash `scrypt` con sal propia (biblioteca estándar, sin dependencias nuevas); mínimo 10 caracteres;
+- del token de sesión solo se guarda su SHA-256: quien lea la base no puede usar las sesiones;
+- 5 contraseñas malas seguidas bloquean al usuario 15 minutos (429, aunque después acierte); un acceso correcto reinicia el contador; el reloj es el de la base;
+- una sesión vence a las 8 horas, deja de valer si el usuario se da de baja y las vencidas se limpian en cada ingreso.
+
+Usuarios: no hay registro público. Se crean (o se cambia la contraseña, lo que además cierra sus sesiones y levanta el bloqueo) con `scripts/crear_usuario_admin.py USUARIO`, que pide la contraseña por teclado sin mostrarla; `--desactivar` da de baja a un usuario. Es un solo nivel de permisos: todo usuario activo puede usar todo el panel.
+
+Interfaz: `frontend/admin-login.html` + `js/admin-login.js`; `js/admin-sesion.js` (compartido por los dos paneles) manda al login si no hay sesión o si vence (401), muestra el usuario y el botón "Cerrar sesión". Los paneles no guardan contraseña ni token en el navegador (la cookie no es legible desde JavaScript).
+
+Límite conocido: el bloqueo es por usuario, no por dirección IP.
+
 ### Despliegue en Render
 
-`render.yaml` (Blueprint) declara solo el servicio web `agrovetzo-web` (plan free, Python 3.13.5, `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`, build con `requirements-render.txt`). La base PostgreSQL ya existente no se declara, para no crear otra. Las variables `DATABASE_URL`, `SYNC_API_KEY`, `ADMIN_API_KEY` y `CLOUDINARY_*` están como `sync: false`: se cargan a mano en el panel de Render y nunca van al repo.
+`render.yaml` (Blueprint) declara solo el servicio web `agrovetzo-web` (plan free, Python 3.13.5, `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`, build con `requirements-render.txt`). La base PostgreSQL ya existente no se declara, para no crear otra. Las variables `DATABASE_URL`, `SYNC_API_KEY` y `CLOUDINARY_*` están como `sync: false`: se cargan a mano en el panel de Render y nunca van al repo.
 
 `requirements-render.txt` es igual a `backend/requirements.txt` sin `pyodbc`: el backend publicado no consulta SQL Server. Por eso `main.py` no registra el router de promos (importa `database.py`, que exige `pyodbc` y las variables `DB_*`). Estado: **desplegado y verificado** (2026-10-09) en `https://agrovetzo-web.onrender.com`; Render aceptó Python 3.13.5 y el servicio arranca con solo estas variables de entorno. Cada push a `main` despliega automáticamente (`autoDeployTrigger: commit`). Detalle de lo verificado y lo pendiente en `ROADMAP.md`, Fase 15.
 
@@ -511,7 +536,7 @@ Tabla `banners` (definición en `scripts/crear_tabla_banners.sql`, creada con `s
 
 Endpoints:
 - `GET /api/banners/` — público; solo activos, ordenados por `orden, id`; responde `Cache-Control: no-store`.
-- `GET /api/admin/banners`, `POST /api/admin/banners` (multipart: `archivo`, `alt` y `orden` opcional; se crea inactivo y, sin `orden`, al final de la lista), `PATCH /api/admin/banners/{id}` (`alt`, `orden`, `activo`), `PUT /api/admin/banners/orden` (cuerpo `{"ids": [...]}`: fija el orden de todos los banners de una vez, en una transacción) y `DELETE /api/admin/banners/{id}` — protegidos con `X-Admin-Key`.
+- `GET /api/admin/banners`, `POST /api/admin/banners` (multipart: `archivo`, `alt` y `orden` opcional; se crea inactivo y, sin `orden`, al final de la lista), `PATCH /api/admin/banners/{id}` (`alt`, `orden`, `activo`), `PUT /api/admin/banners/orden` (cuerpo `{"ids": [...]}`: fija el orden de todos los banners de una vez, en una transacción) y `DELETE /api/admin/banners/{id}` — protegidos con la sesión del administrador.
 - `PUT /api/admin/banners/orden` exige exactamente los ids existentes; si la lista cambió (otro banner subido o borrado) responde 409 y no escribe. Asigna `orden` 0, 1, 2... según la posición.
 
 Reglas: el `public_id` lo genera el backend (aleatorio, `overwrite=False`). Al borrar se destruye primero la imagen en Cloudinary (aceptando "not found") y después la fila; si Cloudinary falla, la fila queda y se reintenta. Si el INSERT falla al subir, se intenta borrar la imagen recién subida; si el resultado del COMMIT es incierto, la imagen se conserva.
@@ -638,6 +663,7 @@ No:
 Sí:
 - HTTPS;
 - autenticación privada del sincronizador;
+- panel de administración con usuario y contraseña (hash scrypt), sesión por cookie HttpOnly y bloqueo por intentos;
 - secretos en variables de entorno;
 - reintentos;
 - logs;

@@ -364,7 +364,7 @@ Receta repetible, en este orden:
 ### Configuración común (artículos, kits y stock)
 
 - Confirmar que `tipo_articulo` (42 registros) y `unidad_medida` (7 registros, tabla de la sección 4) ya están cargados manualmente en PostgreSQL — ambos ya se hicieron.
-- Configurar en Render (backend): `DATABASE_URL`, `SYNC_API_KEY`, `ADMIN_API_KEY`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
+- Configurar en Render (backend): `DATABASE_URL`, `SYNC_API_KEY`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
 - Configurar en la máquina del sincronizador (local, SQL Server): `DB_DRIVER`, `DB_SERVER`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `SYNC_API_KEY` (mismo valor que en Render), `SYNC_API_URL`, `SYNC_API_URL_KITS`, `SYNC_API_URL_STOCK`.
 - Hacer `git pull` en esa máquina para tener la última versión de `sincronizador/`.
 - Ejecutar `python -m sincronizador.sincronizador` desde la raíz del proyecto.

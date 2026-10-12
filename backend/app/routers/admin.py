@@ -1,15 +1,15 @@
 import os
-import secrets
 import uuid
 from io import BytesIO
 from typing import Optional
 
 import cloudinary
 import cloudinary.uploader
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Path, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Query, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
 
 from backend.app.database_postgres import obtener_conexion_postgres
+from backend.app.routers.admin_auth import verificar_admin
 from backend.app.schemas import BannerActualizar, BannersReordenar, DescripcionEntrada, MostrarWebEntrada
 
 router = APIRouter(prefix="/admin", tags=["Administracion"])
@@ -24,20 +24,6 @@ FIRMAS_PERMITIDAS = {
     "image/png": (b"\x89PNG\r\n\x1a\n",),
     "image/webp": (b"RIFF",),
 }
-
-
-def verificar_admin(x_admin_key: str = Header(default="")):
-    esperada = os.getenv("ADMIN_API_KEY")
-    if not esperada:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Administracion no configurada",
-        )
-    if not secrets.compare_digest(x_admin_key.encode(), esperada.encode()):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No autorizado",
-        )
 
 
 def validar_imagen(contenido: bytes, content_type: str):

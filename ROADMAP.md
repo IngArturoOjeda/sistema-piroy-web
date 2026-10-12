@@ -217,7 +217,11 @@ Permitir que el asesor:
 ## Fase 13 — Administrador web
 Estado: PARCIALMENTE COMPLETADA
 
-Ya realizado (`backend/app/routers/admin.py`, protegido con `X-Admin-Key`):
+Ya realizado (`backend/app/routers/admin.py`, protegido con usuario y contraseña; ver
+`ARCHITECTURE.md`, "Acceso al panel"):
+- login del administrador: usuarios con contraseña hasheada, sesión por cookie HttpOnly de 8 horas,
+  bloqueo tras 5 intentos fallidos, pantalla `admin-login.html`, botón "Cerrar sesión" y script
+  `scripts/crear_usuario_admin.py`; reemplaza la clave única `ADMIN_API_KEY`;
 - listar/buscar artículos;
 - togglear `mostrar_web` por artículo (`PATCH /api/admin/articulos/{art_cod}/mostrar-web`);
 - subir imagen de un artículo a Cloudinary (`POST /api/admin/articulos/{art_cod}/imagen`);
@@ -271,7 +275,7 @@ Ya realizado:
   las rutas de administración y sincronización dan 401 sin clave, y la tienda
   muestra los banners cargados desde el panel;
 - variables de entorno de producción cargadas en el panel de Render (`DATABASE_URL`,
-  `SYNC_API_KEY`, `ADMIN_API_KEY`, `CLOUDINARY_*`; nunca en el repo);
+  `SYNC_API_KEY`, `CLOUDINARY_*`; nunca en el repo);
 - HTTPS (lo provee Render);
 - autenticación del sincronizador (`X-API-Key`, 401 sin clave verificado);
 - `/docs`, `/redoc` y `/openapi.json` apagados en producción.

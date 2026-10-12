@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>AgroVetzo - Ingreso al panel</title>
+  <link rel="icon" type="image/png" href="/frontend/assets/images/favicon.png">
+  <link rel="stylesheet" href="/frontend/css/admin-imagenes.css">
+</head>
+<body>
+  <header class="admin-header">
+    <img src="/frontend/assets/images/logo-vete.jpg" alt="AgroVetzo" class="admin-logo">
+    <h1>Panel de administración</h1>
+  </header>
+
+  <main class="login-contenido">
+    <form id="form-login" class="login-tarjeta" autocomplete="on">
+      <h2>Ingresá con tu usuario</h2>
+      <label class="login-campo">
+        <span>Usuario</span>
+        <input type="text" id="login-usuario" name="username" autocomplete="username"
+               autocapitalize="none" spellcheck="false" maxlength="50" required autofocus>
+      </label>
+      <label class="login-campo">
+        <span>Contraseña</span>
+        <input type="password" id="login-password" name="password" autocomplete="current-password"
+               maxlength="200" required>
+      </label>
+      <button type="submit" id="btn-ingresar" class="btn-ingresar">Ingresar</button>
+      <p id="login-error" class="login-error" role="alert" hidden></p>
+    </form>
+  </main>
+
+  <script src="/frontend/js/admin-login.js"></script>
+</body>
+</html>

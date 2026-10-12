@@ -124,3 +124,15 @@ class StockSync(BaseModel):
     art_cod: int = Field(gt=0, lt=10**18)
     cantidad: Decimal = Field(ge=0, max_digits=9, decimal_places=3)
     version_actual: int = Field(gt=0)
+
+
+class LoginEntrada(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    usuario: str = Field(..., min_length=1, max_length=50)
+    password: str = Field(..., min_length=1, max_length=200)
+
+    @field_validator("usuario")
+    @classmethod
+    def usuario_normalizado(cls, valor):
+        return valor.strip().lower()

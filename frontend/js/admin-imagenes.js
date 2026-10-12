@@ -5,42 +5,12 @@ const panelDetalleUI = document.getElementById("panel-detalle");
 
 const ANCHURA_MOVIL = 900;
 
-// 2. CLAVE DE ADMINISTRADOR: solo en memoria, nunca en sessionStorage/localStorage
-// Solución temporal hasta implementar login administrativo real.
-let claveAdminEnMemoria = null;
+// 2. SESIÓN: la maneja admin-sesion.js (fetchAdmin con cookie y vuelta al login si vence)
 let articuloSeleccionado = null;
 let temporizadorBusqueda = null;
 
 function esVistaMovil() {
     return window.innerWidth <= ANCHURA_MOVIL;
-}
-
-function obtenerClaveAdmin() {
-    if (!claveAdminEnMemoria) {
-        const ingresada = prompt("Ingresá la clave de administrador:");
-        if (ingresada && ingresada.trim()) {
-            claveAdminEnMemoria = ingresada.trim();
-        }
-    }
-    return claveAdminEnMemoria;
-}
-
-// 3. FETCH CON X-Admin-Key, con manejo de 401
-async function fetchAdmin(url, opciones = {}) {
-    const clave = obtenerClaveAdmin();
-    if (!clave) {
-        throw new Error("Se necesita la clave de administrador para continuar.");
-    }
-
-    const headers = { ...(opciones.headers || {}), "X-Admin-Key": clave };
-    const respuesta = await fetch(url, { ...opciones, headers });
-
-    if (respuesta.status === 401) {
-        claveAdminEnMemoria = null; // se borra: la próxima operación la vuelve a pedir
-        throw new Error("Clave de administrador incorrecta.");
-    }
-
-    return respuesta;
 }
 
 // 4. BÚSQUEDA (con una pequeña espera para no disparar una petición por cada letra)
