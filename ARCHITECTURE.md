@@ -502,13 +502,18 @@ No debe reemplazar VFP ni administrar directamente SQL Server.
 Todas las rutas `/api/admin/...` exigen una sesión iniciada (dependencia `verificar_admin`, en `backend/app/routers/admin_auth.py`). La antigua clave única `X-Admin-Key` / `ADMIN_API_KEY` **ya no se usa**: la variable puede borrarse del panel de Render.
 
 Tablas (definición en `scripts/crear_tablas_admin.sql`, creadas con `scripts/crear_tablas_admin.py`; `--probar` valida y deshace):
-- `admin_usuarios`: `usuario` (único, minúsculas, 3 a 50), `password_hash`, `activo`, `intentos_fallidos`, `bloqueado_hasta`, `creado_en`, `ultimo_acceso`.
+- `admin_usuarios`: `usuario` (único, minúsculas, 3 a 50), `password_hash`, `activo`, `es_admin` (rol; columna agregada con `ALTER TABLE` en el mismo script), `intentos_fallidos`, `bloqueado_hasta`, `creado_en`, `ultimo_acceso`.
 - `admin_sesiones`: `usuario_id` (se borra con el usuario), `token_hash` (único), `creada_en`, `vence_en`.
 
 Endpoints:
 - `POST /api/admin/login` (`{"usuario","password"}`): si es correcto crea una sesión y responde con la cookie `agrovetzo_admin` (`HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/admin`, 8 horas). Usuario inexistente, dado de baja o contraseña mala dan el mismo 401 "Usuario o contraseña incorrectos" y tardan lo mismo.
 - `POST /api/admin/logout`: borra la sesión en el servidor y la cookie.
-- `GET /api/admin/sesion`: devuelve el usuario de la sesión vigente (401 si no hay).
+- `GET /api/admin/sesion`: devuelve `{usuario, es_admin}` de la sesión vigente (401 si no hay).
+
+Gestión de usuarios (`backend/app/routers/admin_usuarios.py`; las cinco primeras exigen el rol de administrador, 403 si no lo tiene):
+- `GET /api/admin/usuarios` (lista, sin hashes), `POST /api/admin/usuarios` (`usuario`, `password`, `es_admin`; 409 si ya existe), `PATCH /api/admin/usuarios/{id}` (`activo` y/o `es_admin`), `POST /api/admin/usuarios/{id}/password` (restablece la contraseña de otro usuario).
+- `POST /api/admin/mi-password` (`actual`, `nueva`): lo puede usar cualquier usuario con sesión; una contraseña actual equivocada cuenta como intento fallido.
+- Reglas: nadie puede desactivarse ni quitarse el rol a sí mismo; siempre debe quedar al menos un administrador activo (los cambios de activo/rol se serializan con un candado de transacción `pg_advisory_xact_lock` y se bloquean las filas, para decidirlo sin carreras ni abrazos mortales); desactivar o restablecer la contraseña de un usuario cierra todas sus sesiones; al cambiar la propia contraseña se cierran las demás sesiones propias y se conserva la actual.
 
 Reglas (`backend/app/seguridad_admin.py`):
 - la contraseña se guarda solo como hash `scrypt` con sal propia (biblioteca estándar, sin dependencias nuevas); mínimo 10 caracteres;
@@ -516,9 +521,9 @@ Reglas (`backend/app/seguridad_admin.py`):
 - 5 contraseñas malas seguidas bloquean al usuario 15 minutos (429, aunque después acierte); un acceso correcto reinicia el contador; el reloj es el de la base;
 - una sesión vence a las 8 horas, deja de valer si el usuario se da de baja y las vencidas se limpian en cada ingreso.
 
-Usuarios: no hay registro público. Se crean (o se cambia la contraseña, lo que además cierra sus sesiones y levanta el bloqueo) con `scripts/crear_usuario_admin.py USUARIO`, que pide la contraseña por teclado sin mostrarla; `--desactivar` da de baja a un usuario. Es un solo nivel de permisos: todo usuario activo puede usar todo el panel.
+Usuarios: no hay registro público. El primer administrador se crea con `scripts/crear_usuario_admin.py USUARIO --admin` (pide la contraseña por teclado sin mostrarla; sobre un usuario existente cambia su contraseña, cierra sus sesiones y levanta el bloqueo; `--desactivar` da de baja). Los demás se gestionan desde `frontend/admin-usuarios.html`. Dos roles: **administrador** (gestiona usuarios) y **común** (usa el panel de imágenes y banners y puede cambiar su propia contraseña).
 
-Interfaz: `frontend/admin-login.html` + `js/admin-login.js`; `js/admin-sesion.js` (compartido por los dos paneles) manda al login si no hay sesión o si vence (401), muestra el usuario y el botón "Cerrar sesión". Los paneles no guardan contraseña ni token en el navegador (la cookie no es legible desde JavaScript).
+Interfaz: `frontend/admin-login.html` + `js/admin-login.js`; `frontend/admin-usuarios.html` + `js/admin-usuarios.js` (cambiar mi contraseña para todos; crear, activar/desactivar, rol y nueva contraseña solo para administradores); `js/admin-sesion.js` (compartido por todas las pantallas) manda al login si no hay sesión o si vence (401), muestra el usuario y el botón "Cerrar sesión"; `js/admin-ojo.js` es el botón "ojito" que muestra u oculta la contraseña mientras se escribe. Los paneles no guardan contraseña ni token en el navegador (la cookie no es legible desde JavaScript).
 
 Límite conocido: el bloqueo es por usuario, no por dirección IP.
 

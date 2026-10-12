@@ -20,7 +20,7 @@ class Cursor:
 
     def __init__(self, usuario=None, sesion=None):
         self.usuario = usuario      # (id, hash, activo, bloqueado) o None
-        self.sesion = sesion        # nombre de usuario o None
+        self.sesion = sesion        # (id, usuario, es_admin) o None
         self.consultas = []
         self._ultima = ""
 
@@ -32,7 +32,7 @@ class Cursor:
         if "FROM admin_usuarios WHERE usuario" in self._ultima:
             return self.usuario
         if "FROM admin_sesiones s" in self._ultima:
-            return None if self.sesion is None else (self.sesion,)
+            return self.sesion
         return None
 
     def close(self):
@@ -225,8 +225,8 @@ def test_sesion_invalida_o_vencida_es_401(base):
 
 
 def test_sesion_vigente_devuelve_el_usuario(base):
-    cursor, _ = base(sesion="admin")
-    assert admin_auth.verificar_admin("token-bueno") == "admin"
+    cursor, _ = base(sesion=(7, "admin", True))
+    assert admin_auth.verificar_admin("token-bueno") == {"id": 7, "usuario": "admin", "es_admin": True}
     sql, params = cursor.consultas[0]
     assert "s.vence_en > now()" in sql and "u.activo" in sql
     assert params == (seg.hash_de_token("token-bueno"),)

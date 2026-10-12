@@ -1,3 +1,4 @@
+import re
 from decimal import Decimal
 from typing import Annotated, List, Literal, Optional
 
@@ -136,3 +137,45 @@ class LoginEntrada(BaseModel):
     @classmethod
     def usuario_normalizado(cls, valor):
         return valor.strip().lower()
+
+
+class UsuarioNuevo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    usuario: str = Field(..., min_length=3, max_length=50)
+    password: str = Field(..., min_length=1, max_length=200)
+    es_admin: bool = False
+
+    @field_validator("usuario")
+    @classmethod
+    def usuario_valido(cls, valor):
+        valor = valor.strip().lower()
+        if not re.fullmatch(r"[a-z0-9._-]{3,50}", valor):
+            raise ValueError("El usuario solo admite letras, numeros, punto, guion y guion bajo")
+        return valor
+
+
+class UsuarioCambio(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    activo: Optional[bool] = None
+    es_admin: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def algo_que_cambiar(self):
+        if self.activo is None and self.es_admin is None:
+            raise ValueError("Indique activo y/o es_admin")
+        return self
+
+
+class PasswordNueva(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    password: str = Field(..., min_length=1, max_length=200)
+
+
+class CambioDePassword(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    actual: str = Field(..., min_length=1, max_length=200)
+    nueva: str = Field(..., min_length=1, max_length=200)

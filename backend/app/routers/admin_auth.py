@@ -13,7 +13,8 @@ MENSAJE_CREDENCIALES = "Usuario o contraseña incorrectos"
 
 
 def verificar_admin(token: str = Cookie(default="", alias=seg.NOMBRE_COOKIE)):
-    """Dependencia de las rutas del panel: exige una sesion vigente. Devuelve el usuario."""
+    """Dependencia de las rutas del panel: exige una sesion vigente.
+    Devuelve {"id", "usuario", "es_admin"} del usuario de la sesion."""
     no_autorizado = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No autorizado")
     if not token:
         raise no_autorizado
@@ -22,7 +23,7 @@ def verificar_admin(token: str = Cookie(default="", alias=seg.NOMBRE_COOKIE)):
     try:
         conn = obtener_conexion_postgres()
         cursor = conn.cursor()
-        usuario = seg.usuario_de_sesion(cursor, token)
+        fila = seg.usuario_de_sesion(cursor, token)
     except Exception as e:
         print("Error verificando la sesion de administracion:", e)
         raise HTTPException(
@@ -34,9 +35,9 @@ def verificar_admin(token: str = Cookie(default="", alias=seg.NOMBRE_COOKIE)):
             cursor.close()
         if conn:
             conn.close()
-    if usuario is None:
+    if fila is None:
         raise no_autorizado
-    return usuario
+    return {"id": fila[0], "usuario": fila[1], "es_admin": fila[2]}
 
 
 @router.post("/login")
@@ -123,5 +124,5 @@ def cerrar_sesion(respuesta: Response, token: str = Cookie(default="", alias=seg
 
 
 @router.get("/sesion")
-def sesion_actual(usuario: str = Depends(verificar_admin)):
-    return {"usuario": usuario}
+def sesion_actual(actual: dict = Depends(verificar_admin)):
+    return {"usuario": actual["usuario"], "es_admin": actual["es_admin"]}

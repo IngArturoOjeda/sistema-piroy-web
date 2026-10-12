@@ -222,6 +222,9 @@ Ya realizado (`backend/app/routers/admin.py`, protegido con usuario y contraseñ
 - login del administrador: usuarios con contraseña hasheada, sesión por cookie HttpOnly de 8 horas,
   bloqueo tras 5 intentos fallidos, pantalla `admin-login.html`, botón "Cerrar sesión" y script
   `scripts/crear_usuario_admin.py`; reemplaza la clave única `ADMIN_API_KEY`;
+- gestión de usuarios desde el panel (`admin-usuarios.html`): roles administrador / común, crear,
+  activar y desactivar, dar o quitar el rol, restablecer contraseñas, cambiar la propia
+  contraseña y "ojito" para ver lo que se escribe;
 - listar/buscar artículos;
 - togglear `mostrar_web` por artículo (`PATCH /api/admin/articulos/{art_cod}/mostrar-web`);
 - subir imagen de un artículo a Cloudinary (`POST /api/admin/articulos/{art_cod}/imagen`);

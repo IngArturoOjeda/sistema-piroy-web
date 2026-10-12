@@ -17,6 +17,11 @@ CREATE TABLE IF NOT EXISTS public.admin_usuarios (
     ultimo_acceso timestamptz NULL
 );
 
+-- Rol: los administradores gestionan usuarios desde el panel; el resto solo usa el panel de
+-- imagenes y banners. (Agregada despues de la creacion inicial: por eso va como ALTER.)
+ALTER TABLE public.admin_usuarios
+    ADD COLUMN IF NOT EXISTS es_admin boolean NOT NULL DEFAULT FALSE;
+
 CREATE UNIQUE INDEX IF NOT EXISTS admin_usuarios_usuario_uq
     ON public.admin_usuarios (usuario);
 

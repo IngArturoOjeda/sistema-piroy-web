@@ -2,7 +2,12 @@ r"""Crea un usuario del panel de administracion, o le cambia la contrasena si ya
 
 Uso (desde la raiz del proyecto):
     .venv\Scripts\python.exe scripts/crear_usuario_admin.py USUARIO
+    .venv\Scripts\python.exe scripts/crear_usuario_admin.py USUARIO --admin
     .venv\Scripts\python.exe scripts/crear_usuario_admin.py USUARIO --desactivar
+
+--admin le da el rol de administrador (puede gestionar usuarios desde el panel); sin esa
+opcion un usuario nuevo es comun y uno existente conserva el rol que tenia. Hace falta para
+el primer administrador: despues los demas se gestionan desde el panel.
 
 La contrasena se pide por teclado (sin mostrarla) y se guarda solo con hash. No se
 imprime ni la contrasena ni la cadena de conexion. Al cambiar la contrasena de un
@@ -38,8 +43,9 @@ def pedir_password():
 def main():
     argumentos = [a for a in sys.argv[1:] if not a.startswith("--")]
     desactivar = "--desactivar" in sys.argv
+    dar_admin = "--admin" in sys.argv
     if len(argumentos) != 1:
-        raise SystemExit("Uso: crear_usuario_admin.py USUARIO [--desactivar]")
+        raise SystemExit("Uso: crear_usuario_admin.py USUARIO [--admin | --desactivar]")
     usuario = argumentos[0].strip().lower()
     if not PATRON_USUARIO.match(usuario):
         raise SystemExit("El usuario debe tener de 3 a 50 caracteres: letras, numeros, punto, guion o guion bajo.")
@@ -65,15 +71,15 @@ def main():
             hash_nuevo = seg.hashear_password(pedir_password())
             if fila is None:
                 cur.execute(
-                    "INSERT INTO admin_usuarios (usuario, password_hash) VALUES (%s, %s)",
-                    (usuario, hash_nuevo),
+                    "INSERT INTO admin_usuarios (usuario, password_hash, es_admin) VALUES (%s, %s, %s)",
+                    (usuario, hash_nuevo, dar_admin),
                 )
-                print(f"Usuario '{usuario}' creado.")
+                print(f"Usuario '{usuario}' creado" + (" como administrador." if dar_admin else "."))
             else:
                 cur.execute(
                     "UPDATE admin_usuarios SET password_hash = %s, activo = TRUE, "
-                    "intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id = %s",
-                    (hash_nuevo, fila[0]),
+                    "es_admin = es_admin OR %s, intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id = %s",
+                    (hash_nuevo, dar_admin, fila[0]),
                 )
                 cur.execute("DELETE FROM admin_sesiones WHERE usuario_id = %s", (fila[0],))
                 print(f"Contrasena de '{usuario}' actualizada; sus sesiones anteriores se cerraron.")

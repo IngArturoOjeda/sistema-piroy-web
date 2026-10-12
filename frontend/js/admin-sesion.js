@@ -1,4 +1,4 @@
-// Sesión del panel de administración (compartido por admin-imagenes y admin-banners).
+// Sesión del panel de administración (compartido por todas las pantallas del panel).
 // La sesión vive en una cookie HttpOnly que pone el servidor al iniciar sesión: este código
 // nunca ve ni guarda la contraseña ni el token.
 
@@ -34,6 +34,7 @@ async function cerrarSesionAdmin() {
 }
 
 // Al abrir el panel: sin sesión vigente va directo al login; con sesión muestra quién es.
+// Devuelve {usuario, es_admin} (o null si no se pudo saber).
 async function comprobarSesionAdmin() {
     const etiqueta = document.getElementById("admin-usuario");
     const boton = document.getElementById("btn-salir");
@@ -42,15 +43,17 @@ async function comprobarSesionAdmin() {
         const respuesta = await fetch("/api/admin/sesion", { credentials: "same-origin" });
         if (respuesta.status === 401) {
             irAlLogin();
-            return;
+            return null;
         }
-        if (respuesta.ok && etiqueta) {
+        if (respuesta.ok) {
             const datos = await respuesta.json();
-            etiqueta.textContent = datos.usuario;
+            if (etiqueta) etiqueta.textContent = datos.usuario;
+            return datos;
         }
     } catch (error) {
         // sin conexión: el panel muestra sus propios errores al operar
     }
+    return null;
 }
 
-comprobarSesionAdmin();
+const promesaSesionAdmin = comprobarSesionAdmin();

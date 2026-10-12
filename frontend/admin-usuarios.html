@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>AgroVetzo - Usuarios</title>
+  <link rel="icon" type="image/png" href="/frontend/assets/images/favicon.png">
+  <link rel="stylesheet" href="/frontend/css/admin-imagenes.css">
+</head>
+<body>
+  <header class="admin-header">
+    <img src="/frontend/assets/images/logo-vete.jpg" alt="AgroVetzo" class="admin-logo">
+    <h1>Usuarios</h1>
+    <nav class="admin-nav">
+      <a href="/frontend/admin-imagenes.html">Imágenes de productos</a>
+      <a href="/frontend/admin-banners.html">Banners del carrusel</a>
+    </nav>
+    <div class="admin-sesion">
+      <span id="admin-usuario" class="admin-usuario"></span>
+      <button type="button" id="btn-salir" class="btn-salir">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="banners-contenido">
+    <section class="banners-tarjeta">
+      <h2>Cambiar mi contraseña</h2>
+      <p class="banners-ayuda">Mínimo 10 caracteres. Al cambiarla se cierran tus sesiones en otros equipos.</p>
+      <form id="form-mi-password" class="form-banner" autocomplete="off">
+        <label class="campo-banner">
+          <span>Contraseña actual</span>
+          <span class="campo-clave">
+            <input type="password" id="mi-actual" autocomplete="current-password" maxlength="200" required>
+            <button type="button" class="btn-ojo" data-ojo-para="mi-actual"
+                    aria-label="Mostrar contraseña" aria-pressed="false">
+              <svg class="ojo-abierto" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg class="ojo-tachado" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+                <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </button>
+          </span>
+        </label>
+        <label class="campo-banner">
+          <span>Contraseña nueva</span>
+          <span class="campo-clave">
+            <input type="password" id="mi-nueva" autocomplete="new-password" maxlength="200" required>
+            <button type="button" class="btn-ojo" data-ojo-para="mi-nueva"
+                    aria-label="Mostrar contraseña" aria-pressed="false">
+              <svg class="ojo-abierto" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg class="ojo-tachado" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+                <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </button>
+          </span>
+        </label>
+        <label class="campo-banner">
+          <span>Repetí la contraseña nueva</span>
+          <span class="campo-clave">
+            <input type="password" id="mi-repetir" autocomplete="new-password" maxlength="200" required>
+            <button type="button" class="btn-ojo" data-ojo-para="mi-repetir"
+                    aria-label="Mostrar contraseña" aria-pressed="false">
+              <svg class="ojo-abierto" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg class="ojo-tachado" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+                <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </button>
+          </span>
+        </label>
+        <button type="submit" id="btn-mi-password" class="btn-subir-imagen">Cambiar contraseña</button>
+        <p id="estado-mi-password" class="estado-subida" role="status"></p>
+      </form>
+    </section>
+
+    <section class="banners-tarjeta" id="seccion-gestion" hidden>
+      <h2>Crear usuario</h2>
+      <p class="banners-ayuda">
+        Un usuario común usa el panel de imágenes y banners. Un administrador, además, gestiona usuarios.
+      </p>
+      <form id="form-usuario-nuevo" class="form-banner" autocomplete="off">
+        <label class="campo-banner">
+          <span>Usuario (letras, números, punto, guion; 3 a 50)</span>
+          <input type="text" id="nuevo-usuario" autocomplete="off" autocapitalize="none" spellcheck="false"
+                 minlength="3" maxlength="50" required>
+        </label>
+        <label class="campo-banner">
+          <span>Contraseña (mínimo 10 caracteres)</span>
+          <span class="campo-clave">
+            <input type="password" id="nuevo-password" autocomplete="new-password" maxlength="200" required>
+            <button type="button" class="btn-ojo" data-ojo-para="nuevo-password"
+                    aria-label="Mostrar contraseña" aria-pressed="false">
+              <svg class="ojo-abierto" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg class="ojo-tachado" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+                <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </button>
+          </span>
+        </label>
+        <label class="campo-casilla">
+          <input type="checkbox" id="nuevo-es-admin">
+          <span>Es administrador (puede gestionar usuarios)</span>
+        </label>
+        <button type="submit" id="btn-crear-usuario" class="btn-subir-imagen">Crear usuario</button>
+        <p id="estado-usuario-nuevo" class="estado-subida" role="status"></p>
+      </form>
+
+      <div class="banners-titulo-fila">
+        <h2>Usuarios</h2>
+        <button type="button" id="btn-recargar-usuarios" class="btn-secundario">Actualizar</button>
+      </div>
+      <p id="estado-usuarios" class="estado-subida" role="status"></p>
+      <div class="tabla-usuarios-envoltorio">
+        <table class="tabla-usuarios">
+          <thead>
+            <tr><th>Usuario</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="lista-usuarios"></tbody>
+        </table>
+      </div>
+
+      <form id="form-restablecer" class="form-restablecer" autocomplete="off" hidden>
+        <h3 id="titulo-restablecer"></h3>
+        <label class="campo-banner">
+          <span>Contraseña nueva (mínimo 10 caracteres)</span>
+          <span class="campo-clave">
+            <input type="password" id="restablecer-password" autocomplete="new-password" maxlength="200" required>
+            <button type="button" class="btn-ojo" data-ojo-para="restablecer-password"
+                    aria-label="Mostrar contraseña" aria-pressed="false">
+              <svg class="ojo-abierto" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg class="ojo-tachado" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+                <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </button>
+          </span>
+        </label>
+        <div class="fila-botones">
+          <button type="submit" id="btn-restablecer" class="btn-subir-imagen">Guardar contraseña</button>
+          <button type="button" id="btn-cancelar-restablecer" class="btn-secundario">Cancelar</button>
+        </div>
+        <p id="estado-restablecer" class="estado-subida" role="status"></p>
+      </form>
+    </section>
+  </main>
+
+  <script src="/frontend/js/admin-ojo.js"></script>
+  <script src="/frontend/js/admin-sesion.js"></script>
+  <script src="/frontend/js/admin-usuarios.js"></script>
+</body>
+</html>

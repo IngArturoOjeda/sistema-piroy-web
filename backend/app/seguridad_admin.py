@@ -122,15 +122,14 @@ def crear_sesion(cursor, usuario_id: int) -> str:
 
 
 def usuario_de_sesion(cursor, token: str):
-    """Nombre del usuario dueno de una sesion vigente y activa, o None."""
+    """(id, usuario, es_admin) del dueno de una sesion vigente y activa, o None."""
     cursor.execute(
-        "SELECT u.usuario FROM admin_sesiones s "
+        "SELECT u.id, u.usuario, u.es_admin FROM admin_sesiones s "
         "JOIN admin_usuarios u ON u.id = s.usuario_id "
         "WHERE s.token_hash = %s AND s.vence_en > now() AND u.activo",
         (hash_de_token(token),),
     )
-    fila = cursor.fetchone()
-    return fila[0] if fila else None
+    return cursor.fetchone()
 
 
 def cerrar_sesion(cursor, token: str):

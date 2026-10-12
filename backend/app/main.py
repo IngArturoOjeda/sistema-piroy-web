@@ -9,6 +9,7 @@ from backend.app.routers.sync import router as sync_router
 from backend.app.routers.admin import router as admin_router
 from backend.app.routers.banners import router as banners_router
 from backend.app.routers.admin_auth import router as admin_auth_router
+from backend.app.routers.admin_usuarios import router as admin_usuarios_router
 # La documentacion automatica (/docs, /redoc, /openapi.json) lista todas las
 # rutas, incluidas las de administracion. Queda apagada salvo HABILITAR_DOCS=1
 # (para desarrollo local; en Render no se define).
@@ -32,6 +33,7 @@ app.include_router(categorias_router, prefix="/api")
 app.include_router(articulos_router, prefix="/api")
 app.include_router(sync_router, prefix="/api")
 app.include_router(admin_auth_router, prefix="/api")
+app.include_router(admin_usuarios_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(banners_router, prefix="/api")
 

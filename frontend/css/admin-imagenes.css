@@ -816,3 +816,177 @@ body {
 .login-error[hidden] {
     display: none;
 }
+
+/* ---------- Campo de contraseña con ojito ---------- */
+
+.campo-clave {
+    position: relative;
+    display: flex;
+}
+
+.campo-clave input {
+    width: 100%;
+    padding-right: 46px;
+}
+
+.btn-ojo {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    border-radius: 0 8px 8px 0;
+}
+
+.btn-ojo:hover,
+.btn-ojo:focus-visible {
+    color: #1e3a8a;
+}
+
+.btn-ojo:focus-visible {
+    outline: 2px solid #1e3a8a;
+    outline-offset: -2px;
+}
+
+.btn-ojo svg[hidden] {
+    display: none;
+}
+
+/* ---------- Pantalla de usuarios ---------- */
+
+.admin-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+}
+
+.campo-casilla {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.95rem;
+    color: #2c3e50;
+}
+
+.campo-casilla input {
+    width: 18px;
+    height: 18px;
+}
+
+.campo-banner .campo-clave input {
+    padding: 10px 46px 10px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 1rem;
+    font-weight: normal;
+}
+
+.tabla-usuarios-envoltorio {
+    overflow-x: auto;
+}
+
+.tabla-usuarios {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+}
+
+.tabla-usuarios th,
+.tabla-usuarios td {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+}
+
+.tabla-usuarios th {
+    color: #475569;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.usuario-inactivo td {
+    color: #94a3b8;
+}
+
+.celda-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.btn-accion {
+    padding: 6px 10px;
+    font-size: 0.82rem;
+}
+
+.form-restablecer {
+    margin-top: 20px;
+    padding: 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.form-restablecer[hidden],
+.banners-tarjeta[hidden] {
+    display: none;
+}
+
+.form-restablecer h3 {
+    font-size: 1rem;
+    color: #2c3e50;
+}
+
+.fila-botones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+@media (max-width: 700px) {
+    /* La tabla pasa a tarjetas: cada fila apilada, con el nombre de cada dato */
+    .tabla-usuarios thead {
+        display: none;
+    }
+
+    .tabla-usuarios,
+    .tabla-usuarios tbody,
+    .tabla-usuarios tr,
+    .tabla-usuarios td {
+        display: block;
+        width: 100%;
+    }
+
+    .tabla-usuarios tr {
+        padding: 10px 0;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .tabla-usuarios td {
+        border-bottom: none;
+        padding: 4px 0;
+    }
+
+    .tabla-usuarios td[data-etiqueta]::before {
+        content: attr(data-etiqueta) ": ";
+        font-weight: 600;
+        color: #475569;
+    }
+
+    .tabla-usuarios td.celda-acciones {
+        display: flex;
+        padding-top: 8px;
+    }
+}
