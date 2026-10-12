@@ -57,6 +57,18 @@ class ArticuloSync(BaseModel):
 class MostrarWebEntrada(BaseModel):
     mostrar_web: bool
 
+# 4a. Descripcion comercial de un articulo (panel administrativo).
+# Un texto vacio (o solo espacios) se guarda como NULL: "sin descripcion".
+class DescripcionEntrada(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    descripcion: Optional[str] = Field(..., max_length=2000)
+
+    @field_validator("descripcion")
+    @classmethod
+    def vacio_es_nulo(cls, valor):
+        return valor or None
+
 # 4b. Cambio parcial de un banner (panel administrativo)
 class BannerActualizar(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)

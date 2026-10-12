@@ -6,11 +6,11 @@ from typing import Optional
 
 import cloudinary
 import cloudinary.uploader
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Path, Query, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
 
 from backend.app.database_postgres import obtener_conexion_postgres
-from backend.app.schemas import BannerActualizar, BannersReordenar, MostrarWebEntrada
+from backend.app.schemas import BannerActualizar, BannersReordenar, DescripcionEntrada, MostrarWebEntrada
 
 router = APIRouter(prefix="/admin", tags=["Administracion"])
 
@@ -98,7 +98,7 @@ def buscar_articulos_admin(
 
         sql = f"""
             SELECT a.art_cod, a.art_nombre, a.art_preciobase, t.tipoart_desc,
-                   a.art_foto, a.art_estado, a.llevar_web, a.mostrar_web
+                   a.art_foto, a.art_estado, a.llevar_web, a.mostrar_web, a.descripcion
             FROM articulos a
             INNER JOIN tipo_articulo t ON a.tipoart_cod = t.tipoart_cod
             WHERE a.art_nombre ILIKE %s
@@ -119,6 +119,7 @@ def buscar_articulos_admin(
                 "art_estado": r[5],
                 "llevar_web": r[6],
                 "mostrar_web": r[7],
+                "descripcion": r[8],
             }
             for r in filas
         ]
@@ -168,6 +169,45 @@ def actualizar_mostrar_web(art_cod: int, datos: MostrarWebEntrada):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No se pudo actualizar mostrar_web",
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@router.patch("/articulos/{art_cod}/descripcion", dependencies=[Depends(verificar_admin)])
+def actualizar_descripcion(datos: DescripcionEntrada, art_cod: int = Path(gt=0, lt=10**18)):
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "UPDATE articulos SET descripcion = %s WHERE art_cod = %s",
+            (datos.descripcion, art_cod),
+        )
+        if cursor.rowcount == 0:
+            conn.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"art_cod {art_cod} no existe",
+            )
+        conn.commit()
+
+        return {"status": "ok", "art_cod": art_cod, "descripcion": datos.descripcion}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("Error actualizando descripcion:", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo actualizar la descripcion",
         )
     finally:
         if cursor:

@@ -235,6 +235,8 @@ Ya realizado (`backend/app/routers/admin.py`, protegido con `X-Admin-Key`):
 - página propia de cada producto (`/producto/{id}-{nombre}`, `GET /api/articulos/{art_cod}`)
   con descripción, agregar al carrito y consulta por WhatsApp (ver `ARCHITECTURE.md`,
   "Página de detalle de un producto");
+- descripción comercial de cada artículo editable desde el panel de productos
+  (`PATCH /api/admin/articulos/{art_cod}/descripcion`, máx. 2000 caracteres);
 - carrusel de la tienda alimentado por `GET /api/banners/` (imagen completa, oculto
   si no hay banners activos); se eliminaron `banner1-3.jpg`;
 - `/docs`, `/redoc` y `/openapi.json` apagados por defecto (`HABILITAR_DOCS=1` en local).
@@ -244,9 +246,9 @@ Pendiente:
   celular que el texto de la imagen se lee; si no, sumar una imagen alterna para
   celular;
 - accesibilidad pendiente del carrusel: aún faltan flechas anterior/siguiente;
-- descripción comercial: la columna `articulos.descripcion` ya existe y la página del
-  producto la muestra, pero falta cargarla desde el panel de administración (campo
-  de texto, `PATCH /api/admin/articulos/{art_cod}/descripcion`, máx. 2000 caracteres);
+- cargar las descripciones de los artículos (la columna, el campo del panel y la página
+  del producto ya están; falta el trabajo de escribir las descripciones, de a una desde el
+  panel; no hay carga masiva);
 - página del producto: reemplazar el número de WhatsApp de prueba (`WHATSAPP_NUMERO`
   en `main.js`) por el definitivo; falta la vista previa al compartir el enlace en
   WhatsApp (etiquetas `og:` generadas en el servidor, porque los rastreadores no

@@ -159,6 +159,17 @@ function seleccionarArticulo(articulo, elementoLi) {
             <p id="estado-mostrar-web" class="estado-mostrar-web"></p>
         </div>
 
+        <form id="form-descripcion" class="form-descripcion">
+            <label for="txt-descripcion">Descripción para la página del producto</label>
+            <textarea id="txt-descripcion" rows="6" maxlength="2000"
+                      placeholder="Para qué sirve, marca, medidas, modo de uso... Los saltos de línea se respetan."></textarea>
+            <div class="descripcion-pie">
+                <span id="contador-descripcion" class="contador-descripcion" aria-live="polite"></span>
+                <button type="submit" class="btn-subir-imagen" id="btn-guardar-descripcion">Guardar descripción</button>
+            </div>
+            <p id="estado-descripcion" class="estado-subida" role="status"></p>
+        </form>
+
         <form id="form-imagen" class="form-imagen">
             <input type="file" id="input-archivo" accept="image/jpeg,image/png,image/webp" required>
             <img id="img-preview" class="preview-nueva-imagen" alt="Vista previa">
@@ -170,6 +181,14 @@ function seleccionarArticulo(articulo, elementoLi) {
     document.getElementById("input-archivo").addEventListener("change", mostrarPreviewLocal);
     document.getElementById("form-imagen").addEventListener("submit", subirImagen);
     document.getElementById("switch-mostrar-web").addEventListener("change", alternarMostrarWeb);
+
+    // Descripción: el texto se asigna como valor (no dentro del HTML) para que ningún
+    // contenido cargado pueda inyectar código en el panel
+    const txtDescripcion = document.getElementById("txt-descripcion");
+    txtDescripcion.value = articulo.descripcion || "";
+    actualizarContadorDescripcion();
+    txtDescripcion.addEventListener("input", actualizarContadorDescripcion);
+    document.getElementById("form-descripcion").addEventListener("submit", guardarDescripcion);
 
     if (esVistaMovil()) {
         panelDetalleUI.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -228,6 +247,63 @@ async function subirImagen(evento) {
         estadoUI.className = "estado-subida visible estado-error";
         estadoUI.textContent = error.message;
         btnSubir.disabled = false;
+    }
+}
+
+// 6b. DESCRIPCIÓN COMERCIAL (se muestra en la página propia del producto)
+const MAXIMO_DESCRIPCION = 2000; // igual que el backend y la base
+
+function actualizarContadorDescripcion() {
+    const txt = document.getElementById("txt-descripcion");
+    const contador = document.getElementById("contador-descripcion");
+    if (txt && contador) {
+        contador.textContent = `${txt.value.length} / ${MAXIMO_DESCRIPCION}`;
+    }
+}
+
+async function guardarDescripcion(evento) {
+    evento.preventDefault();
+
+    const txt = document.getElementById("txt-descripcion");
+    const btn = document.getElementById("btn-guardar-descripcion");
+    const estadoUI = document.getElementById("estado-descripcion");
+    const articulo = articuloSeleccionado; // por si se elige otro mientras se guarda
+
+    btn.disabled = true;
+    estadoUI.className = "estado-subida visible estado-subiendo";
+    estadoUI.textContent = "Guardando...";
+
+    try {
+        const respuesta = await fetchAdmin(
+            `/api/admin/articulos/${articulo.art_cod}/descripcion`,
+            {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ descripcion: txt.value }),
+            }
+        );
+        const resultado = await respuesta.json().catch(() => ({}));
+
+        if (!respuesta.ok) {
+            estadoUI.className = "estado-subida visible estado-error";
+            estadoUI.textContent = typeof resultado.detail === "string"
+                ? resultado.detail
+                : "No se pudo guardar. Revisá que no supere los 2000 caracteres.";
+            return;
+        }
+
+        articulo.descripcion = resultado.descripcion; // null si quedó vacía
+        if (articulo === articuloSeleccionado) {
+            txt.value = resultado.descripcion || ""; // refleja el texto ya recortado
+            actualizarContadorDescripcion();
+        }
+        estadoUI.className = "estado-subida visible estado-exito";
+        estadoUI.textContent = resultado.descripcion ? "Descripción guardada." : "Descripción eliminada.";
+    } catch (error) {
+        estadoUI.className = "estado-subida visible estado-error";
+        estadoUI.textContent = error.message;
+    } finally {
+        btn.disabled = false;
     }
 }
 
