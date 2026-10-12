@@ -258,17 +258,28 @@ sincronizador/
 -> SQL Server
 ```
 
+### Pool de conexiones a PostgreSQL
+
+`obtener_conexion_postgres()` (`database_postgres.py`) ya no abre una conexión nueva en cada pedido
+(TCP + TLS + autenticación: cerca de 0,5 s con la base en otro servidor): presta una de un pool
+(`psycopg_pool.ConnectionPool`, mínimo 1 y máximo 10 conexiones, espera máxima de 20 s por una libre,
+cada conexión se renueva a los 30 minutos y se prueba con `check_connection` antes de entregarla, así una
+conexión cortada por la base se descarta en vez de fallar el pedido). Los routers siguen usando
+`conn = obtener_conexion_postgres()` ... `conn.close()`: `close()` devuelve la conexión al pool (deshaciendo
+antes cualquier transacción abierta, como la que deja una lectura). Las dependencias son
+`psycopg[binary,pool]` en `backend/requirements.txt` y `requirements-render.txt`. Los scripts de `scripts/`
+y el sincronizador no usan el pool: abren su propia conexión.
+
 ## Endpoint actual de categorías
 
-`GET /api/categorias/` consulta PostgreSQL:
-
-```sql
-SELECT tipoart_cod, tipoart_desc
-FROM tipo_articulo;
-```
-
-Devuelve una lista de `{"id": tipoart_cod, "nombre": tipoart_desc}`. Si la
-tabla está vacía, responde 404.
+`GET /api/categorias/` consulta PostgreSQL y devuelve el menú de la tienda: solo los tipos que
+el administrador no ocultó (`tipo_articulo.mostrar_web = TRUE`) **y** que tienen algo para mostrar
+(`SQL_TIPO_CON_ARTICULOS`, en `categories.py`: artículos normales publicados del tipo, o kits
+PRESENTACION publicados con componentes de ese tipo; los COMBO no cuentan porque tienen su propia
+vista). Es lo mismo que decide `/api/articulos/presentaciones`, así que un tipo del menú nunca abre una
+página vacía. Ordenados por `tipoart_cod`. Devuelve una lista de
+`{"id": tipoart_cod, "nombre": tipoart_desc}`; si no hay ningún tipo visible responde una lista vacía
+(antes devolvía los 42 tipos, casi todos vacíos).
 
 ## Endpoint actual de artículos
 
@@ -437,6 +448,19 @@ Esto permite preparar:
 - promociones;
 - otros datos exclusivos web.
 
+### Estado de cada tipo de artículo (`tipo_articulo.mostrar_web`)
+
+La tabla `tipo_articulo` tiene también `mostrar_web boolean NOT NULL DEFAULT TRUE` (script
+`scripts/agregar_columna_mostrar_web_tipo.py`, `--probar` valida y deshace). Es un dato propio del
+e-commerce, no viene de SQL Server: **si el sincronizador llegara a cargar tipos, su upsert no debe
+pisar esta columna**. El administrador la cambia desde `frontend/admin-tipos.html`
+(`GET /api/admin/tipos`, con la cantidad de artículos publicados y si el tipo aparece en el menú, y
+`PATCH /api/admin/tipos/{tipoart_cod}` con `{"mostrar_web": bool}`).
+
+Un tipo oculto lo oculta todo: ni el tipo ni sus artículos aparecen en el menú, el listado, las
+promociones, los combos, la página del producto ni las formas de compra (`AND t.mostrar_web = TRUE` en
+cada consulta pública), y `confirmar_pedido` rechaza sus artículos como no disponibles. Los kits por
+presentación exigen además que el tipo del kit y el tipo del componente estén visibles.
 ## Tablas mínimas conceptuales en PostgreSQL
 
 La web necesitará al menos estructuras equivalentes a:

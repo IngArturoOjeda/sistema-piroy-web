@@ -1539,3 +1539,34 @@ body.en-promociones .contenedor-banner {
         transform: scale(1) rotate(0deg);
     }
 }
+
+/* Aviso "Cargando artículos..." al elegir una categoría (la grilla se vacía mientras responde el servidor) */
+.mensaje-cargando {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 60px 20px;
+    color: var(--marron);
+    font-weight: 600;
+}
+
+.rueda-cargando {
+    width: 22px;
+    height: 22px;
+    border: 3px solid var(--verde-suave);
+    border-top-color: var(--verde-accion);
+    border-radius: 50%;
+    animation: girar-rueda 0.8s linear infinite;
+}
+
+@keyframes girar-rueda {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rueda-cargando {
+        animation-duration: 3s;
+    }
+}

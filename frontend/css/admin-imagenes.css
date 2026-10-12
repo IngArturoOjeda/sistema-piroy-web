@@ -917,10 +917,8 @@ body {
     color: #94a3b8;
 }
 
-.celda-acciones {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+.celda-acciones .btn-accion {
+    margin: 2px 6px 2px 0;
 }
 
 .btn-accion {
@@ -987,6 +985,41 @@ body {
 
     .tabla-usuarios td.celda-acciones {
         display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
         padding-top: 8px;
     }
+
+    .celda-acciones .btn-accion {
+        margin: 0;
+    }
+}
+
+/* ---------- Etiquetas de estado (tipos de artículos) ---------- */
+
+.etiqueta-estado {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.etiqueta-visible {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.etiqueta-oculto {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.etiqueta-vacio {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.usuario-inactivo .etiqueta-estado {
+    opacity: 1;
 }

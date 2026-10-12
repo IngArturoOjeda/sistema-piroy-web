@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>AgroVetzo - Tipos de artículos</title>
+  <link rel="icon" type="image/png" href="/frontend/assets/images/favicon.png">
+  <link rel="stylesheet" href="/frontend/css/admin-imagenes.css">
+</head>
+<body>
+  <header class="admin-header">
+    <img src="/frontend/assets/images/logo-vete.jpg" alt="AgroVetzo" class="admin-logo">
+    <h1>Tipos de artículos</h1>
+    <nav class="admin-nav">
+      <a href="/frontend/admin-imagenes.html">Imágenes de productos</a>
+      <a href="/frontend/admin-banners.html">Banners del carrusel</a>
+      <a href="/frontend/admin-usuarios.html">Usuarios</a>
+    </nav>
+    <div class="admin-sesion">
+      <span id="admin-usuario" class="admin-usuario"></span>
+      <button type="button" id="btn-salir" class="btn-salir">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="banners-contenido">
+    <section class="banners-tarjeta">
+      <div class="banners-titulo-fila">
+        <h2>Qué tipos se ven en la tienda</h2>
+        <button type="button" id="btn-recargar-tipos" class="btn-secundario">Actualizar</button>
+      </div>
+      <p class="banners-ayuda">
+        Si ocultás un tipo, <strong>ni el tipo ni sus artículos</strong> aparecen en la tienda (menú, listado,
+        buscador, promociones, combos y página del producto), y no se pueden comprar. Un tipo visible aparece
+        en el menú solo si tiene artículos publicados.
+      </p>
+      <label class="campo-banner">
+        <span>Buscar un tipo</span>
+        <input type="text" id="buscar-tipo" autocomplete="off" placeholder="Por ejemplo: medicamentos">
+      </label>
+      <p id="estado-tipos" class="estado-subida" role="status"></p>
+      <div class="tabla-usuarios-envoltorio">
+        <table class="tabla-usuarios">
+          <thead>
+            <tr><th>Tipo</th><th>Artículos publicados</th><th>En la tienda</th><th>Acción</th></tr>
+          </thead>
+          <tbody id="lista-tipos"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/frontend/js/admin-sesion.js"></script>
+  <script src="/frontend/js/admin-tipos.js"></script>
+</body>
+</html>

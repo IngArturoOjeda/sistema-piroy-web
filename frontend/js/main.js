@@ -80,6 +80,7 @@ let categoriasGlobales = [];
 let carrito = [];
 // 🌟 NUEVAS VARIABLES PARA EL SCROLL INFINITO
 let paginaActual = 1;       // Empezamos siempre mostrando el primer lote (Página 1)
+let categoriasPorPrecargar = null; // se vacía al empezar la precarga de formas de compra
 let cargandoProductos = false; // Nos avisa si el sistema está ocupado hablando con FastAPI
 let finDeStock = false;     // Se volverá true cuando Python nos devuelva una lista vacía []
 let categoriaSeleccionadaActual = "Todos"; // 🌟 NUEVO: Sabe qué botón lateral está activo
@@ -121,6 +122,7 @@ async function cargarDatosDeLaAPI() {
             const datosCategoriasDelBackend = await respuestaCategorias.json(); 
             categoriasGlobales = [{ id: 0, nombre: "Todos" }, ...datosCategoriasDelBackend];
             dibujarCategorias(categoriasGlobales);
+            categoriasPorPrecargar = categoriasGlobales;
         }    
         // 2. SECCIÓN ARTÍCULOS PAGINADOS: Le pasamos el número de página dinámico a FastAPI
         let urlArticulos = `/api/articulos/?pagina=${paginaActual}&categoria=${categoriaSeleccionadaActual}`;
@@ -156,6 +158,8 @@ async function cargarDatosDeLaAPI() {
         if (nuevosArticulos.length === 0) {
                 finDeStock = true; // Apagamos el motor del scroll infinito para siempre
                 cargandoProductos = false;
+                // Si no había ningún artículo en pantalla, el aviso "Cargando..." tiene que dar paso a un mensaje
+                if (articulosGlobales.length === 0) mostrarCategoriaSinArticulos();
                 console.log("¡Llegamos al final de la base de datos de SQL Server!");
                 return;
         }
@@ -173,6 +177,13 @@ async function cargarDatosDeLaAPI() {
 
              // Apagamos el semáforo: El sistema ya está libre para la siguiente página
             cargandoProductos = false;
+
+            // Primer lote ya dibujado: ahora sí, en segundo plano, las formas de compra de cada categoría
+            if (categoriasPorPrecargar) {
+                const pendientes = categoriasPorPrecargar;
+                categoriasPorPrecargar = null;
+                precargarPresentaciones(pendientes);
+            }
     } catch (error) {
         console.error("Error crítico al conectar con la API:", error);
         contenedorCardsUI.innerHTML = "<p>Error al conectar con el servidor. Intente más tarde.</p>";
@@ -228,6 +239,10 @@ function dibujarCategorias(listacategorias) {
             presentacionesDisponibles = [];
             presentacionSeleccionadaActual = null;
 
+            // Aviso inmediato: sin esto las tarjetas de la categoría anterior se quedaban a la vista
+            // mientras el servidor respondía (1 a 3 segundos).
+            mostrarCargandoCatalogo();
+
             // 🌟 PASO C: "Todos" no tiene una sola forma de compra -> comportamiento actual sin cambios.
             // Una categoria especifica primero pregunta que formas de compra existen.
             if (categoriaSeleccionadaActual === "Todos") {
@@ -248,13 +263,81 @@ function dibujarCategorias(listacategorias) {
     });
 }
 
+// Mensaje cuando la categoría elegida no tiene ningún artículo para mostrar
+function mostrarCategoriaSinArticulos() {
+    contenedorCardsUI.innerHTML = `
+        <div class="mensaje-sin-resultados">
+            <div class="icono-vacio">🔍❌</div>
+            <h3>No hay productos disponibles en esta categoría</h3>
+        </div>
+    `;
+}
+
+// Limpia la grilla y muestra "Cargando..." mientras llegan los artículos de la categoría elegida
+function mostrarCargandoCatalogo() {
+    const aviso = document.createElement("p");
+    aviso.className = "mensaje-cargando";
+    aviso.setAttribute("role", "status");
+    const rueda = document.createElement("span");
+    rueda.className = "rueda-cargando";
+    rueda.setAttribute("aria-hidden", "true");
+    aviso.append(rueda, "Cargando artículos...");
+    contenedorCardsUI.replaceChildren(aviso);
+}
+
+// Formas de compra por categoría: se guardan la promesa (así dos pedidos simultáneos comparten la
+// misma respuesta) y el momento en que se pidió. Vencen a los 5 minutos: si el negocio publica
+// artículos con otra unidad o presentación, el cliente los ve sin tener que recargar la página.
+// Si el pedido falla, no se guarda el fallo.
+const VIGENCIA_PRESENTACIONES_MS = 5 * 60 * 1000;
+const presentacionesPorCategoria = new Map();
+
+function pedirPresentaciones(categoria) {
+    const guardada = presentacionesPorCategoria.get(categoria);
+    if (guardada && Date.now() - guardada.pedidaEn < VIGENCIA_PRESENTACIONES_MS) {
+        return guardada.promesa;
+    }
+
+    const olvidarSiSigueSiendoEsta = () => {
+        const actual = presentacionesPorCategoria.get(categoria);
+        if (actual && actual.promesa === promesa) presentacionesPorCategoria.delete(categoria);
+    };
+    const promesa = fetch(`/api/articulos/presentaciones?categoria=${encodeURIComponent(categoria)}`)
+        .then(async (respuesta) => ({
+            ok: respuesta.ok,
+            status: respuesta.status,
+            cuerpo: await respuesta.json().catch(() => null),
+        }))
+        .then((resultado) => {
+            if (!resultado.ok) olvidarSiSigueSiendoEsta();
+            return resultado;
+        })
+        .catch((error) => {
+            olvidarSiSigueSiendoEsta();
+            throw error;
+        });
+    presentacionesPorCategoria.set(categoria, { promesa, pedidaEn: Date.now() });
+    return promesa;
+}
+
+// Con la portada ya lista, pide en segundo plano (de a una) las formas de compra de cada categoría:
+// al elegirla, el cliente solo espera los artículos y no también las formas de compra.
+async function precargarPresentaciones(categorias) {
+    for (const categoria of categorias) {
+        if (categoria.nombre === "Todos") continue;
+        try {
+            await pedirPresentaciones(categoria.nombre);
+        } catch (error) {
+            // es solo una precarga: si falla, se pedirá de nuevo cuando el cliente elija la categoría
+        }
+    }
+}
+
 // Consulta las formas de compra disponibles para una categoria especifica
 // y decide si carga directo, muestra un selector minimo, o no hay nada que mostrar.
 async function cargarPresentacionesDeLaCategoria(categoria) {
     try {
-        const respuesta = await fetch(
-            `/api/articulos/presentaciones?categoria=${encodeURIComponent(categoria)}`
-        );
+        const resultado = await pedirPresentaciones(categoria);
 
         // 🌟 PROTECCIÓN: si el usuario ya cambió de categoría mientras esta
         // respuesta viajaba por la red, la descartamos (incluso si vino con error).
@@ -262,18 +345,13 @@ async function cargarPresentacionesDeLaCategoria(categoria) {
             return;
         }
 
-        if (!respuesta.ok) {
-            const errorData = await respuesta.json();
-            alert(`Error ${respuesta.status}: ${errorData.detail || 'No se pudieron cargar las formas de compra'}`);
+        if (!resultado.ok) {
+            const errorData = resultado.cuerpo || {};
+            alert(`Error ${resultado.status}: ${errorData.detail || 'No se pudieron cargar las formas de compra'}`);
             return;
         }
 
-        const datos = await respuesta.json();
-
-        // 🌟 misma protección, ahora despues del segundo await (parseo del JSON)
-        if (categoria !== categoriaSeleccionadaActual) {
-            return;
-        }
+        const datos = resultado.cuerpo;
 
         presentacionesDisponibles = datos;
 

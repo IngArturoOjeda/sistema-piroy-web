@@ -192,6 +192,7 @@ def trae_articulos(
                     JOIN tipo_articulo tcomp ON tcomp.tipoart_cod = comp.tipoart_cod
                     WHERE ak.art_codkit = a.art_cod
                       AND tcomp.tipoart_desc = %s
+                      AND tcomp.mostrar_web = TRUE
                 )
             """
             parametros.append(categoria)
@@ -219,6 +220,7 @@ def trae_articulos(
             WHERE a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
+              AND t.mostrar_web = TRUE
               AND a.tipo_kit IS DISTINCT FROM 'COMBO'
               {filtro_categoria}
               {filtro_unidad}
@@ -263,6 +265,7 @@ def trae_presentaciones(
               AND a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
+              AND t.mostrar_web = TRUE
               AND a.art_kit = FALSE
         """
         cursor.execute(sql_normales, (categoria,))
@@ -281,6 +284,7 @@ def trae_presentaciones(
             SELECT EXISTS (
                 SELECT 1
                 FROM articulos kit
+                JOIN tipo_articulo tkit ON tkit.tipoart_cod = kit.tipoart_cod
                 JOIN articulos_kit ak ON ak.art_codkit = kit.art_cod
                 JOIN articulos comp ON comp.art_cod = ak.art_cod
                 JOIN tipo_articulo tcomp ON tcomp.tipoart_cod = comp.tipoart_cod
@@ -289,7 +293,9 @@ def trae_presentaciones(
                   AND kit.art_estado = 'S'
                   AND kit.llevar_web = TRUE
                   AND kit.mostrar_web = TRUE
+                  AND tkit.mostrar_web = TRUE
                   AND tcomp.tipoart_desc = %s
+                  AND tcomp.mostrar_web = TRUE
             )
         """
         cursor.execute(sql_kit_existe, (categoria,))
@@ -349,6 +355,7 @@ def trae_combos(
             WHERE a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
+              AND t.mostrar_web = TRUE
               AND a.art_kit = TRUE
               AND a.tipo_kit = 'COMBO'
             ORDER BY a.art_cod
@@ -399,6 +406,7 @@ def trae_promociones(
             WHERE a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
+              AND t.mostrar_web = TRUE
               AND promo.precio_promo IS NOT NULL
             ORDER BY (a.art_preciobase - promo.precio_promo) / a.art_preciobase DESC, a.art_cod
             LIMIT %s OFFSET %s
@@ -447,6 +455,7 @@ def trae_detalle_articulo(art_cod: int = RutaParam(gt=0, lt=10**18)):
               AND a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
+              AND t.mostrar_web = TRUE
         """
         cursor.execute(sql, (art_cod,))
         fila = cursor.fetchone()
@@ -508,12 +517,14 @@ def confirmar_pedido(pedido: PedidoEntrada):
                 um.uni_nombre AS unidad_venta,
                 promo.precio_promo
             FROM articulos a
+            INNER JOIN tipo_articulo t ON t.tipoart_cod = a.tipoart_cod
             LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
             {SQL_PROMO_LATERAL}
             WHERE a.art_cod = ANY(%s)
               AND a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
+              AND t.mostrar_web = TRUE
         """
         cursor.execute(sql_articulos, (ids_pedido,))
         articulos_por_id = {

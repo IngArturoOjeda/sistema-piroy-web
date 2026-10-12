@@ -10,6 +10,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from backend.app.database_postgres import obtener_conexion_postgres
 from backend.app.routers.admin_auth import verificar_admin
+from backend.app.routers.categories import SQL_TIPO_CON_ARTICULOS
 from backend.app.schemas import BannerActualizar, BannersReordenar, DescripcionEntrada, MostrarWebEntrada
 
 router = APIRouter(prefix="/admin", tags=["Administracion"])
@@ -155,6 +156,95 @@ def actualizar_mostrar_web(art_cod: int, datos: MostrarWebEntrada):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No se pudo actualizar mostrar_web",
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@router.get("/tipos", dependencies=[Depends(verificar_admin)])
+def listar_tipos_admin():
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""
+            SELECT t.tipoart_cod, t.tipoart_desc, t.mostrar_web,
+                   (SELECT count(*)
+                    FROM articulos a
+                    WHERE a.tipoart_cod = t.tipoart_cod
+                      AND a.art_estado = 'S'
+                      AND a.llevar_web = TRUE
+                      AND a.mostrar_web = TRUE) AS publicados,
+                   {SQL_TIPO_CON_ARTICULOS} AS con_articulos
+            FROM tipo_articulo t
+            ORDER BY t.tipoart_desc
+            """
+        )
+        return [
+            {
+                "tipoart_cod": f[0],
+                "tipoart_desc": f[1],
+                "mostrar_web": f[2],
+                "articulos_publicados": f[3],
+                # aparece en el menu de la tienda: no oculto y con algo para mostrar
+                "en_menu": bool(f[2] and f[4]),
+            }
+            for f in cursor.fetchall()
+        ]
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("Error listando tipos de articulo (admin):", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudieron cargar los tipos de articulos",
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@router.patch("/tipos/{tipoart_cod}", dependencies=[Depends(verificar_admin)])
+def actualizar_mostrar_web_tipo(
+    datos: MostrarWebEntrada,
+    tipoart_cod: int = Path(..., gt=0, lt=2**31),
+):
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "UPDATE tipo_articulo SET mostrar_web = %s WHERE tipoart_cod = %s",
+            (datos.mostrar_web, tipoart_cod),
+        )
+        if cursor.rowcount == 0:
+            conn.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"tipoart_cod {tipoart_cod} no existe",
+            )
+        conn.commit()
+
+        return {"status": "ok", "tipoart_cod": tipoart_cod, "mostrar_web": datos.mostrar_web}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("Error actualizando mostrar_web del tipo:", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo actualizar el tipo de articulo",
         )
     finally:
         if cursor:

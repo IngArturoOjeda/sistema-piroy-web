@@ -4,6 +4,6 @@
 fastapi
 uvicorn
 python-dotenv
-psycopg[binary]
+psycopg[binary,pool]
 cloudinary
 python-multipart
