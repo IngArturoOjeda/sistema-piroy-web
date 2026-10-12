@@ -339,7 +339,13 @@ Flujo: portada con sección "Promoción vigente" (carrusel con flechas) → bot�
 3. Etapa 3 — HECHA (código y pruebas; falta verla en un navegador real): precio tachado + insignia "-X %" en tarjetas y
    página del producto, carrusel "Promoción vigente" con flechas en la portada, página `/promociones`, rutas `/promociones` y
    `/combos` servidas al recargar (`/combos` ya no da 404), retiro de `promos.py`, `database.py`, `promos-Exclusivos.html`, el
-   botón "Ver Promos" y la API vieja `/api/promos/`, y escape del nombre/imagen en las tarjetas. Falta ver la sección con una
+   botón "Ver Promos" y la API vieja `/api/promos/`, y escape del nombre/imagen en las tarjetas. Ajustes posteriores
+   (2026-10-12/13, tras ver la promo de prueba en el celular): (a) la página se desbordaba a los costados en el celular
+   —el texto "Precio anterior/promocional" para lectores de pantalla (`.solo-lectores`, `position:absolute`) de las tarjetas
+   del carrusel quedaba fuera de pantalla y ensanchaba toda la página (507 px en un teléfono de 375)—; se corrigió con
+   `position: relative` en `.card-producto`, y el botón Combos (solo en su fila) se centra a 60 % de ancho para que su
+   latido no se corte en los bordes; medido en un Chrome real a 320/360/375/414 px; (b) "Todos" ya no repite los
+   artículos en promoción (`sin_promocion=true`); el buscador los sigue encontrando. Falta ver la sección con una
    promoción real: la tabla está vacía y no hay forma de cargarla hasta la etapa 5 (hoy solo insertando a mano en PostgreSQL).
 4. Etapa 4 — Novedades con caducidad manual (`articulos.novedad_hasta`), sección "Novedades" en carrusel.
 5. Etapa 5 — DIFERIDA: `POST /api/sync/promociones` y lectura de `PROMOCION` en el sincronizador. Requiere que el usuario

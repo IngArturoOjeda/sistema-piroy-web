@@ -125,7 +125,7 @@ header {
 }
 
 /* Celular: la cabecera se reparte en filas para que nada quede fuera de la pantalla.
-   Fila 1: logo + Carrito. Fila 2: buscador completo. Fila 3: Promos y Combos. */
+   Fila 1: logo + Carrito. Fila 2: buscador completo. Fila 3: Combos (si hay combos publicados). */
 @media (max-width: 768px) {
     /* Recorta lo que sobresalga por los costados (los botones animados escalan y rotan).
        Sin esto, la pagina se puede arrastrar hacia la derecha. */
@@ -177,9 +177,12 @@ header {
         font-size: 0.95rem;
     }
 
+    /* Combos queda solo en su fila: centrado y a un ancho moderado. Si ocupara toda la fila,
+       su latido (escala 1.06) lo cortaria en los bordes de la pantalla. */
     #btn-ver-combos {
         order: 5;
-        flex: 1 1 calc(50% - 4px);
+        flex: 0 1 60%;
+        margin: 0 auto;
         justify-content: center;
         padding: 8px 10px;
         font-size: 0.95rem;
@@ -252,6 +255,10 @@ header {
 
 /* 7. Diseño de las CARDS (Los cuadritos) */
 .card-producto {
+    /* Referencia de posicion de los textos absolutos de la tarjeta (.solo-lectores, la insignia).
+       Sin esto, en el carrusel esos textos quedaban fuera de la pantalla, a la derecha de las
+       tarjetas que no se ven, y ensanchaban toda la pagina en el celular. */
+    position: relative;
     background-color: white;
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);

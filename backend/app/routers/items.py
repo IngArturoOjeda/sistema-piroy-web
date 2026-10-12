@@ -144,6 +144,13 @@ def trae_articulos(
     presentacion: Optional[Literal["NORMAL", "KIT"]] = Query(
         None,
         description="Filtra por forma de compra: NORMAL (articulos propios de la categoria) o KIT (kits relacionados por componente)"
+    ),
+    sin_promocion: bool = Query(
+        False,
+        description=(
+            "Excluye los articulos con una promocion vigente. La portada (categoria 'Todos') los muestra "
+            "en su propia seccion 'Promocion vigente' y no debe repetirlos en el listado general."
+        )
     )
 ):
     conn = None
@@ -169,6 +176,8 @@ def trae_articulos(
         filtro_categoria = ""
         filtro_unidad = ""
         filtro_presentacion = ""
+        # "is True": al llamar la funcion directamente (sin FastAPI) el valor por defecto es un objeto Query
+        filtro_sin_promocion = "AND promo.precio_promo IS NULL" if sin_promocion is True else ""
         parametros = []
 
         if presentacion == "KIT":
@@ -214,6 +223,7 @@ def trae_articulos(
               {filtro_categoria}
               {filtro_unidad}
               {filtro_presentacion}
+              {filtro_sin_promocion}
             ORDER BY a.art_cod
             LIMIT %s OFFSET %s
         """

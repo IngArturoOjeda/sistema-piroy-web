@@ -124,6 +124,14 @@ async function cargarDatosDeLaAPI() {
         }    
         // 2. SECCIÓN ARTÍCULOS PAGINADOS: Le pasamos el número de página dinámico a FastAPI
         let urlArticulos = `/api/articulos/?pagina=${paginaActual}&categoria=${categoriaSeleccionadaActual}`;
+        // En "Todos" las promociones no se repiten: tienen su propia sección ("Promoción vigente").
+        // Las categorías específicas sí las muestran junto al resto de sus artículos.
+        if (categoriaSeleccionadaActual === "Todos") {
+            await promesaPromosPortada; // hay que saber si las promociones cargaron antes de excluirlas
+            if (debeExcluirPromocionesDeTodos()) {
+                urlArticulos += "&sin_promocion=true";
+            }
+        }
         if (presentacionSeleccionadaActual) {
             urlArticulos += `&presentacion=${presentacionSeleccionadaActual.codigo}`;
             if (presentacionSeleccionadaActual.codigo === "NORMAL" && presentacionSeleccionadaActual.unidad) {
@@ -155,8 +163,13 @@ async function cargarDatosDeLaAPI() {
             // 🌟 ACUMULACIÓN: Sumamos los 50 artículos nuevos al final de la lista maestra
             articulosGlobales = [...articulosGlobales, ...nuevosArticulos];
 
-             // Mandamos a dibujar la lista completa acumulada en la cuadrícula
-            dibujarArticulos(articulosGlobales);
+             // Mandamos a dibujar la lista completa acumulada en la cuadrícula (o, si el cliente ya
+             // estaba buscando, solo los resultados de su búsqueda)
+            if (txtBuscarUI.value.trim() !== "") {
+                aplicarBusquedaActual();
+            } else {
+                dibujarArticulos(articulosGlobales);
+            }
 
              // Apagamos el semáforo: El sistema ya está libre para la siguiente página
             cargandoProductos = false;
@@ -768,13 +781,31 @@ txtBuscarUI.addEventListener("input", (evento) => {
         mostrarVista("CATALOGO");
     }
 
-    const textoUsuario = evento.target.value.toLowerCase();
-    const articulosFiltrados = articulosGlobales.filter(articulo => {
+    aplicarBusquedaActual();
+    actualizarSeccionPromo(); // con texto en el buscador, la portada muestra solo los resultados
+});
+
+// Filtra por el texto del buscador y dibuja los resultados. En "Todos" los artículos en promoción no están
+// en la lista (tienen su propia sección), pero una búsqueda tiene que poder encontrarlos. Con el buscador
+// vacío se vuelve a la lista sin promociones.
+function aplicarBusquedaActual() {
+    const textoUsuario = txtBuscarUI.value.toLowerCase();
+
+    let universo = articulosGlobales;
+    if (categoriaSeleccionadaActual === "Todos" && textoUsuario !== "") {
+        const vistos = new Set(articulosGlobales.map(articulo => articulo.id));
+        const promociones = [...promosPortada, ...promosPagina].filter(articulo => {
+            if (vistos.has(articulo.id)) return false;
+            vistos.add(articulo.id);
+            return true;
+        });
+        universo = [...articulosGlobales, ...promociones];
+    }
+    const articulosFiltrados = universo.filter(articulo => {
         return articulo.nombre.toLowerCase().includes(textoUsuario);
     });
     dibujarArticulos(articulosFiltrados);
-    actualizarSeccionPromo(); // con texto en el buscador, la portada muestra solo los resultados
-});
+}
 
 // Enter en la búsqueda: cierra el teclado (celular) y sube a los resultados
 txtBuscarUI.addEventListener("keydown", (evento) => {
@@ -1211,11 +1242,19 @@ function enlazarCarrusel(pista, btnAnterior, btnSiguiente) {
 // Los artículos vienen de GET /api/articulos/promociones, con el precio ya rebajado
 // (precio), el original (precio_original) y el porcentaje (descuento_porcentaje).
 // ----------------------------------------------------
-const LIMITE_PROMO_PORTADA = 12;
+const LIMITE_PROMO_PORTADA = 12;     // tarjetas que dibuja el carrusel de la portada
+const LIMITE_PROMOS_BUSQUEDA = 100;  // las que se traen para que el buscador las encuentre (máximo del servidor)
 const LIMITE_PROMOS_PAGINA = 30;
 const TEXTO_SIN_PROMOS = "Por el momento no hay promociones vigentes. ¡Volvé pronto!";
 
 const actualizarFlechasPromo = enlazarCarrusel(carruselPromoUI, promoAnteriorUI, promoSiguienteUI);
+
+// "Todos" solo excluye las promociones cuando están seguras: cargaron bien y entraron todas en la lista
+// que usa el buscador. Si la carga falló, o hay tantas que se llegó al tope de lo que se trae (100) y alguna
+// quedaría sin poder encontrarse, "Todos" las sigue mostrando (repetidas, pero ninguna se pierde).
+function debeExcluirPromocionesDeTodos() {
+    return promosPortada.length > 0 && promosPortada.length < LIMITE_PROMOS_BUSQUEDA;
+}
 
 // La sección solo se ve en la portada (categoría "Todos", sin búsqueda) y si hay promociones
 function actualizarSeccionPromo() {
@@ -1231,7 +1270,7 @@ function actualizarSeccionPromo() {
 // Se llama al iniciar. Si falla o no hay promociones, la sección queda oculta y la tienda funciona igual.
 async function cargarPromosPortada() {
     try {
-        const respuesta = await fetch(`/api/articulos/promociones?pagina=1&limite=${LIMITE_PROMO_PORTADA}`);
+        const respuesta = await fetch(`/api/articulos/promociones?pagina=1&limite=${LIMITE_PROMOS_BUSQUEDA}`);
         if (!respuesta.ok) throw new Error(`Error ${respuesta.status} al cargar las promociones`);
         promosPortada = await respuesta.json();
     } catch (error) {
@@ -1239,9 +1278,13 @@ async function cargarPromosPortada() {
         promosPortada = [];
     }
     if (promosPortada.length > 0) {
-        dibujarArticulos(promosPortada, carruselPromoUI);
+        dibujarArticulos(promosPortada.slice(0, LIMITE_PROMO_PORTADA), carruselPromoUI);
     }
     actualizarSeccionPromo();
+    // Si el cliente ya estaba buscando cuando llegaron las promociones, se vuelve a buscar con ellas
+    if (txtBuscarUI.value.trim() !== "" && vistaActual === "CATALOGO") {
+        aplicarBusquedaActual();
+    }
 }
 
 enlaceVerPromocionUI.addEventListener("click", evento => {
@@ -1566,7 +1609,7 @@ function dibujarDetalleProducto(articulo) {
 // ----------------------------------------------------
 // ARRANQUE: se leen los datos y se muestra la vista de la URL actual (recarga o enlace compartido)
 // ----------------------------------------------------
-cargarDatosDeLaAPI();
+const promesaPromosPortada = cargarPromosPortada();
+cargarDatosDeLaAPI(); // el catálogo de "Todos" espera a promesaPromosPortada para saber si excluye las promociones
 const promesaCombosInicial = cargarCombosDeLaAPI();
-cargarPromosPortada();
 mostrarRutaActual();

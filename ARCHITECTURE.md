@@ -276,7 +276,9 @@ tabla está vacía, responde 404.
 `stock`, `unidad_medida`, más la subconsulta de stock de kits). Parámetros:
 `pagina`, `limite`, `categoria` (o `"Todos"`), `unidad` (opcional, solo con
 `presentacion` NORMAL o ninguna), `presentacion` (`NORMAL` | `KIT`,
-opcional). Siempre excluye `tipo_kit='COMBO'`, en todos los modos (ver
+opcional) y `sin_promocion` (booleano, por defecto `false`: con `true` excluye los artículos con promoción
+vigente; la portada "Todos" lo usa porque ya los muestra en su sección "Promoción vigente"; las categorías
+específicas no lo usan y los muestran con su precio rebajado). Siempre excluye `tipo_kit='COMBO'`, en todos los modos (ver
 "Modelo de artículos compuestos" más abajo). Devuelve, por artículo:
 
 ```text
@@ -477,7 +479,8 @@ Implementado en el backend y en la web (etapas 1 a 3 del plan; ver `ROADMAP.md`,
 
 **En la web** (`index.html`, `main.js`, `styles.css`):
 - tarjetas y página del producto: precio original tachado (`<s>`, con texto "Precio anterior" para lectores de pantalla), precio promocional e insignia "-X %" sobre la imagen; el mensaje de WhatsApp usa el precio promocional; el carrito se arma con el precio vigente;
-- sección **Promoción vigente** en la portada: carrusel de las primeras 12 (`GET /api/articulos/promociones?limite=12`) con flechas anterior/siguiente (desplazamiento nativo y táctil, flechas deshabilitadas en los extremos, sin animación con "menos movimiento") y el enlace **Ver promoción**. Solo se muestra con categoría "Todos", sin texto en el buscador y si hay promociones; si no hay o la API falla, queda oculta y la tienda funciona igual;
+- sección **Promoción vigente** en la portada: carrusel de las primeras 12 (se piden hasta 100 a `GET /api/articulos/promociones` para que el buscador también encuentre las demás) con flechas anterior/siguiente (desplazamiento nativo y táctil, flechas deshabilitadas en los extremos, sin animación con "menos movimiento") y el enlace **Ver promoción**. Solo se muestra con categoría "Todos", sin texto en el buscador y si hay promociones; si no hay o la API falla, queda oculta y la tienda funciona igual;
+- **"Todos" no repite las promociones**: el listado general de la portada se pide con `sin_promocion=true`, así un artículo en promoción aparece en su sección y no también en la grilla. Una **búsqueda** en "Todos" sí los encuentra (la web suma las promociones cargadas al universo de búsqueda); con el buscador vacío se vuelve a la lista sin promociones. Dentro de una categoría específica se ven todos sus artículos, también los que están en promoción. Para que ningún artículo quede inaccesible, "Todos" **solo excluye las promociones cuando las promociones cargaron bien y son menos de 100** (el tope que se trae para el buscador): si la API de promociones falla, o hay 100 o más, "Todos" las sigue mostrando (repetidas, pero ninguna se pierde). El catálogo de "Todos" espera el resultado de las promociones antes de pedirse, y si el cliente ya estaba buscando se aplica su búsqueda al llegar;
 - página **`/promociones`**: todos los artículos con promoción vigente, de a 30 con "Ver más"; cada tarjeta lleva a `/producto/{id}-{nombre}`. Al volver desde un producto conserva la lista y la posición.
 
 **Sincronización de `PROMOCION`** (etapa posterior, "sincronizar aún no"): `POST /api/sync/promociones` reemplazando la tabla en una transacción, y lectura de `PROMOCION` en el sincronizador. Requiere antes que el usuario confirme la estructura real de `PROMOCION`. Hoy no hay forma de cargar promociones en producción salvo insertarlas a mano en PostgreSQL.

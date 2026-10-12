@@ -214,3 +214,41 @@ def test_error_de_base_en_promociones_es_500(monkeypatch):
     with pytest.raises(HTTPException) as e:
         items.trae_promociones(1, 30)
     assert e.value.status_code == 500
+
+
+# ---------- GET /api/articulos/?sin_promocion=true (la portada "Todos" no repite las promociones) ----------
+
+def test_catalogo_sin_promocion_excluye_los_articulos_con_promo_vigente(base):
+    cursor = base([])
+    items.trae_articulos(1, 30, "Todos", None, None, True)
+    q, params = cursor.ejecuciones[0]
+    assert "AND promo.precio_promo IS NULL" in q
+    assert params == (30, 0)                       # el filtro no agrega parametros
+    assert normalizar(items.SQL_PROMO_LATERAL) in q
+
+
+@pytest.mark.parametrize("valor", [False, None])
+def test_catalogo_por_defecto_incluye_los_articulos_en_promocion(base, valor):
+    cursor = base([])
+    items.trae_articulos(1, 30, "Todos", None, None, valor)
+    assert "promo.precio_promo IS NULL" not in cursor.ejecuciones[0][0]
+
+
+def test_llamar_sin_el_parametro_no_activa_el_filtro(base):
+    # Sin FastAPI el valor por defecto es un objeto Query (truthy): no debe contarse como True
+    cursor = base([])
+    items.trae_articulos(1, 30, "Todos", None, None)
+    assert "promo.precio_promo IS NULL" not in cursor.ejecuciones[0][0]
+
+
+def test_sin_promocion_se_combina_con_la_categoria_y_la_paginacion(base):
+    cursor = base([])
+    items.trae_articulos(3, 30, "MERCERIAS", None, None, True)
+    q, params = cursor.ejecuciones[0]
+    assert "AND t.tipoart_desc = %s" in q and "AND promo.precio_promo IS NULL" in q
+    assert params == ("MERCERIAS", 30, 60)
+
+
+def test_el_parametro_sin_promocion_es_booleano_con_false_por_defecto():
+    parametro = inspect.signature(items.trae_articulos).parameters["sin_promocion"]
+    assert parametro.default.default is False
