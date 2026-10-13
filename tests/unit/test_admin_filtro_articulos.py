@@ -95,6 +95,12 @@ def test_un_numero_demasiado_grande_no_se_busca_como_codigo(base):
     assert params == ("%" + "9" * 30 + "%", 30, 0)
 
 
+@pytest.mark.parametrize("texto", ["²", "①", "12²"])
+def test_caracteres_que_parecen_digitos_no_rompen_la_busqueda(base, texto):
+    sql, params = consulta(base, buscar=texto)
+    assert "a.art_cod = %s" not in sql and params == (f"%{texto}%", 30, 0)
+
+
 @pytest.mark.parametrize("pagina, limite, esperado", [(1, 30, (30, 0)), (3, 30, (30, 60)), (2, 10, (10, 10))])
 def test_paginacion(base, pagina, limite, esperado):
     _, params = consulta(base, pagina=pagina, limite=limite)

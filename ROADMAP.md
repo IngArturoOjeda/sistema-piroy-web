@@ -366,6 +366,21 @@ Flujo: portada con sección "Promoción vigente" (carrusel con flechas) → bot�
    confirme la estructura de `PROMOCION` y si la tabla de artículos guarda la fecha de inserción (para sumar una regla
    automática de Novedades).
 
+## Fase 20 — Portada con secciones, página de catálogo, cabecera fija y pie de página
+Estado: EN PROGRESO (plan aprobado el 2026-10-13). Referencia: portada de tiempodemascotas.com.py.
+
+Hoy `/` muestra todo el catálogo con scroll infinito y un menú lateral. Objetivo: portada con una sección por categoría
+(≈8 artículos + VER TODOS), página `/catalogo` ("Explorá nuestro catálogo") con el catálogo completo, cabecera fija
+(Carrito y Combos siempre visibles, el banner pasa por debajo), barra de categorías fija bajo la cabecera y pie de página
+(Cómo llegar, Atención al cliente, Nuestras redes, Nuestra tienda).
+
+1. Etapa 1 — Backend: `GET /api/articulos/portada`, parámetro `buscar` en `GET /api/articulos/` (la búsqueda pasa a ser
+   del servidor) y ruta `GET /catalogo`. HECHA (con pruebas y SQL validado en lectura contra la base real).
+2. Etapa 2 — Cabecera fija y compacta (una fila en celular) y pie de página. Requiere los datos del negocio (dirección,
+   horario, correo, redes y ubicación en el mapa).
+3. Etapa 3 — Portada, página de catálogo, barra de categorías (reemplaza el menú lateral) y búsqueda del servidor.
+   Quedan fuera: "Novedades", "Compra por animal", formulario de contacto, medios de pago, página "Nosotros".
+
 ## Versión 2
 
 Sincronizar estados comerciales:

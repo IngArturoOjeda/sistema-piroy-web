@@ -93,7 +93,8 @@ def buscar_articulos_admin(
 
         buscar_limpio = buscar.strip()
         if buscar_limpio:
-            if buscar_limpio.isdigit() and len(buscar_limpio) <= 18:   # cabe en un bigint
+            # solo digitos ASCII: isdigit() acepta tambien "²" o "①", que int() no puede convertir
+            if buscar_limpio.isascii() and buscar_limpio.isdigit() and len(buscar_limpio) <= 18:   # cabe en un bigint
                 condiciones.append("AND (a.art_nombre ILIKE %s OR a.art_cod = %s)")
                 parametros.extend([f"%{buscar_limpio}%", int(buscar_limpio)])
             else:

@@ -285,7 +285,9 @@ lo mismo que decide `/api/articulos/presentaciones`, así que un tipo del menú 
 `GET /api/articulos/` consulta PostgreSQL (`articulos`, `tipo_articulo`,
 `stock`, `unidad_medida`, más la subconsulta de stock de kits). Parámetros:
 `pagina`, `limite`, `categoria` (o `"Todos"`), `unidad` (opcional: filtra por unidad de venta),
-`presentacion` (`NORMAL` | `KIT`; se conserva por compatibilidad y **ya no filtra**) y `sin_promocion` (booleano, por defecto `false`: con `true` excluye los artículos con promoción
+`presentacion` (`NORMAL` | `KIT`; se conserva por compatibilidad y **ya no filtra**) `buscar` (texto opcional, hasta 100 caracteres: filtra por nombre con `ILIKE`, con `%` y `_` escapados, y si es un
+número de hasta 18 dígitos también por código exacto; se combina con `categoria` y `unidad`) y `sin_promocion`
+(booleano, por defecto `false`: con `true` excluye los artículos con promoción
 vigente; la portada "Todos" lo usa porque ya los muestra en su sección "Promoción vigente"; las categorías
 específicas no lo usan y los muestran con su precio rebajado). Siempre excluye `tipo_kit='COMBO'`, en todos los modos (ver
 "Modelo de artículos compuestos" más abajo). Devuelve, por artículo:
@@ -303,6 +305,11 @@ unidad_venta
 fraccionable
 ```
 
+`GET /api/articulos/portada?por_categoria=8` (1 a 24) devuelve la muestra de la portada en una sola consulta:
+`[{"categoria": "BALANCEADOS", "articulos": [...]}]`, con los primeros N artículos de cada categoría (primero los que
+tienen foto), en el mismo orden y con las mismas reglas de publicación y de tipo efectivo que el menú y el catálogo
+(`ROW_NUMBER() OVER (PARTITION BY tipo)`; no incluye COMBO).
+
 `GET /api/articulos/presentaciones?categoria=`, `GET /api/articulos/combos`,
 `GET /api/articulos/promociones` y `GET /api/articulos/{art_cod}` comparten el
 mismo formato de respuesta (el detalle agrega `descripcion`); los dos primeros
@@ -311,7 +318,10 @@ COMBO" y los dos últimos en "Promociones" y "Página de detalle de un producto"
 
 ## Vistas y rutas de la tienda
 
-La tienda es una sola página (`index.html`) con cuatro vistas, cada una con su URL: `/` (portada y catálogo), `/promociones`, `/combos` y `/producto/{id}-{nombre}`. `main.py` sirve `index.html` en todas ellas, y `main.js` decide qué vista mostrar a partir de `location.pathname` (`resolverRuta`, `mostrarRutaActual`, `mostrarVista`; `irA` para la navegación interna y `popstate` para Atrás/Adelante). Por eso cada dirección funciona al recargar y al compartirla, y el carrito (que vive en memoria) no se pierde al navegar. `/combos` antes cambiaba la barra de direcciones pero daba 404 al recargar: quedó resuelto; sin combos publicados vuelve a la portada. Los enlaces "← Volver a la tienda" hacen "Atrás" si se entró desde la tienda y llevan a la portada si se llegó directo.
+La tienda es una sola página (`index.html`) con cuatro vistas, cada una con su URL: `/` (portada y catálogo), `/promociones`, `/combos` y `/producto/{id}-{nombre}`. `main.py` sirve `index.html` en todas ellas, y `main.js` decide qué vista mostrar a partir de `location.pathname` (`resolverRuta`, `mostrarRutaActual`, `mostrarVista`; `irA` para la navegación interna y `popstate` para Atrás/Adelante). El servidor también sirve `index.html` en `/catalogo` (el catálogo completo, "Explorá nuestro catálogo"; acepta
+`?categoria=NOMBRE`, que lee `main.js`): la ruta ya existe en el backend y la pantalla correspondiente se agrega en la
+Fase 20 (ver `ROADMAP.md`), donde `/` pasa a ser una portada con secciones y el catálogo completo se mueve a `/catalogo`.
+Por eso cada dirección funciona al recargar y al compartirla, y el carrito (que vive en memoria) no se pierde al navegar. `/combos` antes cambiaba la barra de direcciones pero daba 404 al recargar: quedó resuelto; sin combos publicados vuelve a la portada. Los enlaces "← Volver a la tienda" hacen "Atrás" si se entró desde la tienda y llevan a la portada si se llegó directo.
 
 ## Página de detalle de un producto
 

@@ -1,6 +1,6 @@
 from pathlib import Path
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Optional, Literal
+from typing import Annotated, Optional, Literal
 
 from backend.app.database_postgres import obtener_conexion_postgres
 from backend.app.sql_catalogo import SQL_TIPO_EFECTIVO, SQL_TIPO_VISIBLE
@@ -156,7 +156,12 @@ def trae_articulos(
             "Excluye los articulos con una promocion vigente. La portada (categoria 'Todos') los muestra "
             "en su propia seccion 'Promocion vigente' y no debe repetirlos en el listado general."
         )
-    )
+    ),
+    buscar: Optional[str] = Query(
+        None,
+        max_length=100,
+        description="Texto del nombre (o codigo exacto, si es un numero) a buscar; se combina con los demas filtros"
+    ),
 ):
     conn = None
     cursor = None
@@ -168,6 +173,7 @@ def trae_articulos(
 
         filtro_categoria = ""
         filtro_unidad = ""
+        filtro_buscar = ""
         # "is True": al llamar la funcion directamente (sin FastAPI) el valor por defecto es un objeto Query
         filtro_sin_promocion = "AND promo.precio_promo IS NULL" if sin_promocion is True else ""
         parametros = []
@@ -178,6 +184,17 @@ def trae_articulos(
         if unidad:
             filtro_unidad = "AND um.uni_nombre = %s"
             parametros.append(unidad)
+        # isinstance: al llamar la funcion directamente (sin FastAPI) el valor por defecto es un objeto Query
+        texto = buscar.strip() if isinstance(buscar, str) else ""
+        if texto:
+            patron = "%" + texto.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+            # solo digitos ASCII: isdigit() acepta tambien "²" o "①", que int() no puede convertir
+            if texto.isascii() and texto.isdigit() and len(texto) <= 18:   # un codigo cabe en un bigint
+                filtro_buscar = "AND (a.art_nombre ILIKE %s OR a.art_cod = %s)"
+                parametros.extend([patron, int(texto)])
+            else:
+                filtro_buscar = "AND a.art_nombre ILIKE %s"
+                parametros.append(patron)
 
         parametros.extend([limite, registros_a_saltear])
 
@@ -197,6 +214,7 @@ def trae_articulos(
               AND a.tipo_kit IS DISTINCT FROM 'COMBO'
               {filtro_categoria}
               {filtro_unidad}
+              {filtro_buscar}
               {filtro_sin_promocion}
             ORDER BY a.art_cod
             LIMIT %s OFFSET %s
@@ -366,6 +384,69 @@ def trae_promociones(
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al obtener promociones")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@router.get("/portada")
+def trae_portada(
+    por_categoria: Annotated[int, Query(ge=1, le=24, description="Articulos por categoria")] = 8,
+):
+    """Muestra para la portada: los primeros `por_categoria` articulos de cada categoria, en una sola consulta.
+
+    Mismas condiciones de publicacion y mismo tipo efectivo que el catalogo (los kits por presentacion cuentan en
+    la categoria de su componente; los COMBO no entran). Las categorias van en el orden del menu (tipoart_cod) y,
+    dentro de cada una, primero los articulos con foto. Debe declararse antes de "/{art_cod}".
+    """
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        sql = f"""
+            SELECT x.*
+            FROM (
+                SELECT
+                    {SQL_COLUMNAS_CATALOGO},
+                    t.tipoart_cod AS tipo_cod,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY t.tipoart_cod
+                        ORDER BY (NULLIF(a.art_foto, '') IS NULL), a.art_cod
+                    ) AS posicion
+                FROM articulos a
+                {SQL_TIPO_EFECTIVO}
+                LEFT JOIN stock s ON s.art_cod = a.art_cod
+                LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
+                {SQL_STOCK_KIT_LATERAL}
+                {SQL_PROMO_LATERAL}
+                WHERE a.art_estado = 'S'
+                  AND a.llevar_web = TRUE
+                  AND a.mostrar_web = TRUE
+                  AND {SQL_TIPO_VISIBLE}
+                  AND a.tipo_kit IS DISTINCT FROM 'COMBO'
+            ) x
+            WHERE x.posicion <= %s
+            ORDER BY x.tipo_cod, x.posicion
+        """
+        cursor.execute(sql, (por_categoria,))
+
+        categorias = []
+        for fila in cursor.fetchall():
+            # fila: las 9 columnas del catalogo + tipo_cod + posicion
+            if not categorias or categorias[-1]["_tipo_cod"] != fila[9]:
+                categorias.append({"_tipo_cod": fila[9], "categoria": fila[3], "articulos": []})
+            categorias[-1]["articulos"].append(formatear_articulo_catalogo(fila[:9]))
+        return [{"categoria": c["categoria"], "articulos": c["articulos"]} for c in categorias]
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al obtener la portada")
     finally:
         if cursor:
             cursor.close()

@@ -67,3 +67,9 @@ async def read_promociones():
 @app.get("/combos")
 async def read_combos():
     return pagina_principal()
+
+
+# Catalogo completo ("Explora nuestro catalogo"): acepta /catalogo?categoria=NOMBRE; la query la lee main.js
+@app.get("/catalogo")
+async def read_catalogo():
+    return pagina_principal()

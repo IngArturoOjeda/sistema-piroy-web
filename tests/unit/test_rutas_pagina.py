@@ -21,6 +21,7 @@ def ruta_index(respuesta):
     (main.read_producto, ("1000-botina-en-cuero",)),
     (main.read_promociones, ()),
     (main.read_combos, ()),
+    (main.read_catalogo, ()),
 ])
 def test_cada_pagina_sirve_el_index(funcion, argumentos):
     assert ruta_index(asyncio.run(funcion(*argumentos))).endswith("frontend/index.html")
@@ -28,7 +29,7 @@ def test_cada_pagina_sirve_el_index(funcion, argumentos):
 
 def test_las_paginas_de_la_tienda_estan_registradas_como_get():
     rutas = {r.path: r.methods for r in main.app.routes if hasattr(r, "methods") and r.methods}
-    for ruta in ("/", "/producto/{ref}", "/promociones", "/combos"):
+    for ruta in ("/", "/producto/{ref}", "/promociones", "/combos", "/catalogo"):
         assert "GET" in rutas[ruta], ruta
     assert "/promos" not in rutas                      # la pagina vieja ya no existe
 
