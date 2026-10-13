@@ -1375,6 +1375,7 @@ async function cargarPromosPortada() {
         console.error("No se pudieron cargar las promociones de la portada:", error);
         promosPortada = [];
     }
+    mostrarEnlacePie("pie-item-promos", promosPortada.length > 0);
     if (promosPortada.length > 0) {
         dibujarArticulos(promosPortada.slice(0, LIMITE_PROMO_PORTADA), carruselPromoUI);
     }
@@ -1460,10 +1461,12 @@ async function cargarCombosDeLaAPI(pagina = 1) {
         paginaCombos = pagina;
 
         btnVerCombosUI.style.display = combosGlobales.length > 0 ? "inline-flex" : "none";
+        mostrarEnlacePie("pie-item-combos", combosGlobales.length > 0);
         btnMasCombosUI.style.display = nuevos.length === LIMITE_COMBOS ? "inline-block" : "none";
     } catch (error) {
         console.error("No se pudieron cargar los combos:", error);
         btnVerCombosUI.style.display = "none";
+        mostrarEnlacePie("pie-item-combos", false);
         btnMasCombosUI.style.display = "none";
     }
 }
@@ -1703,6 +1706,41 @@ function dibujarDetalleProducto(articulo) {
     contenedor.append(marcoImagen, datos);
     detalleProductoUI.replaceChildren(contenedor);
 }
+
+// ----------------------------------------------------
+// CABECERA FIJA Y PIE DE PÁGINA
+// ----------------------------------------------------
+// La cabecera queda fija arriba (CSS). Se publica su alto real en --alto-cabecera: lo usan el menú lateral
+// (queda justo debajo) y el desplazamiento a cada vista (scroll-padding-top), para que nada quede tapado.
+const cabeceraUI = document.querySelector("header");
+
+function publicarAltoDeCabecera() {
+    document.documentElement.style.setProperty("--alto-cabecera", `${cabeceraUI.offsetHeight}px`);
+}
+
+publicarAltoDeCabecera();
+if (typeof ResizeObserver === "function") {
+    new ResizeObserver(publicarAltoDeCabecera).observe(cabeceraUI);
+}
+window.addEventListener("resize", publicarAltoDeCabecera);
+
+// Pie de página: el número de WhatsApp sale de la constante de arriba (un solo lugar)
+document.getElementById("pie-whatsapp").href =
+    `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(`Hola ${NOMBRE_TIENDA}, quisiera hacer una consulta.`)}`;
+document.getElementById("pie-anio").textContent = String(new Date().getFullYear());
+
+// "Promociones" y "Combos" del pie solo aparecen si hay algo que mostrar (lo avisan las funciones que los cargan)
+function mostrarEnlacePie(idItem, visible) {
+    document.getElementById(idItem).hidden = !visible;
+}
+
+// Los enlaces internos del pie navegan sin recargar la página, así no se pierde el carrito
+document.getElementById("pie-pagina").addEventListener("click", (evento) => {
+    const enlace = evento.target.closest("a[data-ruta-interna]");
+    if (!enlace || !esClicNormal(evento)) return;
+    evento.preventDefault();
+    irA(enlace.getAttribute("href"));
+});
 
 // ----------------------------------------------------
 // ARRANQUE: se leen los datos y se muestra la vista de la URL actual (recarga o enlace compartido)

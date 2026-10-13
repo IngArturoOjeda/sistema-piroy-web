@@ -24,12 +24,21 @@ body {
     color: var(--texto);
 }
 
-/* 2. Cabecera */
+/* 2. Cabecera: queda fija arriba mientras se baja por la pagina (Carrito y Combos siempre a mano) y el
+   contenido pasa por debajo de ella. Tiene un tamano constante: si cambiara al hacer scroll, la pagina
+   daria saltos. Su alto real lo publica main.js en --alto-cabecera (para el menu lateral y los scrolls). */
+html {
+    scroll-padding-top: calc(var(--alto-cabecera, 90px) + 8px);
+}
+
 header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
     background-color: var(--marron);
     color: white;
     border-bottom: 4px solid var(--verde-claro);
-    padding: 5px 0;
+    padding: 6px 0;
     text-align: center;
     width: 100%;
 }
@@ -46,11 +55,11 @@ header {
     background-color: white; /*#ffffff*/
     padding: 20px;
     border-right: 1px solid #e0e0e0;
-    /* En escritorio queda fijo mientras se baja por el catálogo */
+    /* En escritorio queda fijo mientras se baja por el catálogo (debajo de la cabecera fija) */
     position: sticky;
-    top: 0;
+    top: calc(var(--alto-cabecera, 90px) + 12px);
     align-self: flex-start;
-    max-height: 100vh;
+    max-height: calc(100vh - var(--alto-cabecera, 90px) - 24px);
     overflow-y: auto;
 }
 
@@ -133,59 +142,6 @@ header {
     body {
         overflow-x: hidden; /* respaldo para navegadores antiguos */
         overflow-x: clip;
-    }
-
-    .fila-navegacion {
-        flex-wrap: wrap;
-        justify-content: space-between;
-        gap: 8px;
-        padding: 0 10px;
-    }
-
-    .contenedor-logo {
-        order: 1;
-        flex: 1 1 auto;      /* ocupa el ancho libre al costado del carrito */
-        min-width: 0;
-        padding: 6px 10px;
-    }
-
-    .logo-busqueda {
-        width: 100%;         /* se estira a lo ancho; object-fit mantiene la proporcion */
-        height: 96px;
-    }
-
-    .btn-carrito-cabecera {
-        order: 2;
-        flex: 0 0 auto;
-        margin-left: auto;   /* Carrito queda a la derecha del logo, en la misma fila */
-        padding: 8px 12px;
-        font-size: 0.95rem;
-    }
-
-    .contenedor-busqueda {
-        order: 3;
-        flex: 1 1 100%;
-        width: 100%;
-        max-width: none;
-    }
-
-    .btn-promos-cabecera {
-        order: 4;
-        flex: 1 1 calc(50% - 4px);
-        justify-content: center;
-        padding: 8px 10px;
-        font-size: 0.95rem;
-    }
-
-    /* Combos queda solo en su fila: centrado y a un ancho moderado. Si ocupara toda la fila,
-       su latido (escala 1.06) lo cortaria en los bordes de la pantalla. */
-    #btn-ver-combos {
-        order: 5;
-        flex: 0 1 60%;
-        margin: 0 auto;
-        justify-content: center;
-        padding: 8px 10px;
-        font-size: 0.95rem;
     }
 
     .contador-burbuja {
@@ -620,9 +576,9 @@ header {
 /* El cuadro de texto ahora es más alto y ocupa todo el ancho */
 #txt-buscar {
     width: 100%;
-    height: 55px; /* 🌟 AQUÍ LE DAMOS EL TAMAÑO GRANDE EN ALTURA */
+    height: 46px; /* alto compacto (antes 55px): la cabecera queda fija */ /* 🌟 AQUÍ LE DAMOS EL TAMAÑO GRANDE EN ALTURA */
     padding: 0 50px 0 20px; /* Espacio a la derecha para que el texto no pise la lupa */
-    font-size: 1.2rem; /* Letra más grande y legible */
+    font-size: 1.1rem; /* Letra legible */
     color: #2c3e50;
     border: none; /* Le quitamos el borde interno */
     outline: none; /* Evita el recuadro azul por defecto del navegador */
@@ -648,12 +604,12 @@ header {
 .contenedor-logo {
     background-color: white;
     border-radius: 12px;
-    padding: 6px 10px;
+    padding: 4px 10px;
 }
 
 /* Controla el tamaño del logo al costado de la búsqueda */
 .logo-busqueda {
-    height: 110px;    /* 🔑 AJUSTADO: Reducido para que coincida con la altura (height) de tu input */          
+    height: 56px;     /* cabecera fija, compacta (antes 110px) -- 🔑 AJUSTADO: Reducido para que coincida con la altura (height) de tu input */          
     width: auto;               /* Evita que la imagen se deforme */
     object-fit: contain;
     display: block;
@@ -684,7 +640,7 @@ header {
     background-color: #ffffff;
     color: var(--marron);
     border: 2px solid var(--marron);
-    padding: 10px 20px;
+    padding: 8px 18px;
     font-size: 1rem;
     font-weight: bold;
     border-radius: 4px;
@@ -1490,7 +1446,7 @@ body.en-promociones .contenedor-banner {
     background-color: var(--verde-claro);
     color: var(--marron);
     border: none;
-    padding: 10px 20px;
+    padding: 8px 18px;
     font-size: 1rem;
     font-weight: bold;
     border-radius: 4px;
@@ -1568,5 +1524,196 @@ body.en-promociones .contenedor-banner {
 @media (prefers-reduced-motion: reduce) {
     .rueda-cargando {
         animation-duration: 3s;
+    }
+}
+
+
+/* ===== Pie de pagina =====
+   Cuatro bloques (Como llegar, Atencion al cliente, Nuestras redes, Nuestra tienda) sobre fondo marron.
+   Los datos del negocio estan en index.html; el enlace de WhatsApp lo arma main.js con WHATSAPP_NUMERO. */
+.pie-pagina {
+    background-color: var(--marron);
+    color: #f5ede4;
+    margin-top: 40px;
+    border-top: 4px solid var(--verde-claro);
+}
+
+.pie-contenido {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 20px 24px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 28px;
+    text-align: left;
+}
+
+.pie-bloque h2 {
+    font-size: 1.05rem;
+    color: white;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--verde-claro);
+    display: inline-block;
+}
+
+.pie-bloque p,
+.pie-bloque li {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 8px;
+}
+
+.pie-bloque ul {
+    list-style: none;
+}
+
+.pie-bloque a {
+    color: var(--verde-claro);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.pie-bloque a:hover,
+.pie-bloque a:focus-visible {
+    color: white;
+    text-decoration: underline;
+}
+
+.pie-boton {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    padding: 10px 16px;
+    border-radius: 6px;
+    background-color: var(--verde-accion);
+    color: white !important;
+    font-weight: bold;
+    text-decoration: none !important;
+}
+
+.pie-boton:hover,
+.pie-boton:focus-visible {
+    background-color: var(--verde-accion-hover);
+}
+
+.pie-boton svg,
+.pie-red svg {
+    width: 20px;
+    height: 20px;
+    flex: none;
+}
+
+.pie-red {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pie-legal {
+    border-top: 1px solid rgba(255, 255, 255, 0.18);
+    text-align: center;
+    padding: 14px 20px;
+    font-size: 0.85rem;
+    color: #d9c9b8;
+}
+
+@media (max-width: 900px) {
+    .pie-contenido {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 560px) {
+    .pie-contenido {
+        grid-template-columns: 1fr;
+        padding: 24px 16px 16px;
+        gap: 22px;
+    }
+}
+
+
+/* ===== Cabecera fija en celular: UNA sola fila =====
+   Va al FINAL del archivo a proposito: las reglas de escritorio de la cabecera (logo, buscador, botones)
+   estan definidas mas arriba con la misma especificidad y, si esto estuviera antes, ganarian ellas. */
+@media (max-width: 768px) {
+    /* Una sola fila fija: logo + buscador + Combos + Carrito (solo iconos; el contador del carrito sigue visible) */
+    .fila-navegacion {
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        gap: 6px;
+        padding: 0 8px;
+    }
+
+    .contenedor-logo {
+        order: 1;
+        flex: 0 0 auto;
+        margin: 0;
+        padding: 3px 6px;
+    }
+
+    .logo-busqueda {
+        height: 36px;
+        width: auto;
+    }
+
+    .contenedor-busqueda {
+        order: 2;
+        flex: 1 1 0;
+        min-width: 0;
+        width: auto;
+        max-width: none;
+        margin: 0;
+    }
+
+    #txt-buscar {
+        height: 40px;
+        font-size: 1rem;
+        padding: 0 32px 0 10px;
+    }
+
+    .icono-lupa {
+        right: 9px;
+        font-size: 1.1rem;
+    }
+
+    #btn-ver-combos {
+        order: 3;
+        flex: 0 0 auto;
+        margin: 0;
+        padding: 8px;
+        justify-content: center;
+        font-size: 1rem;
+    }
+
+    /* En el celular solo se ven los iconos de Combos y Carrito, pero el texto sigue disponible para los lectores
+       de pantalla (no display:none). Los botones son su referencia de posicion: asi el texto absoluto no se
+       escapa de la pantalla ni ensancha la pagina. */
+    #btn-ver-combos,
+    .btn-carrito-cabecera {
+        position: relative;
+    }
+
+    .texto-promos-nav,
+    .texto-carrito-nav {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .btn-carrito-cabecera {
+        order: 4;
+        flex: 0 0 auto;
+        margin: 0;
+        padding: 8px 10px;
+        font-size: 1rem;
     }
 }

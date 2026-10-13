@@ -27,13 +27,13 @@
 
                     <!-- Entrada a la sección COMBOS: oculta hasta confirmar que existen combos -->
                     <button id="btn-ver-combos" class="btn-promos-cabecera" style="display: none;">
-                        <span class="icono-promos-nav">🎁</span>
+                        <span class="icono-promos-nav" aria-hidden="true">🎁</span>
                         <span class="texto-promos-nav">Combos</span>
                     </button>
 
                     <!-- 3. 🌟 NUEVO: Botón "Ver Carrito" con contador dinámico -->
                     <button id="btn-ver-carrito" class="btn-carrito-cabecera">
-                        <span class="icono-carrito-nav">🛒</span>
+                        <span class="icono-carrito-nav" aria-hidden="true">🛒</span>
                         <span class="texto-carrito-nav">Ver Carrito</span>
                         <!-- Este numerito cambiará solo gracias a JavaScript -->
                         <span id="contador-carrito" class="contador-burbuja">0</span>
@@ -140,6 +140,53 @@
                 <div id="detalle-producto" aria-live="polite"></div>
              </main>
         </div>
+
+        <!-- Pie de pagina: los datos del negocio van aqui (no son secretos). El enlace de WhatsApp lo completa
+             main.js con WHATSAPP_NUMERO para tener el numero en un solo lugar. -->
+        <footer class="pie-pagina" id="pie-pagina">
+            <div class="pie-contenido">
+                <section class="pie-bloque" aria-labelledby="pie-titulo-llegar">
+                    <h2 id="pie-titulo-llegar">Cómo llegar</h2>
+                    <p>Encontranos en Google Maps como <strong>«Agro-Vetzo»</strong>.</p>
+                    <a class="pie-boton" href="https://www.google.com/maps/search/?api=1&amp;query=Agro-Vetzo" target="_blank" rel="noopener">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                        Navegar
+                    </a>
+                </section>
+
+                <section class="pie-bloque" aria-labelledby="pie-titulo-atencion">
+                    <h2 id="pie-titulo-atencion">Atención al cliente</h2>
+                    <p>Lunes a sábado<br>de 07:00 a 19:00 hs</p>
+                    <p><a href="mailto:agroranchopiroy@gmail.com">agroranchopiroy@gmail.com</a></p>
+                    <a class="pie-boton" id="pie-whatsapp" href="#" target="_blank" rel="noopener">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20.5l1.7-5.4A8.4 8.4 0 1 1 21 11.5z"/><path d="M9 9.5c.5 2.5 2.5 4.5 5 5l1.2-1.3-2-1-.8.7c-.8-.4-1.5-1.1-1.9-1.9l.7-.8-1-2z"/></svg>
+                        Escribinos por WhatsApp
+                    </a>
+                </section>
+
+                <section class="pie-bloque" aria-labelledby="pie-titulo-redes">
+                    <h2 id="pie-titulo-redes">Nuestras redes</h2>
+                    <ul>
+                        <li>
+                            <a class="pie-red" href="https://www.tiktok.com/@enzo.duarte326" target="_blank" rel="noopener">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3c.3 2.2 1.8 3.8 4 4v3a7 7 0 0 1-4-1.3v5.6a5.3 5.3 0 1 1-5.3-5.3"/></svg>
+                                TikTok @enzo.duarte326
+                            </a>
+                        </li>
+                    </ul>
+                </section>
+
+                <section class="pie-bloque" aria-labelledby="pie-titulo-tienda">
+                    <h2 id="pie-titulo-tienda">Nuestra tienda</h2>
+                    <ul>
+                        <li><a href="/" data-ruta-interna>Inicio y catálogo</a></li>
+                        <li id="pie-item-promos" hidden><a href="/promociones" data-ruta-interna>Promociones</a></li>
+                        <li id="pie-item-combos" hidden><a href="/combos" data-ruta-interna>Combos</a></li>
+                    </ul>
+                </section>
+            </div>
+            <p class="pie-legal">© <span id="pie-anio">2026</span> AGRO-VETZO · Agroveterinaria</p>
+        </footer>
 
                 <!-- 🌟 VENTANA EMERGENTE DEL CARRITO (Oculta por defecto) -->
         <div id="modal-carrito" class="modal-fondo">

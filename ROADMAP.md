@@ -376,8 +376,10 @@ Hoy `/` muestra todo el catálogo con scroll infinito y un menú lateral. Objeti
 
 1. Etapa 1 — Backend: `GET /api/articulos/portada`, parámetro `buscar` en `GET /api/articulos/` (la búsqueda pasa a ser
    del servidor) y ruta `GET /catalogo`. HECHA (con pruebas y SQL validado en lectura contra la base real).
-2. Etapa 2 — Cabecera fija y compacta (una fila en celular) y pie de página. Requiere los datos del negocio (dirección,
-   horario, correo, redes y ubicación en el mapa).
+2. Etapa 2 — Cabecera fija y compacta (una fila en celular) y pie de página. HECHA (probada en Chrome real a 320, 360, 375,
+   414, 768 y 1280 px: cabecera fija tras bajar, Carrito y Combos visibles, sin desborde, pie con sus 4 bloques). Datos del pie:
+   horario lunes a sábado 07:00 a 19:00, correo `agroranchopiroy@gmail.com`, TikTok `@enzo.duarte326`, ubicación como «Agro-Vetzo»
+   en Google Maps. Pendiente: reemplazar la búsqueda de Maps por el enlace "Compartir" del local y agregar más redes si las hay.
 3. Etapa 3 — Portada, página de catálogo, barra de categorías (reemplaza el menú lateral) y búsqueda del servidor.
    Quedan fuera: "Novedades", "Compra por animal", formulario de contacto, medios de pago, página "Nosotros".
 

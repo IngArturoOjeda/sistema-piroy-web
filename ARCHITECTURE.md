@@ -722,6 +722,28 @@ El frontend (`frontend/index.html`, `frontend/css/styles.css`, `frontend/js/main
 
 Pendiente: tarjetas, selector de presentaciones y modales (Etapa 3 de `ROADMAP.md`, Fase 17).
 
+### Cabecera fija y pie de página (Fase 20, etapa 2)
+
+**Cabecera fija:** `header { position: sticky; top: 0; z-index: 100 }`: el logo, el buscador, Combos y Carrito quedan
+siempre a la vista y el contenido (banner incluido) pasa por debajo. Tiene un **tamaño constante** (80 px en escritorio,
+58 px en celular): si se achicara al hacer scroll, el contenido daría saltos. En celular es **una sola fila** (logo ~36 px +
+buscador + Combos + Carrito, solo con iconos; la burbuja del contador del carrito sigue visible). `main.js` publica el alto
+real en la variable CSS `--alto-cabecera` (`publicarAltoDeCabecera`, con `ResizeObserver`); la usan
+`html { scroll-padding-top }` (los `scrollIntoView` de `irAlInicioDeLaVista` no quedan tapados) y el menú lateral
+(`position: sticky; top: calc(var(--alto-cabecera) + 12px)`). Las reglas de celular de la cabecera están **al final de
+`styles.css`** a propósito: las de escritorio tienen la misma especificidad y, si las de celular estuvieran antes, ganarían ellas.
+`html, body` usan `overflow-x: clip` (no `hidden`, que rompería `position: sticky`).
+
+**Pie de página** (`<footer id="pie-pagina">`, en todas las vistas, fondo `--marron`; 4 columnas, 2 en tablet, 1 en
+celular): *Cómo llegar* (el negocio figura en Google Maps como «Agro-Vetzo»; botón "Navegar" →
+`https://www.google.com/maps/search/?api=1&query=Agro-Vetzo`, sin dirección escrita: conviene cambiarlo por el enlace
+"Compartir" del local cuando se tenga), *Atención al cliente* (lunes a sábado de 07:00 a 19:00 hs,
+`agroranchopiroy@gmail.com` y botón de WhatsApp), *Nuestras redes* (TikTok `@enzo.duarte326`) y *Nuestra tienda*
+(enlaces internos). El enlace de WhatsApp lo arma `main.js` con `WHATSAPP_NUMERO` (único lugar del número); el año del ©
+también. Los enlaces internos (`data-ruta-interna`) navegan con `irA` sin recargar, para no perder el carrito;
+"Promociones" y "Combos" solo se muestran si hay promociones vigentes o combos publicados (`mostrarEnlacePie`). Los
+datos del negocio están en `index.html` (no son secretos).
+
 ## Pruebas
 
 - `tests/unit/`: mock puro de `confirmar_pedido()`, unidades enteras y catálogo de combos. No se conecta a ninguna base: `tests/conftest.py` bloquea `psycopg.connect` en esos tests.
