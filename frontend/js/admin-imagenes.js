@@ -40,11 +40,13 @@ async function cargarTipos() {
         if (!respuesta.ok) return; // sin tipos el filtro queda en "Todos": la lista sigue funcionando
         const tipos = (await respuesta.json()).filter(t => t.articulos_total > 0);
         const total = tipos.reduce((suma, t) => suma + t.articulos_total, 0);
-        filtroTipoUI.options[0].textContent = `Todos (${total})`;
+        const publicados = tipos.reduce((suma, t) => suma + t.articulos_total_publicados, 0);
+        filtroTipoUI.options[0].textContent = `Todos (${total} · ${publicados} publicados)`;
         for (const tipo of tipos) {
             const opcion = document.createElement("option");
             opcion.value = String(tipo.tipoart_cod);
-            opcion.textContent = `${tipo.tipoart_desc} (${tipo.articulos_total})`;
+            // total del tipo y cuántos están publicados (los mismos que marca el cartel "Publicado" de la lista)
+            opcion.textContent = `${tipo.tipoart_desc} (${tipo.articulos_total} · ${tipo.articulos_total_publicados} publicados)`;
             filtroTipoUI.append(opcion);
         }
     } catch (error) {

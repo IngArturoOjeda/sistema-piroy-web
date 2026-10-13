@@ -202,18 +202,23 @@ def test_las_rutas_de_tipos_exigen_sesion():
 
 
 def test_el_panel_lista_cada_tipo_con_su_estado_y_si_aparece_en_el_menu(base):
-    # (cod, desc, mostrar_web, publicados, con_articulos, total)
+    # (cod, desc, mostrar_web, publicados, con_articulos, total, total_publicados)
     filas = [
-        (1, "BALANCEADOS", True, 33, True, 60),     # visible y con articulos (kits incluidos): aparece en el menu
-        (6028, "CALZADOS", True, 0, False, 54),     # visible pero sin articulos publicados: no aparece
-        (1007, "MERCERIAS", False, 5, True, 160),   # con articulos pero oculto por el administrador
+        (1, "BALANCEADOS", True, 33, True, 60, 33),     # visible y con articulos (kits incluidos): aparece en el menu
+        (6028, "CALZADOS", True, 0, False, 54, 0),      # visible pero sin articulos publicados: no aparece
+        (1007, "MERCERIAS", False, 5, True, 160, 5),    # con articulos pero oculto por el administrador
+        (5003, "KIT", True, 1, True, 2, 2),             # el COMBO esta publicado pero no depende del tipo
     ]
     cursor, _ = base(admin, filas=filas)
     r = admin.listar_tipos_admin()
     assert [(t["tipoart_desc"], t["mostrar_web"], t["articulos_publicados"], t["en_menu"]) for t in r] == [
-        ("BALANCEADOS", True, 33, True), ("CALZADOS", True, 0, False), ("MERCERIAS", False, 5, False)]
-    # el total (publicados o no) lo usa el filtro del panel de imagenes
-    assert [t["articulos_total"] for t in r] == [60, 54, 160]
+        ("BALANCEADOS", True, 33, True), ("CALZADOS", True, 0, False), ("MERCERIAS", False, 5, False),
+        ("KIT", True, 1, True)]
+    # "publicados de total" (pantalla de tipos y filtro del panel de imagenes): el total cuenta todos los
+    # articulos del tipo y los publicados incluyen los COMBO, igual que el cartel "Publicado" de la lista
+    assert [(t["articulos_total_publicados"], t["articulos_total"]) for t in r] == [(33, 60), (0, 54), (5, 160), (2, 2)]
+    q_total_publicados = cursor.consultas[0][0]
+    assert "AS total_publicados" in q_total_publicados
     q = cursor.consultas[0][0]
     assert normalizar(sql_catalogo.SQL_TIPO_CON_ARTICULOS) in q and "ORDER BY t.tipoart_desc" in q
     # la cantidad de publicados tambien cuenta cada kit en el tipo de su componente

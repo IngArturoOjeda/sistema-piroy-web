@@ -529,8 +529,11 @@ de lo elegido), `pagina` (desde 1) y `limite` (1 a 100, por defecto 30). Sin `ti
 ordenados por código. La respuesta es una lista de artículos; la pantalla pide de a 30 y muestra "Ver más"
 mientras la última página venga completa.
 
-- El filtro "Tipo de artículo" ofrece "Todos" más los tipos que tienen artículos, con su cantidad
-  (`articulos_total` de `GET /api/admin/tipos`, que cuenta todos los artículos del tipo, publicados o no).
+- El filtro "Tipo de artículo" ofrece "Todos" más los tipos que tienen artículos, con su cantidad total y cuántos
+  están publicados: `ALAMBRE (6 · 1 publicados)` (`articulos_total` y `articulos_total_publicados` de
+  `GET /api/admin/tipos`). "Publicado" significa vigente (`art_estado = 'S'`), con `llevar_web` y con `mostrar_web`
+  activado: es lo mismo que marca el cartel "Publicado" de cada artículo de la lista. La pantalla de tipos
+  (`admin-tipos.html`) muestra la misma cifra como "publicados de total" (`1 de 6`).
 - El tipo es el **tipo efectivo** (ver "Tipo efectivo de un artículo"): los kits por presentación se listan en el
   tipo de su componente, igual que en la tienda, y el detalle muestra esa misma categoría.
 - Cambiar el tipo o el texto vuelve a la primera página; una respuesta que llega tarde (se cambió el filtro

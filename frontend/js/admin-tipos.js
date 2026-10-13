@@ -56,7 +56,7 @@ function dibujarTipos() {
         celdaNombre.textContent = tipo.tipoart_desc;
 
         const celdaCantidad = crearCelda("Artículos publicados");
-        celdaCantidad.textContent = String(tipo.articulos_publicados);
+        celdaCantidad.textContent = `${tipo.articulos_total_publicados} de ${tipo.articulos_total}`;
 
         const celdaEstado = crearCelda("En la tienda");
         const estado = estadoDelTipo(tipo);
@@ -108,7 +108,7 @@ async function cambiarTipo(tipo, boton) {
     if (ocultar) {
         const n = tipo.articulos_publicados;
         const aviso = n > 0
-            ? `¿Ocultar "${tipo.tipoart_desc}"? Sus ${n} artículos publicados dejan de verse en toda la tienda y no se podrán comprar.`
+            ? `¿Ocultar "${tipo.tipoart_desc}"? ${n === 1 ? "Su artículo publicado deja" : `Sus ${n} artículos publicados dejan`} de verse en toda la tienda y no se podrán comprar.`
             : `¿Ocultar "${tipo.tipoart_desc}"?`;
         if (!confirm(aviso)) return;
     }

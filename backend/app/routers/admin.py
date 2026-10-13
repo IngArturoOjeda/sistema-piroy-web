@@ -205,7 +205,14 @@ def listar_tipos_admin():
                    (SELECT count(*)
                     FROM articulos a
                     {SQL_TIPO_COMPONENTE_LATERAL}
-                    WHERE COALESCE(tipo_comp.tipoart_cod, a.tipoart_cod) = t.tipoart_cod) AS total
+                    WHERE COALESCE(tipo_comp.tipoart_cod, a.tipoart_cod) = t.tipoart_cod) AS total,
+                   (SELECT count(*)
+                    FROM articulos a
+                    {SQL_TIPO_COMPONENTE_LATERAL}
+                    WHERE COALESCE(tipo_comp.tipoart_cod, a.tipoart_cod) = t.tipoart_cod
+                      AND a.art_estado = 'S'
+                      AND a.llevar_web = TRUE
+                      AND a.mostrar_web = TRUE) AS total_publicados
             FROM tipo_articulo t
             ORDER BY t.tipoart_desc
             """
@@ -215,9 +222,12 @@ def listar_tipos_admin():
                 "tipoart_cod": f[0],
                 "tipoart_desc": f[1],
                 "mostrar_web": f[2],
+                # publicados que se ocultan al ocultar el tipo (sin COMBO: no dependen del tipo)
                 "articulos_publicados": f[3],
-                # todos los articulos del tipo (publicados o no): lo usa el filtro del panel de imagenes
+                # todos los articulos del tipo, publicados o no, y cuantos estan publicados (COMBO incluidos):
+                # "X de Y" de la pantalla de tipos y rotulo del filtro del panel de imagenes
                 "articulos_total": f[5],
+                "articulos_total_publicados": f[6],
                 # aparece en el menu de la tienda: no oculto y con algo para mostrar
                 "en_menu": bool(f[2] and f[4]),
             }
