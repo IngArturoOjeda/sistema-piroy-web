@@ -667,6 +667,13 @@ se usaría su propio tipo. Un artículo **normal** cargado con tipo `KIT` (hoy `
 
 Se detectaron artículos normales con `uni_cod_ven` mal configurado (ej. artículos "X100 UNIDAD" cargados con unidad `CAJA`). La corrección se hace manualmente en SQL Server, antes de continuar con cualquier cambio de código. No se compensan datos incorrectos con lógica en el backend ni se infiere la unidad por el nombre del artículo.
 
+Corrección del 2026-10-12: 12 kits `PRESENTACION` tenían una unidad que no era la de su presentación (7 bolsas
+de 25 kg como `KG` o `UNIDAD`, y 5 `PIOLIN X ROLLO` como `CAJA` o `UNIDAD`). Se corrigieron en la base de la web
+(`uni_cod_com` y `uni_cod_ven`: 7 a `BOLSA`, 5 a `ROLLO`) y se dejó `scripts/corregir_unidades_kits_sqlserver.sql`
+para aplicar lo mismo en el sistema local. **Mientras ese script no se corra en SQL Server, la próxima
+sincronización de esos artículos volvería a dejar los valores viejos** (el upsert de `sync.py` actualiza `uni_cod_com`
+y `uni_cod_ven`).
+
 ### Stock y pedidos
 
 Hasta que se confirme una regla distinta, tanto `PRESENTACION` como `COMBO` siguen calculando disponibilidad física a partir de sus componentes (`articulos_kit` + `stock`), igual que hoy. `confirmar_pedido()` puede seguir tratando ambos como `art_kit = true` para el cálculo de consumo físico agregado — no se identificó, por ahora, una necesidad de distinguir `PRESENTACION` de `COMBO` en esa validación.
