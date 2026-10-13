@@ -89,6 +89,9 @@ let vistaActual = "CATALOGO"; // "CATALOGO" | "PROMOCIONES" | "COMBOS" | "PRODUC
 let vistaAntesDeProducto = "CATALOGO";
 let scrollAntesDeProducto = 0;
 let articuloDetalleActual = null;
+// Numera las elecciones de categoría o forma de compra: una carga de artículos que empezó antes de la
+// última elección ya no corresponde a lo que el cliente está mirando, y se descarta al llegar.
+let turnoCarga = 0;
 let turnoVista = 0; // numera los cambios de vista para descartar respuestas viejas (ver mostrarVista)
 // Promoción vigente: las primeras para el carrusel de la portada, y la lista paginada de /promociones
 let promosPortada = [];
@@ -107,6 +110,8 @@ async function cargarDatosDeLaAPI() {
 
     if (cargandoProductos || finDeStock) return;
     cargandoProductos = true; // Encendemos el semáforo en rojo: "Ocupado"
+    const turno = turnoCarga;
+    const vigente = () => turno === turnoCarga;
     
     try {
         // Sección Categorías
@@ -133,6 +138,7 @@ async function cargarDatosDeLaAPI() {
             if (debeExcluirPromocionesDeTodos()) {
                 urlArticulos += "&sin_promocion=true";
             }
+            if (!vigente()) return; // mientras esperaba, el cliente eligió otra categoría
         }
         if (presentacionSeleccionadaActual) {
             urlArticulos += `&presentacion=${presentacionSeleccionadaActual.codigo}`;
@@ -141,6 +147,7 @@ async function cargarDatosDeLaAPI() {
             }
         }
         const respuestaArticulos = await fetch(urlArticulos);
+        if (!vigente()) return; // descartada: ya se eligió otra categoría (la nueva carga maneja el semáforo)
         
         if (!respuestaArticulos.ok) {
             const errorData = await respuestaArticulos.json();
@@ -153,13 +160,14 @@ async function cargarDatosDeLaAPI() {
         }
 
         const nuevosArticulos = await respuestaArticulos.json();
+        if (!vigente()) return;
 
             // 🌟 VALIDACIÓN CLAVE: Si Python nos devuelve una lista vacía [], significa que no hay más stock
         if (nuevosArticulos.length === 0) {
                 finDeStock = true; // Apagamos el motor del scroll infinito para siempre
                 cargandoProductos = false;
                 // Si no había ningún artículo en pantalla, el aviso "Cargando..." tiene que dar paso a un mensaje
-                if (articulosGlobales.length === 0) mostrarCategoriaSinArticulos();
+                if (paginaActual === 1 && articulosGlobales.length === 0) mostrarCategoriaSinArticulos();
                 console.log("¡Llegamos al final de la base de datos de SQL Server!");
                 return;
         }
@@ -185,6 +193,7 @@ async function cargarDatosDeLaAPI() {
                 precargarPresentaciones(pendientes);
             }
     } catch (error) {
+        if (!vigente()) return;
         console.error("Error crítico al conectar con la API:", error);
         contenedorCardsUI.innerHTML = "<p>Error al conectar con el servidor. Intente más tarde.</p>";
         cargandoProductos = false;
@@ -232,6 +241,8 @@ function dibujarCategorias(listacategorias) {
             categoriaSeleccionadaActual = categoria.nombre;
             actualizarSeccionPromo(); // la promoción vigente solo se ve con "Todos"
             // 🌟 PASO B: REINICIAMOS LOS CONTROLES DEL MOTOR DE SCROLL
+            turnoCarga++;              // cualquier carga anterior que siga en camino queda descartada
+            cargandoProductos = false; // y no puede bloquear la carga de esta categoría
             paginaActual = 1;          // Volvemos al primer lote de 30
             finDeStock = false;        // Encendemos el motor por si estaba apagado
             articulosGlobales = [];    // Vaciamos la lista vieja para que no se mezclen los artículos
@@ -416,6 +427,8 @@ function dibujarSelectorDePresentaciones(lista) {
         `;
         boton.addEventListener("click", () => {
             presentacionSeleccionadaActual = presentacion;
+            turnoCarga++;
+            cargandoProductos = false;
             paginaActual = 1;
             finDeStock = false;
             articulosGlobales = [];
@@ -1056,6 +1069,13 @@ btnEntendidoExitoUI.addEventListener("click", () => {
 window.addEventListener("scroll", () => {
     // Las vistas de promociones y combos no paginan el catálogo
     if (vistaActual !== "CATALOGO") {
+        return;
+    }
+
+    // En una categoría específica no hay nada que paginar hasta que el cliente elija cómo comprar
+    // (selector de formas de compra a la vista, o todavía consultándose): sin esto, el scroll que
+    // provoca elegir la categoría pedía la "página 2" sin forma de compra y pisaba el selector.
+    if (categoriaSeleccionadaActual !== "Todos" && !presentacionSeleccionadaActual) {
         return;
     }
 
