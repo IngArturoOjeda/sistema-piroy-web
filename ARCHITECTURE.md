@@ -285,11 +285,11 @@ lo mismo que decide `/api/articulos/presentaciones`, así que un tipo del menú 
 `GET /api/articulos/` consulta PostgreSQL (`articulos`, `tipo_articulo`,
 `stock`, `unidad_medida`, más la subconsulta de stock de kits). Parámetros:
 `pagina`, `limite`, `categoria` (o `"Todos"`), `unidad` (opcional: filtra por unidad de venta),
-`presentacion` (`NORMAL` | `KIT`; se conserva por compatibilidad y **ya no filtra**) `buscar` (texto opcional, hasta 100 caracteres: filtra por nombre con `ILIKE`, con `%` y `_` escapados, y si es un
+`presentacion` (`NORMAL` | `KIT`; se conserva por compatibilidad y **ya no filtra**), `buscar` (texto opcional, hasta 100 caracteres: filtra por nombre con `ILIKE`, con `%` y `_` escapados, y si es un
 número de hasta 18 dígitos también por código exacto; se combina con `categoria` y `unidad`) y `sin_promocion`
 (booleano, por defecto `false`: con `true` excluye los artículos con promoción
-vigente; la portada "Todos" lo usa porque ya los muestra en su sección "Promoción vigente"; las categorías
-específicas no lo usan y los muestran con su precio rebajado). Siempre excluye `tipo_kit='COMBO'`, en todos los modos (ver
+vigente; la web **ya no lo usa**: el catálogo completo de `/catalogo` muestra todos los artículos, con su precio
+rebajado si tienen promoción, y la sección "Promoción vigente" vive solo en la portada). Siempre excluye `tipo_kit='COMBO'`, en todos los modos (ver
 "Modelo de artículos compuestos" más abajo). Devuelve, por artículo:
 
 ```text
@@ -318,10 +318,36 @@ COMBO" y los dos últimos en "Promociones" y "Página de detalle de un producto"
 
 ## Vistas y rutas de la tienda
 
-La tienda es una sola página (`index.html`) con cuatro vistas, cada una con su URL: `/` (portada y catálogo), `/promociones`, `/combos` y `/producto/{id}-{nombre}`. `main.py` sirve `index.html` en todas ellas, y `main.js` decide qué vista mostrar a partir de `location.pathname` (`resolverRuta`, `mostrarRutaActual`, `mostrarVista`; `irA` para la navegación interna y `popstate` para Atrás/Adelante). El servidor también sirve `index.html` en `/catalogo` (el catálogo completo, "Explorá nuestro catálogo"; acepta
-`?categoria=NOMBRE`, que lee `main.js`): la ruta ya existe en el backend y la pantalla correspondiente se agrega en la
-Fase 20 (ver `ROADMAP.md`), donde `/` pasa a ser una portada con secciones y el catálogo completo se mueve a `/catalogo`.
-Por eso cada dirección funciona al recargar y al compartirla, y el carrito (que vive en memoria) no se pierde al navegar. `/combos` antes cambiaba la barra de direcciones pero daba 404 al recargar: quedó resuelto; sin combos publicados vuelve a la portada. Los enlaces "← Volver a la tienda" hacen "Atrás" si se entró desde la tienda y llevan a la portada si se llegó directo.
+La tienda es una sola página (`index.html`) con cinco vistas, cada una con su URL: `/` (portada), `/catalogo`
+(catálogo completo), `/promociones`, `/combos` y `/producto/{id}-{nombre}`. `main.py` sirve `index.html` en todas ellas, y
+`main.js` decide qué vista mostrar a partir de `location.pathname` y `location.search` (`resolverRuta`,
+`mostrarRutaActual`, `mostrarVista`; `irA` para la navegación interna y `popstate` para Atrás/Adelante). Por eso cada
+dirección funciona al recargar y al compartirla, y el carrito (que vive en memoria) no se pierde al navegar. Los enlaces
+"← Volver a la tienda" hacen "Atrás" si se entró desde la tienda y llevan a la portada si se llegó directo. Una ruta
+desconocida muestra la portada; `/combos` sin combos publicados también vuelve a la portada.
+
+**Portada (`/`):** banner, "Promoción vigente" y **una sección por categoría** (hasta 8 artículos cada una, con un botón
+**VER TODOS** hacia `/catalogo?categoria=NOMBRE`), más un botón **VER TODO EL CATÁLOGO**. Las secciones salen de una sola
+llamada a `GET /api/articulos/portada` (`cargarPortada`, `dibujarPortada`; se pide una vez y, si falla, muestra un mensaje con
+"Reintentar"); cada sección reutiliza `dibujarArticulos(lista, contenedor)`. En escritorio las secciones son una grilla de
+4 columnas; en tablet y celular, una fila que se desliza con el dedo. La portada **no** pide el catálogo completo.
+
+**Catálogo (`/catalogo`):** título "EXPLORÁ NUESTRO CATÁLOGO" y la grilla con scroll infinito de siempre (30 por lote,
+selector de formas de compra por categoría, aviso "Cargando", precarga de presentaciones). La URL manda:
+`/catalogo?categoria=NOMBRE` (un nombre inexistente u oculto cae en el catálogo completo y corrige la URL) y
+`/catalogo?buscar=TEXTO`. Si la URL pide la lista que ya está cargada (por ejemplo, Atrás desde un producto) no se vuelve a
+pedir; volver a elegir lo que ya se está mirando sí la recarga (útil para regresar al selector de formas de compra).
+
+**Barra de categorías:** parte de la cabecera fija (ver más abajo): `Inicio`, `Todos` y una por categoría
+(`GET /api/categorias/`, `cargarCategorias`; si falla solo quedan Inicio y Todos). Son enlaces reales
+(`a.btn-categoria[href]`) que navegan sin recargar; marca la categoría activa (`aria-current`). Reemplaza al menú lateral.
+Todo enlace con `data-ruta-interna` (logo, barra, VER TODOS, pie) lo atiende un único escuchador que llama a `irA`.
+
+**Búsqueda (del servidor):** escribir en el buscador de la cabecera (espera de 350 ms; Enter inmediato) lleva a
+`/catalogo?buscar=TEXTO` (entrada nueva del historial al entrar desde otra página; reemplaza la entrada mientras se escribe
+dentro del catálogo) y el catálogo pide `GET /api/articulos/?buscar=...`, que busca sobre **todos** los artículos
+publicados, no solo los ya cargados. Ignora categoría y formas de compra, pagina con el mismo scroll infinito y el título
+dice `Resultados para «texto»`. Con el texto vacío vuelve al catálogo completo; en la portada el buscador se vacía.
 
 ## Página de detalle de un producto
 
@@ -512,8 +538,8 @@ Implementado en el backend y en la web (etapas 1 a 3 del plan; ver `ROADMAP.md`,
 
 **En la web** (`index.html`, `main.js`, `styles.css`):
 - tarjetas y página del producto: precio original tachado (`<s>`, con texto "Precio anterior" para lectores de pantalla), precio promocional e insignia "-X %" sobre la imagen; el mensaje de WhatsApp usa el precio promocional; el carrito se arma con el precio vigente;
-- sección **Promoción vigente** en la portada: carrusel de las primeras 12 (se piden hasta 100 a `GET /api/articulos/promociones` para que el buscador también encuentre las demás) con flechas anterior/siguiente (desplazamiento nativo y táctil, flechas deshabilitadas en los extremos, sin animación con "menos movimiento") y el enlace **Ver promoción**. Solo se muestra con categoría "Todos", sin texto en el buscador y si hay promociones; si no hay o la API falla, queda oculta y la tienda funciona igual;
-- **"Todos" no repite las promociones**: el listado general de la portada se pide con `sin_promocion=true`, así un artículo en promoción aparece en su sección y no también en la grilla. Una **búsqueda** en "Todos" sí los encuentra (la web suma las promociones cargadas al universo de búsqueda); con el buscador vacío se vuelve a la lista sin promociones. Dentro de una categoría específica se ven todos sus artículos, también los que están en promoción. Para que ningún artículo quede inaccesible, "Todos" **solo excluye las promociones cuando las promociones cargaron bien y son menos de 100** (el tope que se trae para el buscador): si la API de promociones falla, o hay 100 o más, "Todos" las sigue mostrando (repetidas, pero ninguna se pierde). El catálogo de "Todos" espera el resultado de las promociones antes de pedirse, y si el cliente ya estaba buscando se aplica su búsqueda al llegar;
+- sección **Promoción vigente** en la portada: carrusel de las primeras 12 (`GET /api/articulos/promociones?limite=12`) con flechas anterior/siguiente (desplazamiento nativo y táctil, flechas deshabilitadas en los extremos, sin animación con "menos movimiento") y el enlace **Ver promoción**. Es parte de la portada (solo se ve en ella) y solo si hay promociones; si no hay o la API falla, queda oculta y la tienda funciona igual;
+- **El catálogo completo no excluye las promociones**: `/catalogo` ("Todos") y las categorías muestran todos los artículos, también los que están en promoción, con su precio rebajado. (Antes, con el catálogo en la portada, "Todos" excluía las promociones con `sin_promocion=true` porque ya salían en su sección; el parámetro del servidor se conserva pero la web ya no lo usa.) La búsqueda, al ser del servidor, encuentra las promociones como cualquier artículo;
 - página **`/promociones`**: todos los artículos con promoción vigente, de a 30 con "Ver más"; cada tarjeta lleva a `/producto/{id}-{nombre}`. Al volver desde un producto conserva la lista y la posición.
 
 **Sincronización de `PROMOCION`** (etapa posterior, "sincronizar aún no"): `POST /api/sync/promociones` reemplazando la tabla en una transacción, y lectura de `PROMOCION` en el sincronizador. Requiere antes que el usuario confirme la estructura real de `PROMOCION`. Hoy no hay forma de cargar promociones en producción salvo insertarlas a mano en PostgreSQL.
@@ -712,9 +738,9 @@ Hasta que se confirme una regla distinta, tanto `PRESENTACION` como `COMBO` sigu
 El frontend (`frontend/index.html`, `frontend/css/styles.css`, `frontend/js/main.js`) está pensado **móvil primero**, porque la mayoría de los clientes compra desde el celular.
 
 - **Paleta de marca**: tokens en `:root` (`--marron`, `--verde-accion`, `--verde-claro`, `--fondo`, `--texto`), tomados del logo `frontend/assets/images/logo-vete.jpg`. El verde del logo tal cual no alcanza contraste AA con texto blanco, por eso los botones usan `--verde-accion`.
-- **Categorías**: en celular (≤ 768 px), un botón "Categorías: <actual> ▾" despliega la lista. En escritorio, el panel es `sticky`. Al elegir categoría se sube a la sección de artículos (`irAlInicioDeLaVista`), y el título de la sección muestra el nombre de la categoría.
-- **Cabecera**: en escritorio, una fila con logo, buscador, Combos y Carrito. En celular, tres filas: logo + Carrito, buscador completo, y Combos. (El botón "Ver Promos" de la cabecera se retiró: las promociones ahora son la sección "Promoción vigente" de la portada.)
-- **Búsqueda**: al escribir, si la vista activa no es el catálogo, vuelve a él. Enter cierra el teclado y sube a los resultados.
+- **Categorías**: barra de enlaces bajo la cabecera fija (en celular se desliza horizontalmente). Al elegir una se va a `/catalogo?categoria=…`, se sube a la sección (`irAlInicioDeLaVista`) y el título muestra el nombre de la categoría. Ya no hay menú lateral.
+- **Cabecera**: fija; una fila con logo (enlace a la portada), buscador, Combos y Carrito, y debajo la barra de categorías. En celular la fila es una sola, con los botones solo con iconos. (El botón "Ver Promos" de la cabecera se retiró: las promociones ahora son la sección "Promoción vigente" de la portada.)
+- **Búsqueda**: al escribir, lleva al catálogo con el texto en la URL y se busca en el servidor (ver "Vistas y rutas"). Enter busca ya, cierra el teclado y sube a los resultados.
 - **Carrito en celular**: cada renglón se parte en dos filas para que el tacho de basura quede dentro de la pantalla.
 - **Desplazamiento horizontal**: en celular, `overflow-x: clip` (con `hidden` como respaldo) evita arrastrar la página hacia los costados.
 - **Combos**: en celular, latido suave (`latidoSuave`, solo escala). En escritorio, el latido con giro (`latidoVibratorio`).
@@ -725,12 +751,12 @@ Pendiente: tarjetas, selector de presentaciones y modales (Etapa 3 de `ROADMAP.m
 ### Cabecera fija y pie de página (Fase 20, etapa 2)
 
 **Cabecera fija:** `header { position: sticky; top: 0; z-index: 100 }`: el logo, el buscador, Combos y Carrito quedan
-siempre a la vista y el contenido (banner incluido) pasa por debajo. Tiene un **tamaño constante** (80 px en escritorio,
+siempre a la vista y el contenido (banner incluido) pasa por debajo. Tiene un **tamaño constante** (fila del logo: 80 px en escritorio,
 58 px en celular): si se achicara al hacer scroll, el contenido daría saltos. En celular es **una sola fila** (logo ~36 px +
 buscador + Combos + Carrito, solo con iconos; la burbuja del contador del carrito sigue visible). `main.js` publica el alto
 real en la variable CSS `--alto-cabecera` (`publicarAltoDeCabecera`, con `ResizeObserver`); la usan
-`html { scroll-padding-top }` (los `scrollIntoView` de `irAlInicioDeLaVista` no quedan tapados) y el menú lateral
-(`position: sticky; top: calc(var(--alto-cabecera) + 12px)`). Las reglas de celular de la cabecera están **al final de
+`html { scroll-padding-top }` (los `scrollIntoView` de `irAlInicioDeLaVista` no quedan tapados). La cabecera incluye la
+barra de categorías, así que su alto total es de ~122 px en escritorio y ~100 px en celular. Las reglas de celular de la cabecera están **al final de
 `styles.css`** a propósito: las de escritorio tienen la misma especificidad y, si las de celular estuvieran antes, ganarían ellas.
 `html, body` usan `overflow-x: clip` (no `hidden`, que rompería `position: sticky`).
 
@@ -739,7 +765,7 @@ celular): *Cómo llegar* (el negocio figura en Google Maps como «Agro-Vetzo»; 
 `https://www.google.com/maps/search/?api=1&query=Agro-Vetzo`, sin dirección escrita: conviene cambiarlo por el enlace
 "Compartir" del local cuando se tenga), *Atención al cliente* (lunes a sábado de 07:00 a 19:00 hs,
 `agroranchopiroy@gmail.com` y botón de WhatsApp), *Nuestras redes* (TikTok `@enzo.duarte326`) y *Nuestra tienda*
-(enlaces internos). El enlace de WhatsApp lo arma `main.js` con `WHATSAPP_NUMERO` (único lugar del número); el año del ©
+(enlaces internos: Inicio, Catálogo completo, Promociones y Combos si los hay, y una por categoría). El enlace de WhatsApp lo arma `main.js` con `WHATSAPP_NUMERO` (único lugar del número); el año del ©
 también. Los enlaces internos (`data-ruta-interna`) navegan con `irA` sin recargar, para no perder el carrito;
 "Promociones" y "Combos" solo se muestran si hay promociones vigentes o combos publicados (`mostrarEnlacePie`). Los
 datos del negocio están en `index.html` (no son secretos).

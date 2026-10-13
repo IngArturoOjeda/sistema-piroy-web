@@ -367,7 +367,7 @@ Flujo: portada con sección "Promoción vigente" (carrusel con flechas) → bot�
    automática de Novedades).
 
 ## Fase 20 — Portada con secciones, página de catálogo, cabecera fija y pie de página
-Estado: EN PROGRESO (plan aprobado el 2026-10-13). Referencia: portada de tiempodemascotas.com.py.
+Estado: COMPLETADA el 2026-10-13 (etapas 1 a 3). Referencia: portada de tiempodemascotas.com.py.
 
 Hoy `/` muestra todo el catálogo con scroll infinito y un menú lateral. Objetivo: portada con una sección por categoría
 (≈8 artículos + VER TODOS), página `/catalogo` ("Explorá nuestro catálogo") con el catálogo completo, cabecera fija
@@ -381,6 +381,8 @@ Hoy `/` muestra todo el catálogo con scroll infinito y un menú lateral. Objeti
    horario lunes a sábado 07:00 a 19:00, correo `agroranchopiroy@gmail.com`, TikTok `@enzo.duarte326`, ubicación como «Agro-Vetzo»
    en Google Maps. Pendiente: reemplazar la búsqueda de Maps por el enlace "Compartir" del local y agregar más redes si las hay.
 3. Etapa 3 — Portada, página de catálogo, barra de categorías (reemplaza el menú lateral) y búsqueda del servidor.
+   HECHA (probada en Chrome real a 320-1280 px: portada con una sección por categoría, VER TODOS, `/catalogo` con
+   `?categoria=` y `?buscar=`, Atrás/Adelante, recarga directa, búsqueda sobre todo el catálogo, pie con categorías).
    Quedan fuera: "Novedades", "Compra por animal", formulario de contacto, medios de pago, página "Nosotros".
 
 ## Versión 2

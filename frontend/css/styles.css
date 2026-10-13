@@ -45,92 +45,22 @@ header {
 
 /* 3. El Contenedor Padre (Layout en paralelo) */
 .contenedor-principal {
-    display: flex; /* Activa Flexbox para poner elementos en línea */
-    min-height: calc(100vh - 80px); /* Ocupa el resto de la pantalla */
+    display: flex; /* cada vista (catalogo, promociones, combos, producto) ocupa todo el ancho */
+    min-height: 50vh;
 }
 
-/* 4. Menú Lateral */
-.menu-lateral {
-    width: 250px; /* Ancho fijo para el menú */
-    background-color: white; /*#ffffff*/
-    padding: 20px;
-    border-right: 1px solid #e0e0e0;
-    /* En escritorio queda fijo mientras se baja por el catálogo (debajo de la cabecera fija) */
-    position: sticky;
-    top: calc(var(--alto-cabecera, 90px) + 12px);
-    align-self: flex-start;
-    max-height: calc(100vh - var(--alto-cabecera, 90px) - 24px);
-    overflow-y: auto;
-}
-
-/* Botón de categorías: solo se ve en celular (ver @media más abajo) */
-.btn-toggle-categorias {
+/* En la portada se oculta el contenedor de las demas vistas (todas estan ocultas) */
+body.en-inicio .contenedor-principal {
     display: none;
-}
-
-.menu-lateral h2 {
-    font-size: 1.2rem;
-    margin-bottom: 15px;
-    color: var(--marron);
-}
-
-.menu-lateral ul {
-    list-style: none; /* Quita los puntitos negros de la lista */
 }
 
 /* 5. Sección de Productos (Derecha) */
 .contenido-productos {
-    flex: 1; /* Ocupa todo el espacio restante a la derecha */
+    flex: 1; /* Ocupa todo el ancho */
+    min-width: 0;
     padding: 20px;
     /* Al elegir categoría, la vista se alinea al inicio de la grilla (ver main.js) */
     scroll-margin-top: 16px;
-}
-
-/* Celular: el menú pasa a ser un desplegable arriba del catálogo */
-@media (max-width: 768px) {
-    .contenedor-principal {
-        flex-direction: column;
-    }
-
-    .menu-lateral {
-        width: auto;
-        position: static;
-        max-height: none;
-        overflow: visible;
-        border-right: none;
-        border-bottom: 1px solid #e0e0e0;
-        padding: 12px 16px;
-    }
-
-    .menu-lateral h2 {
-        display: none;
-    }
-
-    .btn-toggle-categorias {
-        display: block;
-        width: 100%;
-        padding: 12px 16px;
-        font-size: 1rem;
-        font-weight: bold;
-        text-align: left;
-        background-color: var(--verde-accion);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-    }
-
-    /* La lista queda oculta hasta que el botón la despliega */
-    .menu-lateral ul {
-        display: none;
-        max-height: 60vh;
-        overflow-y: auto;
-        margin-top: 8px;
-    }
-
-    .menu-lateral.abierto ul {
-        display: block;
-    }
 }
 
 /* Celular: la cabecera se reparte en filas para que nada quede fuera de la pantalla.
@@ -475,32 +405,7 @@ header {
 }
 
 /* Estilos para los botones de las categorías */
-.btn-categoria {
-    width: 100%;
-    background: none;
-    border: none;
-    padding: 10px 15px;
-    text-align: left;
-    font-size: 1rem;
-    cursor: pointer;
-    border-radius: 4px;
-    margin-bottom: 5px;
-    transition: background 0.2s;
-}
 
-/* Efecto cuando pasas el mouse por arriba */
-.btn-categoria:hover {
-    background-color: var(--verde-suave);
-    color: var(--marron);
-    font-weight: bold;
-}
-
-/*Estilo para el botón de la categoría que está actualmente seleccionada */
-.btn-categoria.activo {
-    background-color: var(--verde-accion); /* Verde de marca: indica la categoria elegida */
-    color: white;                          /* Letras blancas para que contraste */
-    font-weight: bold;         /* Letras en negrita */
-}
 
 /* 🌟 NUEVO ESTILO EN AZUL OSCURO E IMPONENTE */
 .btn-comprar {
@@ -1245,12 +1150,6 @@ header {
 }
 
 /* ---------- Página propia de un producto ---------- */
-/* El carrusel de banners es de la portada: no se muestra dentro de un producto ni en /promociones */
-body.en-producto .contenedor-banner,
-body.en-promociones .contenedor-banner {
-    display: none;
-}
-
 .enlace-volver {
     display: inline-block;
     margin-bottom: 16px;
@@ -1715,5 +1614,132 @@ body.en-promociones .contenedor-banner {
         margin: 0;
         padding: 8px 10px;
         font-size: 1rem;
+    }
+}
+
+
+/* ===== Barra de categorias (dentro de la cabecera fija) ===== */
+.barra-categorias {
+    max-width: 1400px;
+    margin: 6px auto 0;
+    padding: 0 10px 2px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+.barra-categorias::-webkit-scrollbar {
+    display: none;
+}
+
+.lista-barra-categorias {
+    list-style: none;
+    display: flex;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.btn-categoria {
+    display: inline-block;
+    padding: 6px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 18px;
+    color: white;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.btn-categoria:hover {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.btn-categoria:focus-visible {
+    outline: 3px solid white;
+    outline-offset: 2px;
+}
+
+.btn-categoria.activo {
+    background-color: var(--verde-claro);
+    border-color: var(--verde-claro);
+    color: var(--marron);
+}
+
+/* El logo es un enlace a la portada */
+.enlace-logo {
+    display: block;
+}
+
+/* ===== Portada: banner + Promocion vigente + una seccion por categoria ===== */
+.contenido-inicio {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.seccion-categoria {
+    margin-bottom: 32px;
+}
+
+.ver-todo-catalogo {
+    text-align: center;
+    margin: 8px 0 12px;
+}
+
+.btn-ver-todo {
+    display: inline-block;
+    padding: 14px 34px;
+    border-radius: 6px;
+    background-color: var(--verde-accion);
+    color: white;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-decoration: none;
+}
+
+.btn-ver-todo:hover,
+.btn-ver-todo:focus-visible {
+    background-color: var(--verde-accion-hover);
+}
+
+/* Estado de la portada: cargando / error con reintento */
+.portada-estado {
+    text-align: center;
+    padding: 40px 16px;
+    color: var(--marron);
+    font-weight: 600;
+}
+
+.portada-estado .btn-comprar {
+    margin-top: 14px;
+    width: auto;
+    padding: 10px 24px;
+}
+
+/* En tablet y celular cada seccion es una fila que se desliza con el dedo (la pagina no se hace interminable) */
+@media (max-width: 899px) {
+    .seccion-categoria .cuadricula-productos {
+        display: flex;
+        overflow-x: auto;
+        gap: 12px;
+        scroll-snap-type: x proximity;
+        padding-bottom: 8px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .seccion-categoria .card-producto {
+        flex: 0 0 min(72%, 260px);
+        scroll-snap-align: start;
+    }
+
+    .contenido-inicio {
+        padding: 14px 12px;
+    }
+}
+
+@media (min-width: 900px) {
+    .seccion-categoria .cuadricula-productos {
+        grid-template-columns: repeat(4, 1fr);
     }
 }

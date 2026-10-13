@@ -8,13 +8,15 @@
     <link rel="icon" type="image/png" href="/frontend/assets/images/favicon.png">
     <link rel="stylesheet" href="/frontend/css/styles.css">
 </head>
-<body>
+<body class="en-inicio">
         <header>
             <!-- Colocamos la fila de navegación ADENTRO del header -->
             <div class="fila-navegacion">
                 <!-- 1. Logo de AGRO-VETZO -->
                   <div class="contenedor-logo">
-                    <img src="/frontend/assets/images/logo-vete.jpg" alt="AGRO-VETZO Agroveterinaria" class="logo-busqueda">
+                    <a href="/" class="enlace-logo" data-ruta-interna aria-label="AGRO-VETZO, ir al inicio">
+                        <img src="/frontend/assets/images/logo-vete.jpg" alt="AGRO-VETZO Agroveterinaria" class="logo-busqueda">
+                    </a>
                   </div>
             
                     <!-- Barra de búsqueda mejorada y más grande -->
@@ -39,33 +41,28 @@
                         <span id="contador-carrito" class="contador-burbuja">0</span>
                     </button>
             </div>        
+
+            <!-- Barra de categorías: parte de la cabecera fija. main.js la llena con GET /api/categorias/ -->
+            <nav class="barra-categorias" id="barra-categorias" aria-label="Categorías de productos">
+                <ul class="lista-barra-categorias" id="lista-categorias">
+                    <!-- JS dibuja aquí: Inicio, Todos y las categorías -->
+                </ul>
+            </nav>
         </header>
 
-        <!-- Carrusel de banners: se arma desde GET /api/banners/ (ver main.js).
-             Queda oculto hasta que haya al menos un banner activo. -->
+        <!-- INICIO ("/"): banner, Promoción vigente y una sección por categoría con su botón VER TODOS.
+             Las secciones salen de GET /api/articulos/portada (main.js: cargarPortada). -->
+        <main class="vista-inicio" id="vista-inicio">
+            <!-- Carrusel de banners: se arma desde GET /api/banners/ (ver main.js).
+                 Queda oculto hasta que haya al menos un banner activo. -->
         <section class="contenedor-banner" id="contenedor-banner" aria-label="Promociones y novedades" hidden>
             <div class="carrusel-deslizable" id="carrusel-imagenes"></div>
             <div class="carrusel-indicadores" id="carrusel-indicadores"></div>
         </section>
 
-        <div class="contenedor-principal">
-
-            <!-- Menú Lateral de Categorías -->
-             <aside class="menu-lateral" id="menu-lateral">
-                <h2>Categorias</h2>
-                <button type="button" id="btn-toggle-categorias" class="btn-toggle-categorias" aria-expanded="false" aria-controls="lista-categorias">
-                    Categorías: Todos ▾
-                </button>
-                <ul id="lista-categorias">
-                    <!-- JS cargará las categorías aquí adentro -->
-                </ul>
-             </aside>
-            
-            <!-- Sección Principal de Productos -->
-             <main class="contenido-productos" id="vista-catalogo">
-
+            <div class="contenido-inicio">
                 <!-- Promoción vigente: carrusel con los artículos en promoción (GET /api/articulos/promociones).
-                     Oculta hasta que haya promos; solo se ve en la portada (categoría "Todos" y sin búsqueda). -->
+                     Oculta hasta que haya promos. -->
                 <section class="seccion-carrusel" id="seccion-promo" aria-labelledby="titulo-promo" hidden>
                     <div class="seccion-carrusel-cabecera">
                         <h2 class="titulo-seccion" id="titulo-promo">🔥 Promoción vigente</h2>
@@ -82,14 +79,31 @@
                     </div>
                 </section>
 
-                <!-- Título de la sección: cambia al nombre de la categoría elegida -->
-                <h2 class="titulo-seccion" id="titulo-catalogo">Nuestros Artículos</h2>
+                <div id="secciones-categorias" class="secciones-categorias" aria-live="polite">
+                    <!-- JS dibuja aquí una sección por categoría -->
+                </div>
+
+                <p class="ver-todo-catalogo">
+                    <a href="/catalogo" class="btn-ver-todo" data-ruta-interna>VER TODO EL CATÁLOGO</a>
+                </p>
+            </div>
+        </main>
+
+        <div class="contenedor-principal">
+
+            <!-- CATÁLOGO COMPLETO ("/catalogo", acepta ?categoria=NOMBRE y ?buscar=TEXTO): scroll infinito -->
+             <main class="contenido-productos" id="vista-catalogo" style="display: none;">
+                <div class="encabezado-combos">
+                    <h1>EXPLORÁ NUESTRO CATÁLOGO</h1>
+                    <p>Elegí una categoría en la barra de arriba o buscá por nombre</p>
+                </div>
+
+                <!-- Título de la sección: la categoría elegida o "Resultados para ..." -->
+                <h2 class="titulo-seccion" id="titulo-catalogo">Todos los artículos</h2>
 
                 <div id="contenedor-cards" class="cuadricula-productos">
                     <!-- JS cargará las "cards" de los productos aquí adentro -->
                 </div>
-
-                
              </main>
 
              <!-- Página /promociones: TODOS los artículos con promoción vigente (oculta por defecto) -->
@@ -178,10 +192,12 @@
 
                 <section class="pie-bloque" aria-labelledby="pie-titulo-tienda">
                     <h2 id="pie-titulo-tienda">Nuestra tienda</h2>
-                    <ul>
-                        <li><a href="/" data-ruta-interna>Inicio y catálogo</a></li>
+                    <ul id="pie-lista-tienda">
+                        <li><a href="/" data-ruta-interna>Inicio</a></li>
+                        <li><a href="/catalogo" data-ruta-interna>Catálogo completo</a></li>
                         <li id="pie-item-promos" hidden><a href="/promociones" data-ruta-interna>Promociones</a></li>
                         <li id="pie-item-combos" hidden><a href="/combos" data-ruta-interna>Combos</a></li>
+                        <!-- main.js agrega aquí las categorías -->
                     </ul>
                 </section>
             </div>

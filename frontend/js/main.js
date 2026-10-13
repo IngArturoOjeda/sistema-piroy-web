@@ -1,17 +1,10 @@
 // 1. CAPTURA DE ELEMENTOS DE LA PANTALLA (UI)
 const listaCategoriasUI = document.getElementById("lista-categorias");
-const menuLateralUI = document.getElementById("menu-lateral");
-const btnToggleCategoriasUI = document.getElementById("btn-toggle-categorias");
+// Portada ("/"): banner, Promoción vigente y una sección por categoría
+const vistaInicioUI = document.getElementById("vista-inicio");
+const seccionesCategoriasUI = document.getElementById("secciones-categorias");
 
-// Celular: abre o cierra el desplegable de categorías
-if (btnToggleCategoriasUI && menuLateralUI) {
-    btnToggleCategoriasUI.addEventListener("click", () => {
-        const abierto = menuLateralUI.classList.toggle("abierto");
-        btnToggleCategoriasUI.setAttribute("aria-expanded", String(abierto));
-    });
-}
-
-// Lleva la vista al inicio de una sección (catálogo, promos o combos)
+// Lleva la vista al inicio de una sección (portada, catálogo, promos o combos)
 function irAlInicioDeLaVista(elemento) {
     if (elemento && typeof elemento.scrollIntoView === "function") {
         elemento.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -84,9 +77,9 @@ let categoriasPorPrecargar = null; // se vacía al empezar la precarga de formas
 let cargandoProductos = false; // Nos avisa si el sistema está ocupado hablando con FastAPI
 let finDeStock = false;     // Se volverá true cuando Python nos devuelva una lista vacía []
 let categoriaSeleccionadaActual = "Todos"; // 🌟 NUEVO: Sabe qué botón lateral está activo
-let vistaActual = "CATALOGO"; // "CATALOGO" | "PROMOCIONES" | "COMBOS" | "PRODUCTO"
+let vistaActual = "INICIO"; // "INICIO" | "CATALOGO" | "PROMOCIONES" | "COMBOS" | "PRODUCTO"
 // Página de un producto: desde dónde se entró y qué artículo se está viendo
-let vistaAntesDeProducto = "CATALOGO";
+let vistaAntesDeProducto = "INICIO";
 let scrollAntesDeProducto = 0;
 let articuloDetalleActual = null;
 // Numera las elecciones de categoría o forma de compra: una carga de artículos que empezó antes de la
@@ -103,6 +96,13 @@ let paginaCombos = 1;
 // Presentacion (forma de compra) seleccionada para la categoria actual
 let presentacionesDisponibles = [];
 let presentacionSeleccionadaActual = null;
+// Catálogo ("/catalogo"): texto buscado (modo búsqueda; "" si no hay) y qué lista está cargada. Si la URL pide la
+// misma lista (Atrás desde un producto, enlace repetido) no se vuelve a pedir al servidor.
+let textoBusqueda = "";
+let claveCatalogoCargada = null;
+// Portada: se pide una sola vez (si falla, se puede reintentar)
+let portadaCargada = false;
+let cargandoPortada = false;
 
 // 2. CARGAR DATOS DESDE FASTAPI (SQL SERVER)
 async function cargarDatosDeLaAPI() {
@@ -114,33 +114,12 @@ async function cargarDatosDeLaAPI() {
     const vigente = () => turno === turnoCarga;
     
     try {
-        // Sección Categorías
-        // 1. SECCIÓN CATEGORÍAS: Se cargan una sola vez al inicio
-        if (categoriasGlobales.length === 0) {
-            const respuestaCategorias = await fetch("/api/categorias/");
-            if (!respuestaCategorias.ok) {
-                const errorData = await respuestaCategorias.json();
-                alert(`Error ${respuestaCategorias.status}: ${errorData.detail || 'No se pudieron cargar las categorías'}`);
-                cargandoProductos = false;
-                return; 
-            }
-            const datosCategoriasDelBackend = await respuestaCategorias.json(); 
-            categoriasGlobales = [{ id: 0, nombre: "Todos" }, ...datosCategoriasDelBackend];
-            dibujarCategorias(categoriasGlobales);
-            categoriasPorPrecargar = categoriasGlobales;
-        }    
         // 2. SECCIÓN ARTÍCULOS PAGINADOS: Le pasamos el número de página dinámico a FastAPI
-        let urlArticulos = `/api/articulos/?pagina=${paginaActual}&categoria=${categoriaSeleccionadaActual}`;
-        // En "Todos" las promociones no se repiten: tienen su propia sección ("Promoción vigente").
-        // Las categorías específicas sí las muestran junto al resto de sus artículos.
-        if (categoriaSeleccionadaActual === "Todos") {
-            await promesaPromosPortada; // hay que saber si las promociones cargaron antes de excluirlas
-            if (debeExcluirPromocionesDeTodos()) {
-                urlArticulos += "&sin_promocion=true";
-            }
-            if (!vigente()) return; // mientras esperaba, el cliente eligió otra categoría
-        }
-        if (presentacionSeleccionadaActual) {
+        let urlArticulos = `/api/articulos/?pagina=${paginaActual}&categoria=${encodeURIComponent(categoriaSeleccionadaActual)}`;
+        if (textoBusqueda) {
+            // Búsqueda: el servidor filtra por nombre (o código) sobre todo el catálogo; ignora las formas de compra
+            urlArticulos += `&buscar=${encodeURIComponent(textoBusqueda)}`;
+        } else if (presentacionSeleccionadaActual) {
             urlArticulos += `&presentacion=${presentacionSeleccionadaActual.codigo}`;
             if (presentacionSeleccionadaActual.codigo === "NORMAL" && presentacionSeleccionadaActual.unidad) {
                 urlArticulos += `&unidad=${encodeURIComponent(presentacionSeleccionadaActual.unidad)}`;
@@ -152,6 +131,8 @@ async function cargarDatosDeLaAPI() {
         if (!respuestaArticulos.ok) {
             const errorData = await respuestaArticulos.json();
             alert(`Error ${respuestaArticulos.status}: ${errorData.detail || 'No se pudieron cargar los artículos'}`);
+            // Una primera carga fallida no cuenta como "lista cargada": al volver al catálogo se reintenta
+            if (articulosGlobales.length === 0) claveCatalogoCargada = null;
             cargandoProductos = false;
             return; 
                /* if (respuestaArticulos.status === 404){
@@ -167,7 +148,10 @@ async function cargarDatosDeLaAPI() {
                 finDeStock = true; // Apagamos el motor del scroll infinito para siempre
                 cargandoProductos = false;
                 // Si no había ningún artículo en pantalla, el aviso "Cargando..." tiene que dar paso a un mensaje
-                if (paginaActual === 1 && articulosGlobales.length === 0) mostrarCategoriaSinArticulos();
+                if (paginaActual === 1 && articulosGlobales.length === 0) {
+                    if (textoBusqueda) dibujarArticulos([]); // "No encontramos productos coincidentes"
+                    else mostrarCategoriaSinArticulos();
+                }
                 console.log("¡Llegamos al final de la base de datos de SQL Server!");
                 return;
         }
@@ -175,13 +159,8 @@ async function cargarDatosDeLaAPI() {
             // 🌟 ACUMULACIÓN: Sumamos los 50 artículos nuevos al final de la lista maestra
             articulosGlobales = [...articulosGlobales, ...nuevosArticulos];
 
-             // Mandamos a dibujar la lista completa acumulada en la cuadrícula (o, si el cliente ya
-             // estaba buscando, solo los resultados de su búsqueda)
-            if (txtBuscarUI.value.trim() !== "") {
-                aplicarBusquedaActual();
-            } else {
-                dibujarArticulos(articulosGlobales);
-            }
+             // Mandamos a dibujar la lista completa acumulada en la cuadrícula
+            dibujarArticulos(articulosGlobales);
 
              // Apagamos el semáforo: El sistema ya está libre para la siguiente página
             cargandoProductos = false;
@@ -195,83 +174,105 @@ async function cargarDatosDeLaAPI() {
     } catch (error) {
         if (!vigente()) return;
         console.error("Error crítico al conectar con la API:", error);
+        if (articulosGlobales.length === 0) claveCatalogoCargada = null; // al volver al catálogo se reintenta
         contenedorCardsUI.innerHTML = "<p>Error al conectar con el servidor. Intente más tarde.</p>";
         cargandoProductos = false;
     }
 }
 
-// 3. DIBUJAR MENÚ DE CATEGORÍAS
-function dibujarCategorias(listacategorias) {
-    listaCategoriasUI.innerHTML = "";
+// 3. CATEGORÍAS: barra bajo la cabecera fija (Inicio, Todos y una por categoría)
+// Se pide al arrancar. Si falla, la barra muestra solo Inicio y Todos y la tienda funciona igual.
+async function cargarCategorias() {
+    try {
+        const respuesta = await fetch("/api/categorias/");
+        if (!respuesta.ok) throw new Error(`Error ${respuesta.status} al cargar las categorías`);
+        const datos = await respuesta.json();
+        categoriasGlobales = [{ id: 0, nombre: "Todos" }, ...datos];
+        categoriasPorPrecargar = categoriasGlobales; // se precargan sus formas de compra al abrir el catálogo
+    } catch (error) {
+        console.error("No se pudieron cargar las categorías:", error);
+        categoriasGlobales = [];
+    }
+    dibujarCategorias();
+    llenarCategoriasDelPie();
+}
 
-    listacategorias.forEach(categoria => {
-        const li = document.createElement("li");
-        li.innerHTML = `<button class="btn-categoria">${categoria.nombre}</button>`;
-        const boton = li.querySelector(".btn-categoria");
+function urlCategoria(nombre) {
+    return nombre === "Todos" ? "/catalogo" : `/catalogo?categoria=${encodeURIComponent(nombre)}`;
+}
 
-        if (categoria.nombre === "Todos") {
-            boton.classList.add("activo");
-        }
-  
-        boton.addEventListener("click", () => {
-            // 🌟 NUEVO: Si el usuario hace clic en una categoría, lo regresamos al catálogo regular
-            mostrarVista("CATALOGO");
+// Cada categoría es un enlace real (href): sirve con clic derecho y "abrir en pestaña nueva". El clic normal
+// lo atiende la navegación interna (a[data-ruta-interna], más abajo) sin recargar la página.
+function crearChipCategoria(texto, href, clave) {
+    const li = document.createElement("li");
+    const enlace = document.createElement("a");
+    enlace.className = "btn-categoria";
+    enlace.href = href;
+    enlace.dataset.rutaInterna = "";
+    enlace.dataset.clave = clave;
+    enlace.textContent = texto;
+    li.appendChild(enlace);
+    return li;
+}
 
-            // Regresamos la URL estéticamente al inicio sin recargar
-            window.history.pushState({}, "", "/");
+function dibujarCategorias() {
+    listaCategoriasUI.replaceChildren(
+        crearChipCategoria("Inicio", "/", "inicio"),
+        crearChipCategoria("Todos", urlCategoria("Todos"), "cat:Todos"),
+        ...categoriasGlobales
+            .filter(categoria => categoria.nombre !== "Todos")
+            .map(categoria => crearChipCategoria(categoria.nombre, urlCategoria(categoria.nombre), `cat:${categoria.nombre}`)),
+    );
+    marcarCategoriaActiva();
+}
 
-            const todosLosBotones = document.querySelectorAll(".btn-categoria");
-            todosLosBotones.forEach(btn => btn.classList.remove("activo"));
-            boton.classList.add("activo");
-
-            // Celular: el desplegable se cierra y el botón muestra la categoría elegida
-            if (menuLateralUI && btnToggleCategoriasUI) {
-                menuLateralUI.classList.remove("abierto");
-                btnToggleCategoriasUI.setAttribute("aria-expanded", "false");
-                btnToggleCategoriasUI.textContent = `Categorías: ${categoria.nombre} ▾`;
-            }
-
-            // Subimos a la grilla para ver los artículos de la categoría desde el inicio
-            // El título de la sección muestra la categoría elegida
-            tituloCatalogoUI.textContent = categoria.nombre === "Todos" ? "Nuestros Artículos" : categoria.nombre;
-
-            irAlInicioDeLaVista(document.getElementById("vista-catalogo"));
-
-            // 🌟 PASO A: Guardamos la categoría seleccionada
-            categoriaSeleccionadaActual = categoria.nombre;
-            actualizarSeccionPromo(); // la promoción vigente solo se ve con "Todos"
-            // 🌟 PASO B: REINICIAMOS LOS CONTROLES DEL MOTOR DE SCROLL
-            turnoCarga++;              // cualquier carga anterior que siga en camino queda descartada
-            cargandoProductos = false; // y no puede bloquear la carga de esta categoría
-            paginaActual = 1;          // Volvemos al primer lote de 30
-            finDeStock = false;        // Encendemos el motor por si estaba apagado
-            articulosGlobales = [];    // Vaciamos la lista vieja para que no se mezclen los artículos
-            // Regla: nunca reutilizar la presentacion elegida en otra categoria
-            presentacionesDisponibles = [];
-            presentacionSeleccionadaActual = null;
-
-            // Aviso inmediato: sin esto las tarjetas de la categoría anterior se quedaban a la vista
-            // mientras el servidor respondía (1 a 3 segundos).
-            mostrarCargandoCatalogo();
-
-            // 🌟 PASO C: "Todos" no tiene una sola forma de compra -> comportamiento actual sin cambios.
-            // Una categoria especifica primero pregunta que formas de compra existen.
-            if (categoriaSeleccionadaActual === "Todos") {
-                cargarDatosDeLaAPI();
-            } else {
-                cargarPresentacionesDeLaCategoria(categoriaSeleccionadaActual);
-            }
-            /*
-            if (categoria.nombre === "Todos") {
-                dibujarArticulos(articulosGlobales);
-            } else {
-                const articulosFiltrados = articulosGlobales.filter(articulo => articulo.tipo === categoria.nombre);
-                dibujarArticulos(articulosFiltrados);
-            }*/
-        });
-        
-        listaCategoriasUI.appendChild(li);
+// Resalta el chip de donde está el cliente: Inicio en la portada, o la categoría del catálogo (no en una búsqueda)
+function marcarCategoriaActiva() {
+    let claveActiva = null;
+    if (vistaActual === "INICIO") claveActiva = "inicio";
+    else if (vistaActual === "CATALOGO" && !textoBusqueda) claveActiva = `cat:${categoriaSeleccionadaActual}`;
+    listaCategoriasUI.querySelectorAll(".btn-categoria").forEach(chip => {
+        const activo = chip.dataset.clave === claveActiva;
+        chip.classList.toggle("activo", activo);
+        if (activo) chip.setAttribute("aria-current", "page");
+        else chip.removeAttribute("aria-current");
     });
+}
+
+function actualizarTituloCatalogo() {
+    if (textoBusqueda) tituloCatalogoUI.textContent = `Resultados para «${textoBusqueda}»`;
+    else tituloCatalogoUI.textContent = categoriaSeleccionadaActual === "Todos" ? "Todos los artículos" : categoriaSeleccionadaActual;
+}
+
+// Arranca la lista del catálogo para una categoría (o para un texto buscado). Descarta lo que estuviera cargando.
+function seleccionarCategoria(nombre, buscar = "") {
+    // 🌟 PASO A: Guardamos lo que se pidió. Una búsqueda recorre todo el catálogo (categoría "Todos").
+    categoriaSeleccionadaActual = buscar ? "Todos" : nombre;
+    textoBusqueda = buscar;
+    actualizarTituloCatalogo();
+    marcarCategoriaActiva();
+
+    // 🌟 PASO B: REINICIAMOS LOS CONTROLES DEL MOTOR DE SCROLL
+    turnoCarga++;              // cualquier carga anterior que siga en camino queda descartada
+    cargandoProductos = false; // y no puede bloquear la carga de esta categoría
+    paginaActual = 1;          // Volvemos al primer lote de 30
+    finDeStock = false;        // Encendemos el motor por si estaba apagado
+    articulosGlobales = [];    // Vaciamos la lista vieja para que no se mezclen los artículos
+    // Regla: nunca reutilizar la presentacion elegida en otra categoria
+    presentacionesDisponibles = [];
+    presentacionSeleccionadaActual = null;
+
+    // Aviso inmediato: sin esto las tarjetas de la categoría anterior se quedaban a la vista
+    // mientras el servidor respondía (1 a 3 segundos).
+    mostrarCargandoCatalogo();
+
+    // 🌟 PASO C: "Todos" y las búsquedas no tienen una sola forma de compra: se carga directo.
+    // Una categoria especifica primero pregunta que formas de compra existen.
+    if (buscar || categoriaSeleccionadaActual === "Todos") {
+        cargarDatosDeLaAPI();
+    } else {
+        cargarPresentacionesDeLaCategoria(categoriaSeleccionadaActual);
+    }
 }
 
 // Mensaje cuando la categoría elegida no tiene ningún artículo para mostrar
@@ -359,6 +360,7 @@ async function cargarPresentacionesDeLaCategoria(categoria) {
         if (!resultado.ok) {
             const errorData = resultado.cuerpo || {};
             alert(`Error ${resultado.status}: ${errorData.detail || 'No se pudieron cargar las formas de compra'}`);
+            claveCatalogoCargada = null; // al volver al catálogo se reintenta
             return;
         }
 
@@ -384,7 +386,9 @@ async function cargarPresentacionesDeLaCategoria(categoria) {
 
         dibujarSelectorDePresentaciones(datos);
     } catch (error) {
+        if (categoria !== categoriaSeleccionadaActual) return; // el cliente ya eligió otra categoría
         console.error("Error crítico al conectar con la API de presentaciones:", error);
+        claveCatalogoCargada = null; // al volver al catálogo se reintenta
         contenedorCardsUI.innerHTML = "<p>Error al conectar con el servidor. Intente más tarde.</p>";
     }
 }
@@ -863,45 +867,34 @@ function actualizarBurbujaCabecera() {
 // ESCUCHADORES DE EVENTOS PRINCIPALES
 // ----------------------------------------------------
 
-// Evento para la barra de búsqueda por texto
-txtBuscarUI.addEventListener("input", (evento) => {
-    // Si el cliente estaba en otra vista (combos, promociones, un producto), la búsqueda
-    // vuelve al catálogo para mostrar resultados
-    if (vistaActual !== "CATALOGO") {
-        if (window.location.pathname !== "/") window.history.pushState({}, "", "/");
-        mostrarVista("CATALOGO");
-    }
+// Buscador de la cabecera: el texto va en la URL (/catalogo?buscar=...) y el catálogo lo pide al servidor, que
+// busca sobre TODOS los artículos (antes solo se filtraba lo ya cargado). Escribir desde cualquier página lleva al
+// catálogo; con el texto vacío se vuelve a la lista completa.
+let temporizadorBusqueda = null;
 
-    aplicarBusquedaActual();
-    actualizarSeccionPromo(); // con texto en el buscador, la portada muestra solo los resultados
-});
-
-// Filtra por el texto del buscador y dibuja los resultados. En "Todos" los artículos en promoción no están
-// en la lista (tienen su propia sección), pero una búsqueda tiene que poder encontrarlos. Con el buscador
-// vacío se vuelve a la lista sin promociones.
-function aplicarBusquedaActual() {
-    const textoUsuario = txtBuscarUI.value.toLowerCase();
-
-    let universo = articulosGlobales;
-    if (categoriaSeleccionadaActual === "Todos" && textoUsuario !== "") {
-        const vistos = new Set(articulosGlobales.map(articulo => articulo.id));
-        const promociones = [...promosPortada, ...promosPagina].filter(articulo => {
-            if (vistos.has(articulo.id)) return false;
-            vistos.add(articulo.id);
-            return true;
-        });
-        universo = [...articulosGlobales, ...promociones];
-    }
-    const articulosFiltrados = universo.filter(articulo => {
-        return articulo.nombre.toLowerCase().includes(textoUsuario);
-    });
-    dibujarArticulos(articulosFiltrados);
+function aplicarBusquedaDeCabecera() {
+    const texto = txtBuscarUI.value.trim();
+    if (texto === "" && vistaActual !== "CATALOGO") return; // sin texto, fuera del catálogo no hay nada que hacer
+    const destino = texto ? `/catalogo?buscar=${encodeURIComponent(texto)}` : "/catalogo";
+    if (destino === window.location.pathname + window.location.search) return;
+    // Mientras se escribe dentro del catálogo se reemplaza la entrada del historial (una por letra sería un
+    // Atrás eterno); al entrar desde otra página se agrega una.
+    if (window.location.pathname === "/catalogo") window.history.replaceState({ desdeTienda: true }, "", destino);
+    else window.history.pushState({ desdeTienda: true }, "", destino);
+    mostrarRutaActual();
 }
 
-// Enter en la búsqueda: cierra el teclado (celular) y sube a los resultados
+txtBuscarUI.addEventListener("input", () => {
+    clearTimeout(temporizadorBusqueda);
+    temporizadorBusqueda = setTimeout(aplicarBusquedaDeCabecera, 350); // sin pedir al servidor en cada letra
+});
+
+// Enter en la búsqueda: busca ya, cierra el teclado (celular) y sube a los resultados
 txtBuscarUI.addEventListener("keydown", (evento) => {
     if (evento.key === "Enter") {
         evento.preventDefault();
+        clearTimeout(temporizadorBusqueda);
+        aplicarBusquedaDeCabecera();
         txtBuscarUI.blur();
         irAlInicioDeLaVista(vistaCatalogoUI);
     }
@@ -1210,12 +1203,13 @@ async function iniciarCarruselBanners() {
 // ----------------------------------------------------
 // VISTAS Y RUTAS
 // Cada "página" de la tienda es una vista de esta misma página (index.html) con su propia URL:
-// "/" (portada), "/promociones", "/combos" y "/producto/{id}-{nombre}". El carrito vive en memoria
-// y no se debe perder al navegar, por eso no son archivos aparte. main.py sirve index.html en todas
-// esas direcciones, así que funcionan al recargar y al compartirlas.
+// "/" (portada), "/catalogo" (catálogo completo; acepta ?categoria= y ?buscar=), "/promociones", "/combos" y
+// "/producto/{id}-{nombre}". El carrito vive en memoria y no se debe perder al navegar, por eso no son archivos
+// aparte. main.py sirve index.html en todas esas direcciones, así que funcionan al recargar y al compartirlas.
 // ----------------------------------------------------
 
 const VISTAS = {
+    INICIO: vistaInicioUI,
     CATALOGO: vistaCatalogoUI,
     PROMOCIONES: vistaPromocionesUI,
     COMBOS: vistaCombosUI,
@@ -1229,27 +1223,38 @@ function mostrarVista(nombre) {
         elemento.style.display = clave === nombre ? "block" : "none";
     });
     vistaActual = nombre;
+    document.body.classList.toggle("en-inicio", nombre === "INICIO");
     document.body.classList.toggle("en-producto", nombre === "PRODUCTO");
     document.body.classList.toggle("en-promociones", nombre === "PROMOCIONES");
     if (nombre !== "PRODUCTO") articuloDetalleActual = null;
     document.title = TITULO_PAGINA_ORIGINAL; // la página del producto y la de promociones lo cambian después
     actualizarSeccionPromo();
+    marcarCategoriaActiva();
 }
 
 // "/producto/1000-botina" -> { vista: "PRODUCTO", id: "1000" }
-function resolverRuta(ruta) {
+// "/catalogo?categoria=SAL" -> { vista: "CATALOGO", categoria: "SAL", buscar: "" }
+function resolverRuta(ruta, busqueda = "") {
     const idProducto = idDesdeRutaProducto(ruta);
     if (idProducto !== null) return { vista: "PRODUCTO", id: idProducto };
     if (ruta === "/promociones") return { vista: "PROMOCIONES" };
     if (ruta === "/combos") return { vista: "COMBOS" };
-    return { vista: "CATALOGO" };
+    if (ruta === "/catalogo") {
+        const parametros = new URLSearchParams(busqueda);
+        return {
+            vista: "CATALOGO",
+            categoria: (parametros.get("categoria") || "Todos").trim() || "Todos",
+            buscar: (parametros.get("buscar") || "").trim().slice(0, 100),
+        };
+    }
+    return { vista: "INICIO" };
 }
 
 // Muestra la vista que corresponde a la URL actual, sin cambiarla. Se usa al cargar la página y con
 // Atrás/Adelante: el destino es el de la URL, no el de donde se entró (por ejemplo "/" tras elegir
-// una categoría estando en un producto).
-async function mostrarRutaActual() {
-    const destino = resolverRuta(window.location.pathname);
+// una categoría estando en un producto). `forzar` vuelve a pedir la lista aunque sea la misma.
+async function mostrarRutaActual({ forzar = false } = {}) {
+    const destino = resolverRuta(window.location.pathname, window.location.search);
     const veniaDeProducto = vistaActual === "PRODUCTO";
 
     if (destino.vista === "PRODUCTO") {
@@ -1261,8 +1266,10 @@ async function mostrarRutaActual() {
         await mostrarPaginaPromociones({ conservar: veniaDeProducto });
     } else if (destino.vista === "COMBOS") {
         await mostrarPaginaCombos();
+    } else if (destino.vista === "CATALOGO") {
+        await mostrarPaginaCatalogo(destino, { forzar });
     } else {
-        mostrarVista("CATALOGO");
+        mostrarPaginaInicio();
     }
 
     // Al volver de un producto a la misma vista de la que se salió, recupera la posición
@@ -1271,13 +1278,44 @@ async function mostrarRutaActual() {
     }
 }
 
+// Portada: se pide una sola vez; al volver se reutiliza
+function mostrarPaginaInicio() {
+    mostrarVista("INICIO");
+    if (txtBuscarUI.value !== "") txtBuscarUI.value = ""; // en la portada el buscador vuelve a estar vacío
+    if (!portadaCargada) cargarPortada();
+}
+
+// Catálogo: pide la lista de la URL (categoría o búsqueda). Si ya es la que está cargada, no la repite.
+async function mostrarPaginaCatalogo({ categoria, buscar }, { forzar = false } = {}) {
+    mostrarVista("CATALOGO");
+    const turno = turnoVista;
+    await promesaCategorias; // hace falta la lista de categorías para validar el nombre de la URL
+    if (turno !== turnoVista) return;
+
+    let nombre = categoria;
+    if (!buscar && categoriasGlobales.length > 0 && !categoriasGlobales.some(c => c.nombre === nombre)) {
+        // categoría que no existe o que el negocio ocultó: se muestra el catálogo completo
+        nombre = "Todos";
+        window.history.replaceState(window.history.state, "", "/catalogo");
+    }
+    if (txtBuscarUI.value.trim() !== buscar) txtBuscarUI.value = buscar; // el cuadro refleja la URL
+
+    const clave = buscar ? `buscar:${buscar}` : `categoria:${nombre}`;
+    if (!forzar && clave === claveCatalogoCargada) {
+        marcarCategoriaActiva();
+        return;
+    }
+    claveCatalogoCargada = clave;
+    seleccionarCategoria(nombre, buscar);
+}
+
 // Navegación interna (botones y enlaces de la tienda): cambia la URL sin recargar y muestra la vista
-async function irA(ruta) {
+async function irA(ruta, { forzar = false } = {}) {
     const veniaDeProducto = vistaActual === "PRODUCTO";
-    if (window.location.pathname !== ruta) {
+    if (window.location.pathname + window.location.search !== ruta) {
         window.history.pushState({ desdeTienda: true }, "", ruta);
     }
-    await mostrarRutaActual();
+    await mostrarRutaActual({ forzar });
     if (!veniaDeProducto) irAlInicioDeLaVista(VISTAS[vistaActual]);
 }
 
@@ -1341,34 +1379,22 @@ function enlazarCarrusel(pista, btnAnterior, btnSiguiente) {
 // (precio), el original (precio_original) y el porcentaje (descuento_porcentaje).
 // ----------------------------------------------------
 const LIMITE_PROMO_PORTADA = 12;     // tarjetas que dibuja el carrusel de la portada
-const LIMITE_PROMOS_BUSQUEDA = 100;  // las que se traen para que el buscador las encuentre (máximo del servidor)
 const LIMITE_PROMOS_PAGINA = 30;
 const TEXTO_SIN_PROMOS = "Por el momento no hay promociones vigentes. ¡Volvé pronto!";
 
 const actualizarFlechasPromo = enlazarCarrusel(carruselPromoUI, promoAnteriorUI, promoSiguienteUI);
 
-// "Todos" solo excluye las promociones cuando están seguras: cargaron bien y entraron todas en la lista
-// que usa el buscador. Si la carga falló, o hay tantas que se llegó al tope de lo que se trae (100) y alguna
-// quedaría sin poder encontrarse, "Todos" las sigue mostrando (repetidas, pero ninguna se pierde).
-function debeExcluirPromocionesDeTodos() {
-    return promosPortada.length > 0 && promosPortada.length < LIMITE_PROMOS_BUSQUEDA;
-}
-
-// La sección solo se ve en la portada (categoría "Todos", sin búsqueda) y si hay promociones
+// La sección es parte de la portada (se oculta con ella): solo hace falta que haya promociones
 function actualizarSeccionPromo() {
-    const visible =
-        promosPortada.length > 0
-        && vistaActual === "CATALOGO"
-        && categoriaSeleccionadaActual === "Todos"
-        && txtBuscarUI.value.trim() === "";
+    const visible = promosPortada.length > 0;
     seccionPromoUI.hidden = !visible;
-    if (visible) actualizarFlechasPromo();
+    if (visible && vistaActual === "INICIO") actualizarFlechasPromo(); // las flechas se calculan con la sección a la vista
 }
 
 // Se llama al iniciar. Si falla o no hay promociones, la sección queda oculta y la tienda funciona igual.
 async function cargarPromosPortada() {
     try {
-        const respuesta = await fetch(`/api/articulos/promociones?pagina=1&limite=${LIMITE_PROMOS_BUSQUEDA}`);
+        const respuesta = await fetch(`/api/articulos/promociones?pagina=1&limite=${LIMITE_PROMO_PORTADA}`);
         if (!respuesta.ok) throw new Error(`Error ${respuesta.status} al cargar las promociones`);
         promosPortada = await respuesta.json();
     } catch (error) {
@@ -1377,13 +1403,9 @@ async function cargarPromosPortada() {
     }
     mostrarEnlacePie("pie-item-promos", promosPortada.length > 0);
     if (promosPortada.length > 0) {
-        dibujarArticulos(promosPortada.slice(0, LIMITE_PROMO_PORTADA), carruselPromoUI);
+        dibujarArticulos(promosPortada, carruselPromoUI);
     }
     actualizarSeccionPromo();
-    // Si el cliente ya estaba buscando cuando llegaron las promociones, se vuelve a buscar con ellas
-    if (txtBuscarUI.value.trim() !== "" && vistaActual === "CATALOGO") {
-        aplicarBusquedaActual();
-    }
 }
 
 enlaceVerPromocionUI.addEventListener("click", evento => {
@@ -1481,7 +1503,7 @@ async function mostrarPaginaCombos() {
     if (combosGlobales.length === 0) {
         // No hay combos publicados: no hay nada que mostrar, se vuelve a la portada
         window.history.replaceState({}, "", "/");
-        mostrarVista("CATALOGO");
+        mostrarPaginaInicio();
         return;
     }
     dibujarArticulos(combosGlobales, contenedorCardsCombosUI);
@@ -1708,6 +1730,88 @@ function dibujarDetalleProducto(articulo) {
 }
 
 // ----------------------------------------------------
+// PORTADA: una sección por categoría (GET /api/articulos/portada), cada una con su botón VER TODOS
+// ----------------------------------------------------
+const ARTICULOS_POR_CATEGORIA_EN_PORTADA = 8;
+
+function mostrarEstadoPortada(texto, conReintento = false) {
+    const caja = document.createElement("div");
+    caja.className = "portada-estado";
+    caja.setAttribute("role", "status");
+    if (!conReintento) {
+        const rueda = document.createElement("span");
+        rueda.className = "rueda-cargando";
+        rueda.setAttribute("aria-hidden", "true");
+        caja.append(rueda, " ");
+    }
+    caja.append(texto);
+    if (conReintento) {
+        caja.append(document.createElement("br"));
+        const boton = document.createElement("button");
+        boton.type = "button";
+        boton.className = "btn-comprar";
+        boton.textContent = "Reintentar";
+        boton.addEventListener("click", cargarPortada);
+        caja.append(boton);
+    }
+    seccionesCategoriasUI.replaceChildren(caja);
+}
+
+function dibujarPortada(secciones) {
+    if (secciones.length === 0) {
+        mostrarEstadoPortada("Por el momento no hay artículos publicados. ¡Volvé pronto!");
+        return;
+    }
+    const nodos = secciones.map((seccion, indice) => {
+        const contenedor = document.createElement("section");
+        contenedor.className = "seccion-categoria";
+        contenedor.setAttribute("aria-labelledby", `titulo-seccion-${indice}`);
+
+        const cabecera = document.createElement("div");
+        cabecera.className = "seccion-carrusel-cabecera";
+        const titulo = document.createElement("h2");
+        titulo.className = "titulo-seccion";
+        titulo.id = `titulo-seccion-${indice}`;
+        titulo.textContent = seccion.categoria;
+        const acciones = document.createElement("div");
+        acciones.className = "seccion-carrusel-acciones";
+        const verTodos = document.createElement("a");
+        verTodos.className = "btn-ver-seccion";
+        verTodos.href = urlCategoria(seccion.categoria);
+        verTodos.dataset.rutaInterna = "";
+        verTodos.textContent = "VER TODOS";
+        verTodos.setAttribute("aria-label", `Ver todos los artículos de ${seccion.categoria}`);
+        acciones.append(verTodos);
+        cabecera.append(titulo, acciones);
+
+        const grilla = document.createElement("div");
+        grilla.className = "cuadricula-productos";
+        dibujarArticulos(seccion.articulos, grilla);
+
+        contenedor.append(cabecera, grilla);
+        return contenedor;
+    });
+    seccionesCategoriasUI.replaceChildren(...nodos);
+}
+
+async function cargarPortada() {
+    if (cargandoPortada) return;
+    cargandoPortada = true;
+    mostrarEstadoPortada("Cargando artículos...");
+    try {
+        const respuesta = await fetch(`/api/articulos/portada?por_categoria=${ARTICULOS_POR_CATEGORIA_EN_PORTADA}`);
+        if (!respuesta.ok) throw new Error(`Error ${respuesta.status} al cargar la portada`);
+        dibujarPortada(await respuesta.json());
+        portadaCargada = true;
+    } catch (error) {
+        console.error("No se pudo cargar la portada:", error);
+        mostrarEstadoPortada("No pudimos cargar los artículos. Revisá tu conexión.", true);
+    } finally {
+        cargandoPortada = false;
+    }
+}
+
+// ----------------------------------------------------
 // CABECERA FIJA Y PIE DE PÁGINA
 // ----------------------------------------------------
 // La cabecera queda fija arriba (CSS). Se publica su alto real en --alto-cabecera: lo usan el menú lateral
@@ -1734,18 +1838,38 @@ function mostrarEnlacePie(idItem, visible) {
     document.getElementById(idItem).hidden = !visible;
 }
 
-// Los enlaces internos del pie navegan sin recargar la página, así no se pierde el carrito
-document.getElementById("pie-pagina").addEventListener("click", (evento) => {
+// Categorías en "Nuestra tienda" del pie (cuando llegan de la API)
+function llenarCategoriasDelPie() {
+    const lista = document.getElementById("pie-lista-tienda");
+    lista.querySelectorAll("li[data-categoria]").forEach(li => li.remove());
+    categoriasGlobales.filter(categoria => categoria.nombre !== "Todos").forEach(categoria => {
+        const li = document.createElement("li");
+        li.dataset.categoria = "";
+        const enlace = document.createElement("a");
+        enlace.href = urlCategoria(categoria.nombre);
+        enlace.dataset.rutaInterna = "";
+        enlace.textContent = categoria.nombre;
+        li.appendChild(enlace);
+        lista.appendChild(li);
+    });
+}
+
+// NAVEGACIÓN INTERNA: todo enlace con data-ruta-interna (logo, barra de categorías, VER TODOS, pie) navega sin
+// recargar la página, así no se pierde el carrito. Con Ctrl/Cmd/Mayús o botón del medio, el navegador lo abre
+// en otra pestaña como cualquier enlace. Volver a elegir lo que ya se está mirando recarga la lista (por ejemplo,
+// para volver al selector de formas de compra de una categoría).
+document.addEventListener("click", (evento) => {
     const enlace = evento.target.closest("a[data-ruta-interna]");
     if (!enlace || !esClicNormal(evento)) return;
     evento.preventDefault();
-    irA(enlace.getAttribute("href"));
+    const ruta = enlace.getAttribute("href");
+    irA(ruta, { forzar: ruta === window.location.pathname + window.location.search });
 });
 
 // ----------------------------------------------------
 // ARRANQUE: se leen los datos y se muestra la vista de la URL actual (recarga o enlace compartido)
 // ----------------------------------------------------
-const promesaPromosPortada = cargarPromosPortada();
-cargarDatosDeLaAPI(); // el catálogo de "Todos" espera a promesaPromosPortada para saber si excluye las promociones
+cargarPromosPortada();
+const promesaCategorias = cargarCategorias(); // la usa el catálogo para validar ?categoria= de la URL
 const promesaCombosInicial = cargarCombosDeLaAPI();
-mostrarRutaActual();
+mostrarRutaActual(); // portada, catálogo, promociones, combos o producto, según la URL
