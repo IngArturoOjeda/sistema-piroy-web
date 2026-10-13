@@ -25,17 +25,24 @@
   <main class="admin-contenido">
     <aside class="admin-resultados">
       <div class="buscador-lateral">
+        <label class="filtro-tipo" for="filtro-tipo">
+          <span>Tipo de artículo</span>
+          <select id="filtro-tipo">
+            <option value="">Todos</option>
+          </select>
+        </label>
         <div class="caja-buscar-wrapper">
           <input type="text" id="txt-buscar-admin" placeholder="Buscar por código o nombre...">
           <span class="icono-lupa">🔍</span>
         </div>
+        <p id="estado-lista" class="estado-lista" role="status"></p>
       </div>
 
       <ul id="lista-resultados" class="lista-resultados-scroll"></ul>
     </aside>
 
     <section class="admin-detalle" id="panel-detalle">
-      <p class="admin-detalle-vacio">Buscá un artículo para ver su imagen.</p>
+      <p class="admin-detalle-vacio">Elegí un artículo de la lista para ver su imagen.</p>
     </section>
   </main>
 

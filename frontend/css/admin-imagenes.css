@@ -1023,3 +1023,45 @@ body {
 .usuario-inactivo .etiqueta-estado {
     opacity: 1;
 }
+
+/* ---------- Filtro por tipo y lista del panel de imágenes ---------- */
+
+.filtro-tipo {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.filtro-tipo select {
+    padding: 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background-color: white;
+    font-size: 1rem;
+    font-weight: normal;
+    color: #333;
+}
+
+.estado-lista {
+    margin-top: 8px;
+    font-size: 0.82rem;
+    color: #64748b;
+    min-height: 1.1em;
+}
+
+.estado-lista.estado-lista-error {
+    color: #dc2626;
+}
+
+.resultado-ver-mas {
+    list-style: none;
+    padding: 10px 0 4px;
+}
+
+.resultado-ver-mas .btn-secundario {
+    width: 100%;
+}

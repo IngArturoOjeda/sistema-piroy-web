@@ -1,7 +1,7 @@
 import os
 import uuid
 from io import BytesIO
-from typing import Optional
+from typing import Annotated, Optional
 
 import cloudinary
 import cloudinary.uploader
@@ -10,7 +10,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from backend.app.database_postgres import obtener_conexion_postgres
 from backend.app.routers.admin_auth import verificar_admin
-from backend.app.sql_catalogo import SQL_TIPO_COMPONENTE_LATERAL, SQL_TIPO_CON_ARTICULOS
+from backend.app.sql_catalogo import SQL_TIPO_COMPONENTE_LATERAL, SQL_TIPO_CON_ARTICULOS, SQL_TIPO_EFECTIVO
 from backend.app.schemas import BannerActualizar, BannersReordenar, DescripcionEntrada, MostrarWebEntrada
 
 router = APIRouter(prefix="/admin", tags=["Administracion"])
@@ -67,31 +67,50 @@ def configurar_cloudinary():
 
 @router.get("/articulos", dependencies=[Depends(verificar_admin)])
 def buscar_articulos_admin(
-    buscar: str = Query(..., min_length=1, description="Texto o codigo a buscar")
+    buscar: Annotated[str, Query(max_length=100, description="Texto o codigo a buscar (opcional)")] = "",
+    tipo: Annotated[Optional[int], Query(gt=0, lt=2**31, description="Codigo del tipo de articulo (opcional)")] = None,
+    pagina: Annotated[int, Query(ge=1, le=100000, description="Numero de pagina (empieza en 1)")] = 1,
+    limite: Annotated[int, Query(ge=1, le=100, description="Articulos por pagina")] = 30,
 ):
+    """Lista los articulos del panel (publicados o no), de a `limite`, ordenados por codigo.
+
+    Sin `buscar` ni `tipo` lista todos. `tipo` filtra por el tipo EFECTIVO (el de la tienda: un kit por
+    presentacion cuenta en el tipo de su componente, no en "KIT"); `buscar` filtra por nombre o codigo dentro
+    de lo elegido.
+    """
     conn = None
     cursor = None
     try:
         conn = obtener_conexion_postgres()
         cursor = conn.cursor()
 
-        buscar_limpio = buscar.strip()
-        parametros = [f"%{buscar_limpio}%"]
+        condiciones = []
+        parametros = []
 
-        filtro_codigo = ""
-        if buscar_limpio.isdigit():
-            filtro_codigo = "OR a.art_cod = %s"
-            parametros.append(int(buscar_limpio))
+        if tipo is not None:
+            condiciones.append("AND t.tipoart_cod = %s")
+            parametros.append(tipo)
+
+        buscar_limpio = buscar.strip()
+        if buscar_limpio:
+            if buscar_limpio.isdigit() and len(buscar_limpio) <= 18:   # cabe en un bigint
+                condiciones.append("AND (a.art_nombre ILIKE %s OR a.art_cod = %s)")
+                parametros.extend([f"%{buscar_limpio}%", int(buscar_limpio)])
+            else:
+                condiciones.append("AND a.art_nombre ILIKE %s")
+                parametros.append(f"%{buscar_limpio}%")
+
+        parametros.extend([limite, (pagina - 1) * limite])
 
         sql = f"""
             SELECT a.art_cod, a.art_nombre, a.art_preciobase, t.tipoart_desc,
                    a.art_foto, a.art_estado, a.llevar_web, a.mostrar_web, a.descripcion
             FROM articulos a
-            INNER JOIN tipo_articulo t ON a.tipoart_cod = t.tipoart_cod
-            WHERE a.art_nombre ILIKE %s
-              {filtro_codigo}
+            {SQL_TIPO_EFECTIVO}
+            WHERE TRUE
+              {" ".join(condiciones)}
             ORDER BY a.art_cod
-            LIMIT 20
+            LIMIT %s OFFSET %s
         """
         cursor.execute(sql, parametros)
         filas = cursor.fetchall()
@@ -182,7 +201,11 @@ def listar_tipos_admin():
                       AND a.llevar_web = TRUE
                       AND a.mostrar_web = TRUE
                       AND a.tipo_kit IS DISTINCT FROM 'COMBO') AS publicados,
-                   {SQL_TIPO_CON_ARTICULOS} AS con_articulos
+                   {SQL_TIPO_CON_ARTICULOS} AS con_articulos,
+                   (SELECT count(*)
+                    FROM articulos a
+                    {SQL_TIPO_COMPONENTE_LATERAL}
+                    WHERE COALESCE(tipo_comp.tipoart_cod, a.tipoart_cod) = t.tipoart_cod) AS total
             FROM tipo_articulo t
             ORDER BY t.tipoart_desc
             """
@@ -193,6 +216,8 @@ def listar_tipos_admin():
                 "tipoart_desc": f[1],
                 "mostrar_web": f[2],
                 "articulos_publicados": f[3],
+                # todos los articulos del tipo (publicados o no): lo usa el filtro del panel de imagenes
+                "articulos_total": f[5],
                 # aparece en el menu de la tienda: no oculto y con algo para mostrar
                 "en_menu": bool(f[2] and f[4]),
             }

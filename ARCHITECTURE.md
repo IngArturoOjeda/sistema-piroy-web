@@ -520,6 +520,22 @@ Debe administrar datos propios del ecommerce, por ejemplo:
 
 No debe reemplazar VFP ni administrar directamente SQL Server.
 
+### Panel de imágenes: lista de artículos con filtro por tipo
+
+`frontend/admin-imagenes.html` + `js/admin-imagenes.js` listan los artículos (publicados o no) y permiten elegir
+uno para ver/cambiar su imagen, su descripción y si se muestra en la web. La lista usa
+`GET /api/admin/articulos` con parámetros opcionales: `tipo` (código del tipo), `buscar` (texto o código, dentro
+de lo elegido), `pagina` (desde 1) y `limite` (1 a 100, por defecto 30). Sin `tipo` ni `buscar` lista **todos**,
+ordenados por código. La respuesta es una lista de artículos; la pantalla pide de a 30 y muestra "Ver más"
+mientras la última página venga completa.
+
+- El filtro "Tipo de artículo" ofrece "Todos" más los tipos que tienen artículos, con su cantidad
+  (`articulos_total` de `GET /api/admin/tipos`, que cuenta todos los artículos del tipo, publicados o no).
+- El tipo es el **tipo efectivo** (ver "Tipo efectivo de un artículo"): los kits por presentación se listan en el
+  tipo de su componente, igual que en la tienda, y el detalle muestra esa misma categoría.
+- Cambiar el tipo o el texto vuelve a la primera página; una respuesta que llega tarde (se cambió el filtro
+  mientras viajaba) se descarta. Los datos del servidor se escriben en la lista con `textContent`.
+
 ### Acceso al panel (usuario y contraseña)
 
 Todas las rutas `/api/admin/...` exigen una sesión iniciada (dependencia `verificar_admin`, en `backend/app/routers/admin_auth.py`). La antigua clave única `X-Admin-Key` / `ADMIN_API_KEY` **ya no se usa**: la variable puede borrarse del panel de Render.

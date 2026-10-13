@@ -232,7 +232,7 @@ Ya realizado (`backend/app/routers/admin.py`, protegido con usuario y contraseñ
 - gestión de usuarios desde el panel (`admin-usuarios.html`): roles administrador / común, crear,
   activar y desactivar, dar o quitar el rol, restablecer contraseñas, cambiar la propia
   contraseña y "ojito" para ver lo que se escribe;
-- listar/buscar artículos;
+- listar/buscar artículos, con filtro por tipo y "Ver más" (panel de imágenes);
 - togglear `mostrar_web` por artículo (`PATCH /api/admin/articulos/{art_cod}/mostrar-web`);
 - subir imagen de un artículo a Cloudinary (`POST /api/admin/articulos/{art_cod}/imagen`);
 - backend de banners del carrusel (`/api/admin/banners` y `GET /api/banners/`,

@@ -13,62 +13,168 @@ function esVistaMovil() {
     return window.innerWidth <= ANCHURA_MOVIL;
 }
 
-// 4. BÚSQUEDA (con una pequeña espera para no disparar una petición por cada letra)
-txtBuscarAdminUI.addEventListener("input", () => {
-    clearTimeout(temporizadorBusqueda);
-    const texto = txtBuscarAdminUI.value.trim();
-    if (texto.length === 0) {
-        listaResultadosUI.innerHTML = "";
-        return;
-    }
-    temporizadorBusqueda = setTimeout(() => buscarArticulos(texto), 350);
-});
+// 4. LISTA: filtro por tipo + búsqueda por texto + "Ver más" (de a TAMANO_PAGINA artículos)
+const filtroTipoUI = document.getElementById("filtro-tipo");
+const estadoListaUI = document.getElementById("estado-lista");
 
-async function buscarArticulos(texto) {
+const TAMANO_PAGINA = 30;
+let paginaActual = 1;
+let articulosMostrados = 0;
+let turnoLista = 0; // numera las cargas: una respuesta vieja (se cambió el filtro mientras viajaba) se descarta
+
+function mostrarEstadoLista(texto, esError = false) {
+    estadoListaUI.textContent = texto;
+    estadoListaUI.classList.toggle("estado-lista-error", esError);
+}
+
+// Si falló la carga de la página siguiente, el botón "Ver más" vuelve a estar disponible para reintentar
+function reactivarVerMas() {
+    const boton = listaResultadosUI.querySelector(".resultado-ver-mas button");
+    if (boton) boton.disabled = false;
+}
+
+// Rellena el filtro con los tipos que tienen artículos (los vacíos no sirven para filtrar)
+async function cargarTipos() {
     try {
-        const respuesta = await fetchAdmin(`/api/admin/articulos?buscar=${encodeURIComponent(texto)}`);
-        if (!respuesta.ok) {
-            const error = await respuesta.json().catch(() => ({}));
-            alert(`Error ${respuesta.status}: ${error.detail || "No se pudo buscar"}`);
-            return;
+        const respuesta = await fetchAdmin("/api/admin/tipos");
+        if (!respuesta.ok) return; // sin tipos el filtro queda en "Todos": la lista sigue funcionando
+        const tipos = (await respuesta.json()).filter(t => t.articulos_total > 0);
+        const total = tipos.reduce((suma, t) => suma + t.articulos_total, 0);
+        filtroTipoUI.options[0].textContent = `Todos (${total})`;
+        for (const tipo of tipos) {
+            const opcion = document.createElement("option");
+            opcion.value = String(tipo.tipoart_cod);
+            opcion.textContent = `${tipo.tipoart_desc} (${tipo.articulos_total})`;
+            filtroTipoUI.append(opcion);
         }
-        const articulos = await respuesta.json();
-        dibujarResultados(articulos);
     } catch (error) {
-        alert(error.message);
+        // el filtro queda en "Todos"
     }
 }
 
-function dibujarResultados(articulos) {
-    listaResultadosUI.innerHTML = "";
+// reiniciar = true: vuelve a la primera página (cambió el filtro o el texto); false: agrega la siguiente
+async function cargarLista(reiniciar) {
+    const turno = ++turnoLista;
+    if (reiniciar) {
+        paginaActual = 1;
+        articulosMostrados = 0;
+        listaResultadosUI.replaceChildren();
+        mostrarEstadoLista("Cargando...");
+    } else {
+        paginaActual++;
+    }
 
-    if (articulos.length === 0) {
-        listaResultadosUI.innerHTML = "<li class='admin-detalle-vacio'>Sin coincidencias.</li>";
+    const parametros = new URLSearchParams({ pagina: String(paginaActual), limite: String(TAMANO_PAGINA) });
+    if (filtroTipoUI.value) parametros.set("tipo", filtroTipoUI.value);
+    const texto = txtBuscarAdminUI.value.trim();
+    if (texto) parametros.set("buscar", texto);
+
+    try {
+        const respuesta = await fetchAdmin(`/api/admin/articulos?${parametros}`);
+        if (turno !== turnoLista) return;
+        if (!respuesta.ok) {
+            const error = await respuesta.json().catch(() => ({}));
+            if (!reiniciar) {
+                paginaActual--;
+                reactivarVerMas();
+            }
+            mostrarEstadoLista(`No se pudo cargar la lista: ${error.detail || respuesta.status}`, true);
+            return;
+        }
+        const articulos = await respuesta.json();
+        if (turno !== turnoLista) return;
+        dibujarResultados(articulos, reiniciar);
+    } catch (error) {
+        if (turno !== turnoLista) return;
+        if (!reiniciar) {
+            paginaActual--;
+            reactivarVerMas();
+        }
+        mostrarEstadoLista(error.message, true);
+    }
+}
+
+// El texto se espera un instante para no pedir en cada letra; el tipo se aplica al instante
+txtBuscarAdminUI.addEventListener("input", () => {
+    clearTimeout(temporizadorBusqueda);
+    temporizadorBusqueda = setTimeout(() => cargarLista(true), 350);
+});
+filtroTipoUI.addEventListener("change", () => {
+    clearTimeout(temporizadorBusqueda);
+    cargarLista(true);
+});
+
+// Todo lo que viene del servidor se escribe con textContent / propiedades del DOM, nunca con innerHTML
+function crearItemResultado(articulo) {
+    const li = document.createElement("li");
+    li.className = "resultado-item";
+    li.dataset.artCod = articulo.art_cod;
+    const publicado = articulo.art_estado === "S" && articulo.llevar_web && articulo.mostrar_web;
+
+    const imagen = document.createElement("img");
+    imagen.className = "resultado-miniatura";
+    imagen.src = articulo.art_foto || "/frontend/assets/images/sin-imagen.svg";
+    imagen.alt = articulo.art_nombre;
+
+    const textos = document.createElement("div");
+    textos.className = "resultado-textos";
+    const codigo = document.createElement("div");
+    codigo.className = "resultado-codigo";
+    codigo.textContent = `Art. ${articulo.art_cod}`;
+    const nombre = document.createElement("div");
+    nombre.className = "resultado-nombre";
+    nombre.textContent = articulo.art_nombre;
+    const precio = document.createElement("div");
+    precio.className = "resultado-precio";
+    precio.textContent = `PYG ${articulo.art_preciobase.toLocaleString("es-ES")}`;
+    const estado = document.createElement("span");
+    estado.className = `resultado-estado ${publicado ? "estado-publicado" : "estado-no-publicado"}`;
+    estado.textContent = publicado ? "Publicado" : "No publicado";
+    textos.append(codigo, nombre, precio, estado);
+
+    li.append(imagen, textos);
+    li.addEventListener("click", () => seleccionarArticulo(articulo, li));
+    return li;
+}
+
+function dibujarResultados(articulos, reiniciar) {
+    listaResultadosUI.querySelector(".resultado-ver-mas")?.remove();
+
+    articulosMostrados += articulos.length;
+    articulos.forEach(articulo => {
+        const li = crearItemResultado(articulo);
+        if (articuloSeleccionado && articuloSeleccionado.art_cod === articulo.art_cod) {
+            li.classList.add("seleccionado"); // se conserva la selección si el artículo sigue en la lista
+        }
+        listaResultadosUI.appendChild(li);
+    });
+
+    if (articulosMostrados === 0) {
+        const vacio = document.createElement("li");
+        vacio.className = "admin-detalle-vacio";
+        vacio.textContent = "Sin coincidencias.";
+        listaResultadosUI.appendChild(vacio);
+        mostrarEstadoLista("Sin coincidencias.");
         return;
     }
 
-    articulos.forEach(articulo => {
+    // una página completa: puede haber más
+    const hayMas = articulos.length === TAMANO_PAGINA;
+    if (hayMas) {
         const li = document.createElement("li");
-        li.className = "resultado-item";
-        li.dataset.artCod = articulo.art_cod;
-        const publicado = articulo.art_estado === "S" && articulo.llevar_web && articulo.mostrar_web;
-        const imagenMiniatura = articulo.art_foto || "/frontend/assets/images/sin-imagen.svg";
-
-        li.innerHTML = `
-            <img class="resultado-miniatura" src="${imagenMiniatura}" alt="${articulo.art_nombre}">
-            <div class="resultado-textos">
-                <div class="resultado-codigo">Art. ${articulo.art_cod}</div>
-                <div class="resultado-nombre">${articulo.art_nombre}</div>
-                <div class="resultado-precio">PYG ${articulo.art_preciobase.toLocaleString("es-ES")}</div>
-                <span class="resultado-estado ${publicado ? "estado-publicado" : "estado-no-publicado"}">
-                    ${publicado ? "Publicado" : "No publicado"}
-                </span>
-            </div>
-        `;
-
-        li.addEventListener("click", () => seleccionarArticulo(articulo, li));
+        li.className = "resultado-ver-mas";
+        const boton = document.createElement("button");
+        boton.type = "button";
+        boton.className = "btn-secundario";
+        boton.textContent = "Ver más";
+        boton.addEventListener("click", () => {
+            boton.disabled = true;
+            cargarLista(false);
+        });
+        li.appendChild(boton);
         listaResultadosUI.appendChild(li);
-    });
+    }
+    mostrarEstadoLista(`Mostrando ${articulosMostrados} artículo${articulosMostrados === 1 ? "" : "s"}${hayMas ? " (hay más)" : ""}`);
 }
 
 function actualizarBadgeListaResultado(articulo) {
@@ -318,3 +424,11 @@ async function alternarMostrarWeb(evento) {
         checkbox.disabled = false;
     }
 }
+
+// 8. ARRANQUE: con la sesión confirmada, se cargan los tipos del filtro y la primera página de artículos
+promesaSesionAdmin.then((sesion) => {
+    if (sesion) {
+        cargarTipos();
+        cargarLista(true);
+    }
+});
