@@ -274,10 +274,9 @@ y el sincronizador no usan el pool: abren su propia conexión.
 
 `GET /api/categorias/` consulta PostgreSQL y devuelve el menú de la tienda: solo los tipos que
 el administrador no ocultó (`tipo_articulo.mostrar_web = TRUE`) **y** que tienen algo para mostrar
-(`SQL_TIPO_CON_ARTICULOS`, en `categories.py`: artículos normales publicados del tipo, o kits
-PRESENTACION publicados con componentes de ese tipo; los COMBO no cuentan porque tienen su propia
-vista). Es lo mismo que decide `/api/articulos/presentaciones`, así que un tipo del menú nunca abre una
-página vacía. Ordenados por `tipoart_cod`. Devuelve una lista de
+(`SQL_TIPO_CON_ARTICULOS`, en `backend/app/sql_catalogo.py`: artículos publicados cuyo **tipo efectivo**
+es ese tipo, incluidos los kits por presentación; los COMBO no cuentan porque tienen su propia vista). Es
+lo mismo que decide `/api/articulos/presentaciones`, así que un tipo del menú nunca abre una página vacía. Ordenados por `tipoart_cod`. Devuelve una lista de
 `{"id": tipoart_cod, "nombre": tipoart_desc}`; si no hay ningún tipo visible responde una lista vacía
 (antes devolvía los 42 tipos, casi todos vacíos).
 
@@ -285,9 +284,8 @@ página vacía. Ordenados por `tipoart_cod`. Devuelve una lista de
 
 `GET /api/articulos/` consulta PostgreSQL (`articulos`, `tipo_articulo`,
 `stock`, `unidad_medida`, más la subconsulta de stock de kits). Parámetros:
-`pagina`, `limite`, `categoria` (o `"Todos"`), `unidad` (opcional, solo con
-`presentacion` NORMAL o ninguna), `presentacion` (`NORMAL` | `KIT`,
-opcional) y `sin_promocion` (booleano, por defecto `false`: con `true` excluye los artículos con promoción
+`pagina`, `limite`, `categoria` (o `"Todos"`), `unidad` (opcional: filtra por unidad de venta),
+`presentacion` (`NORMAL` | `KIT`; se conserva por compatibilidad y **ya no filtra**) y `sin_promocion` (booleano, por defecto `false`: con `true` excluye los artículos con promoción
 vigente; la portada "Todos" lo usa porque ya los muestra en su sección "Promoción vigente"; las categorías
 específicas no lo usan y los muestran con su precio rebajado). Siempre excluye `tipo_kit='COMBO'`, en todos los modos (ver
 "Modelo de artículos compuestos" más abajo). Devuelve, por artículo:
@@ -298,7 +296,7 @@ nombre
 precio                (precio EFECTIVO: el promocional si hay promo vigente, si no el de lista)
 precio_original       (precio de lista, solo con promo vigente; si no, null)
 descuento_porcentaje  (entero, solo con promo vigente y descuento >= 1 %; si no, null)
-tipo                  (nombre de la categoría)
+tipo                  (nombre de la categoría: el tipo EFECTIVO, ver "Tipo efectivo de un artículo")
 imagen
 stock_disponible
 unidad_venta
@@ -459,8 +457,9 @@ pisar esta columna**. El administrador la cambia desde `frontend/admin-tipos.htm
 
 Un tipo oculto lo oculta todo: ni el tipo ni sus artículos aparecen en el menú, el listado, las
 promociones, los combos, la página del producto ni las formas de compra (`AND t.mostrar_web = TRUE` en
-cada consulta pública), y `confirmar_pedido` rechaza sus artículos como no disponibles. Los kits por
-presentación exigen además que el tipo del kit y el tipo del componente estén visibles.
+cada consulta pública, sobre el tipo efectivo: los kits por presentación se ocultan con el tipo de su
+componente, no con `KIT`), y `confirmar_pedido` rechaza sus artículos como no disponibles. Los `COMBO` no se
+ocultan con un tipo (`SQL_TIPO_VISIBLE`). Ocultar el tipo `KIT` no afecta a ningún kit por presentación.
 ## Tablas mínimas conceptuales en PostgreSQL
 
 La web necesitará al menos estructuras equivalentes a:
@@ -617,7 +616,7 @@ BALA CALIBRE 22 POR UNIDAD
 tipo_articulo = PROYECTILES, art_kit = false, tipo_kit = NULL, unidad_venta = UNIDAD
 ```
 
-PRESENTACION — representa una forma de venta cerrada de un único producto base; pertenece funcionalmente a la categoría de su componente, aunque su propio `tipo_articulo` siga siendo `KIT`:
+PRESENTACION — representa una forma de venta cerrada de un único producto base; pertenece a la categoría de su componente (su **tipo efectivo**, ver abajo), aunque su propio `tipo_articulo` en el sistema local siga siendo `KIT`:
 
 ```text
 BOVIMAX X25KG
@@ -637,10 +636,31 @@ tipo_articulo = KIT, art_kit = true, tipo_kit = COMBO
 componentes de categorías distintas (ej. PROYECTILES, INFLABLES, ...)
 ```
 
+### Tipo efectivo de un artículo
+
+El tipo `KIT` es solo un rótulo del sistema local (VFP): la forma de decirle al sistema que un producto debe
+descontar el stock de otro artículo. **No es una categoría de la tienda.** Por eso, en la web:
+
+- un kit `PRESENTACION` pertenece al tipo del artículo del que descuenta su stock (su único componente; hoy
+  los 48 kits publicados tienen un solo componente): `PRONTO DOG X25KG` aparece en BALANCEADOS;
+- el resto de los artículos usa su propio tipo;
+- los `COMBO` no pertenecen a ningún tipo de la tienda (se muestran en su sección "Combos") y no dependen de
+  que un tipo esté oculto.
+
+Se calcula en SQL (`backend/app/sql_catalogo.py`: `SQL_TIPO_EFECTIVO`, `COALESCE(tipo del componente, tipo
+propio)`) y lo usan el catálogo, las promociones, el detalle del producto, las formas de compra, el menú, el
+panel de tipos y la validación de `confirmar_pedido`. Si algún día un kit `PRESENTACION` tuviera varios
+componentes de tipos distintos, se tomaría el del componente de menor `art_cod`; si no tuviera componentes,
+se usaría su propio tipo. Un artículo **normal** cargado con tipo `KIT` (hoy `HONDITA`) sí se trata como tipo
+`KIT`: conviene corregir su tipo en el sistema local; mientras `KIT` esté oculto en el panel, ese artículo no se ve.
+
 ### Comportamiento del catálogo
 
-- Si una categoría tiene artículos normales (una sola unidad) **y** presentaciones (`tipo_kit = PRESENTACION`) relacionadas: mostrar selector, ej. `[Por KG] [Presentaciones]`.
-- Si una categoría solo tiene artículos normales con una única unidad: no mostrar selector, cargar directo (ej. MERCERIAS / UNIDAD).
+- Las formas de compra de una categoría (`GET /api/articulos/presentaciones`) son las **unidades de venta**
+  distintas de sus artículos publicados, kits por presentación incluidos: `[Por BOLSA] [Por CAJA] [Por KG]`,
+  según la unidad que tenga cada artículo (los kits cuentan con su propia unidad). Ya no existe una forma de
+  compra aparte "Por presentación".
+- Con una sola unidad no se muestra el selector y se carga directo (ej. MERCERIAS / UNIDAD).
 - Los kits `tipo_kit = COMBO` **no participan** del selector por categoría. Se muestran en una sección propia de la web (ej. "Combos"), separada del catálogo por categoría.
 
 ### Limpieza de datos (responsabilidad del usuario, en SQL Server)

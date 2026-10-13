@@ -32,12 +32,13 @@ class FakeCursor:
         elif "INSERT INTO pedido_detalle " in q:
             self.detalle += 1
             self._resultado = None
+        elif "unidad_medida" in q:
+            # metadatos de los articulos (se reconoce primero: su tipo efectivo ya consulta articulos_kit)
+            self._resultado = [f + (None,) * (7 - len(f)) for f in self.escenario["articulos"]]
         elif "FROM articulos_kit" in q:
             self._resultado = []
         elif "LEFT JOIN stock s" in q and "FROM articulos a" in q:
             self._resultado = self.escenario.get("stock_fisico", [])
-        elif "unidad_medida" in q:
-            self._resultado = [f + (None,) * (7 - len(f)) for f in self.escenario["articulos"]]
         else:
             raise AssertionError(q[:80])
 

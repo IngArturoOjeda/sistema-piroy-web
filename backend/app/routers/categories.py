@@ -1,42 +1,12 @@
 from fastapi import APIRouter, HTTPException, status
 from backend.app.database_postgres import obtener_conexion_postgres
+from backend.app.sql_catalogo import SQL_TIPO_CON_ARTICULOS
 
 # Creamos el router para agrupar las rutas de categorías
 router = APIRouter(prefix="/categorias", tags=["Categorias"])
 
-# Un tipo tiene artículos que mostrar cuando su página de categoría no quedaría vacía: o tiene
-# artículos normales publicados, o hay kits PRESENTACION publicados con componentes de ese tipo
-# (es lo mismo que decide /api/articulos/presentaciones). Los COMBO no cuentan: tienen su propia vista.
-# Se usa también en el panel de administración para avisar qué tipos no aparecen en el menú.
-SQL_TIPO_CON_ARTICULOS = """
-    (
-        EXISTS (
-            SELECT 1
-            FROM articulos a
-            WHERE a.tipoart_cod = t.tipoart_cod
-              AND a.art_estado = 'S'
-              AND a.llevar_web = TRUE
-              AND a.mostrar_web = TRUE
-              AND a.art_kit = FALSE
-        )
-        OR EXISTS (
-            SELECT 1
-            FROM articulos kit
-            JOIN tipo_articulo tkit ON tkit.tipoart_cod = kit.tipoart_cod
-            JOIN articulos_kit ak ON ak.art_codkit = kit.art_cod
-            JOIN articulos comp ON comp.art_cod = ak.art_cod
-            WHERE comp.tipoart_cod = t.tipoart_cod
-              AND kit.art_kit = TRUE
-              AND kit.tipo_kit = 'PRESENTACION'
-              AND kit.art_estado = 'S'
-              AND kit.llevar_web = TRUE
-              AND kit.mostrar_web = TRUE
-              AND tkit.mostrar_web = TRUE
-        )
-    )
-"""
-
-# Menú de la tienda: solo tipos que el administrador no ocultó y que tienen algo para mostrar.
+# Menú de la tienda: solo tipos que el administrador no ocultó y que tienen algo para mostrar
+# (los kits por presentación cuentan en el tipo de su componente: ver sql_catalogo.py).
 SQL_CATEGORIAS_VISIBLES = f"""
     SELECT t.tipoart_cod, t.tipoart_desc
     FROM tipo_articulo t

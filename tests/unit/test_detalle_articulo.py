@@ -95,8 +95,8 @@ def test_solo_consulta_articulos_publicados_y_filtra_por_codigo(base):
     assert "a.art_cod = %s" in sql
     for condicion in ("a.art_estado = 'S'", "a.llevar_web = TRUE", "a.mostrar_web = TRUE"):
         assert condicion in sql
-    # a diferencia del catalogo, acepta COMBO (tiene su propia seccion y detalle)
-    assert "COMBO" not in sql
+    # a diferencia del catalogo, acepta COMBO (tiene su propia seccion y detalle): no los excluye
+    assert "IS DISTINCT FROM 'COMBO'" not in sql
     # el stock de un kit se calcula igual que en el catalogo
     assert "LEFT JOIN LATERAL" in sql and "a.descripcion" in sql
 

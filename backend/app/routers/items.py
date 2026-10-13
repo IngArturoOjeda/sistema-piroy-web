@@ -3,6 +3,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional, Literal
 
 from backend.app.database_postgres import obtener_conexion_postgres
+from backend.app.sql_catalogo import SQL_TIPO_EFECTIVO, SQL_TIPO_VISIBLE
 from fastapi import HTTPException, status, APIRouter, Path as RutaParam, Query
 # Subimos un nivel para buscar en la app global e importar el esquema
 from backend.app.schemas import PedidoEntrada
@@ -143,7 +144,11 @@ def trae_articulos(
     unidad: Optional[str] = Query(None, description="Filtra por unidad de venta exacta (ej: KG, BOLSA, CAJA)"),
     presentacion: Optional[Literal["NORMAL", "KIT"]] = Query(
         None,
-        description="Filtra por forma de compra: NORMAL (articulos propios de la categoria) o KIT (kits relacionados por componente)"
+        description=(
+            "Se conserva por compatibilidad y ya no filtra: las formas de compra de una categoria son sus "
+            "unidades de venta (parametro unidad). Los kits por presentacion son articulos de la categoria "
+            "de su componente."
+        )
     ),
     sin_promocion: bool = Query(
         False,
@@ -156,18 +161,6 @@ def trae_articulos(
     conn = None
     cursor = None
     try:
-        if presentacion == "KIT":
-            if unidad:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="El filtro unidad no se aplica cuando presentacion=KIT"
-                )
-            if categoria == "Todos":
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Debe indicar una categoría específica cuando presentacion=KIT"
-                )
-
         conn = obtener_conexion_postgres()
         cursor = conn.cursor()
 
@@ -175,36 +168,16 @@ def trae_articulos(
 
         filtro_categoria = ""
         filtro_unidad = ""
-        filtro_presentacion = ""
         # "is True": al llamar la funcion directamente (sin FastAPI) el valor por defecto es un objeto Query
         filtro_sin_promocion = "AND promo.precio_promo IS NULL" if sin_promocion is True else ""
         parametros = []
 
-        if presentacion == "KIT":
-            # Ya se valido arriba: categoria != "Todos" y unidad no informado
-            filtro_presentacion = """
-                AND a.art_kit = TRUE
-                AND a.tipo_kit = 'PRESENTACION'
-                AND EXISTS (
-                    SELECT 1
-                    FROM articulos_kit ak
-                    JOIN articulos comp ON comp.art_cod = ak.art_cod
-                    JOIN tipo_articulo tcomp ON tcomp.tipoart_cod = comp.tipoart_cod
-                    WHERE ak.art_codkit = a.art_cod
-                      AND tcomp.tipoart_desc = %s
-                      AND tcomp.mostrar_web = TRUE
-                )
-            """
+        if categoria != "Todos":
+            filtro_categoria = "AND t.tipoart_desc = %s"
             parametros.append(categoria)
-        else:
-            if categoria != "Todos":
-                filtro_categoria = "AND t.tipoart_desc = %s"
-                parametros.append(categoria)
-            if presentacion == "NORMAL":
-                filtro_presentacion = "AND a.art_kit = FALSE"
-            if unidad:
-                filtro_unidad = "AND um.uni_nombre = %s"
-                parametros.append(unidad)
+        if unidad:
+            filtro_unidad = "AND um.uni_nombre = %s"
+            parametros.append(unidad)
 
         parametros.extend([limite, registros_a_saltear])
 
@@ -212,7 +185,7 @@ def trae_articulos(
             SELECT
                 {SQL_COLUMNAS_CATALOGO}
             FROM articulos a
-            INNER JOIN tipo_articulo t ON a.tipoart_cod = t.tipoart_cod
+            {SQL_TIPO_EFECTIVO}
             LEFT JOIN stock s ON s.art_cod = a.art_cod
             LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
             {SQL_STOCK_KIT_LATERAL}
@@ -220,11 +193,10 @@ def trae_articulos(
             WHERE a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
-              AND t.mostrar_web = TRUE
+              AND {SQL_TIPO_VISIBLE}
               AND a.tipo_kit IS DISTINCT FROM 'COMBO'
               {filtro_categoria}
               {filtro_unidad}
-              {filtro_presentacion}
               {filtro_sin_promocion}
             ORDER BY a.art_cod
             LIMIT %s OFFSET %s
@@ -256,64 +228,40 @@ def trae_presentaciones(
         conn = obtener_conexion_postgres()
         cursor = conn.cursor()
 
-        sql_normales = """
+        # Formas de compra = unidades de venta distintas de los articulos de la categoria. Los kits por
+        # presentacion cuentan como articulos del tipo de su componente (sql_catalogo.py), asi que su
+        # unidad (BOLSA, CAJA...) aparece como una forma de compra mas.
+        sql_unidades = f"""
             SELECT DISTINCT um.uni_nombre
             FROM articulos a
-            JOIN tipo_articulo t ON t.tipoart_cod = a.tipoart_cod
+            {SQL_TIPO_EFECTIVO}
             LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
             WHERE t.tipoart_desc = %s
               AND a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
-              AND t.mostrar_web = TRUE
-              AND a.art_kit = FALSE
+              AND {SQL_TIPO_VISIBLE}
+              AND a.tipo_kit IS DISTINCT FROM 'COMBO'
         """
-        cursor.execute(sql_normales, (categoria,))
-        unidades_normales = [fila[0] for fila in cursor.fetchall()]
+        cursor.execute(sql_unidades, (categoria,))
+        unidades = [fila[0] for fila in cursor.fetchall()]
 
-        if None in unidades_normales:
+        if None in unidades:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=(
-                    f"Hay artículos normales sin unidad de venta asignada en "
+                    f"Hay artículos sin unidad de venta asignada en "
                     f"la categoría '{categoria}'"
                 )
             )
 
-        sql_kit_existe = """
-            SELECT EXISTS (
-                SELECT 1
-                FROM articulos kit
-                JOIN tipo_articulo tkit ON tkit.tipoart_cod = kit.tipoart_cod
-                JOIN articulos_kit ak ON ak.art_codkit = kit.art_cod
-                JOIN articulos comp ON comp.art_cod = ak.art_cod
-                JOIN tipo_articulo tcomp ON tcomp.tipoart_cod = comp.tipoart_cod
-                WHERE kit.art_kit = TRUE
-                  AND kit.tipo_kit = 'PRESENTACION'
-                  AND kit.art_estado = 'S'
-                  AND kit.llevar_web = TRUE
-                  AND kit.mostrar_web = TRUE
-                  AND tkit.mostrar_web = TRUE
-                  AND tcomp.tipoart_desc = %s
-                  AND tcomp.mostrar_web = TRUE
-            )
-        """
-        cursor.execute(sql_kit_existe, (categoria,))
-        hay_kit = cursor.fetchone()[0]
-
         presentaciones = []
 
-        for unidad_normal in sorted(unidades_normales):
+        for unidad in sorted(unidades):
             presentaciones.append({
                 "codigo": "NORMAL",
-                "unidad": unidad_normal,
-                "descripcion": DESCRIPCIONES_UNIDAD_NORMAL.get(unidad_normal, f"Por {unidad_normal}")
-            })
-
-        if hay_kit:
-            presentaciones.append({
-                "codigo": "KIT",
-                "descripcion": "Por presentación"
+                "unidad": unidad,
+                "descripcion": DESCRIPCIONES_UNIDAD_NORMAL.get(unidad, f"Por {unidad}")
             })
 
         return presentaciones
@@ -355,7 +303,6 @@ def trae_combos(
             WHERE a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
-              AND t.mostrar_web = TRUE
               AND a.art_kit = TRUE
               AND a.tipo_kit = 'COMBO'
             ORDER BY a.art_cod
@@ -398,7 +345,7 @@ def trae_promociones(
             SELECT
                 {SQL_COLUMNAS_CATALOGO}
             FROM articulos a
-            INNER JOIN tipo_articulo t ON a.tipoart_cod = t.tipoart_cod
+            {SQL_TIPO_EFECTIVO}
             LEFT JOIN stock s ON s.art_cod = a.art_cod
             LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
             {SQL_STOCK_KIT_LATERAL}
@@ -406,7 +353,7 @@ def trae_promociones(
             WHERE a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
-              AND t.mostrar_web = TRUE
+              AND {SQL_TIPO_VISIBLE}
               AND promo.precio_promo IS NOT NULL
             ORDER BY (a.art_preciobase - promo.precio_promo) / a.art_preciobase DESC, a.art_cod
             LIMIT %s OFFSET %s
@@ -446,7 +393,7 @@ def trae_detalle_articulo(art_cod: int = RutaParam(gt=0, lt=10**18)):
                 {SQL_COLUMNAS_CATALOGO},
                 a.descripcion
             FROM articulos a
-            INNER JOIN tipo_articulo t ON a.tipoart_cod = t.tipoart_cod
+            {SQL_TIPO_EFECTIVO}
             LEFT JOIN stock s ON s.art_cod = a.art_cod
             LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
             {SQL_STOCK_KIT_LATERAL}
@@ -455,7 +402,7 @@ def trae_detalle_articulo(art_cod: int = RutaParam(gt=0, lt=10**18)):
               AND a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
-              AND t.mostrar_web = TRUE
+              AND {SQL_TIPO_VISIBLE}
         """
         cursor.execute(sql, (art_cod,))
         fila = cursor.fetchone()
@@ -517,14 +464,14 @@ def confirmar_pedido(pedido: PedidoEntrada):
                 um.uni_nombre AS unidad_venta,
                 promo.precio_promo
             FROM articulos a
-            INNER JOIN tipo_articulo t ON t.tipoart_cod = a.tipoart_cod
+            {SQL_TIPO_EFECTIVO}
             LEFT JOIN unidad_medida um ON um.uni_cod = a.uni_cod_ven
             {SQL_PROMO_LATERAL}
             WHERE a.art_cod = ANY(%s)
               AND a.art_estado = 'S'
               AND a.llevar_web = TRUE
               AND a.mostrar_web = TRUE
-              AND t.mostrar_web = TRUE
+              AND {SQL_TIPO_VISIBLE}
         """
         cursor.execute(sql_articulos, (ids_pedido,))
         articulos_por_id = {

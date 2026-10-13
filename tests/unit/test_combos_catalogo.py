@@ -17,6 +17,7 @@ import pytest
 from fastapi import HTTPException
 
 from backend.app.routers import items
+from backend.app.sql_catalogo import SQL_TIPO_EFECTIVO
 
 PALABRAS_DE_ESCRITURA = ("INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER", "TRUNCATE")
 CLAVES_ARTICULO = {
@@ -193,11 +194,12 @@ def test_catalogo_categoria_especifica_excluye_combos(correr):
     assert params == ("MERCERIAS", 30, 0)
 
 
-def test_catalogo_presentacion_normal_excluye_combos_y_filtra_normales(correr):
+def test_catalogo_presentacion_normal_excluye_combos_pero_ya_no_filtra_los_kits(correr):
+    # los kits por presentacion son articulos de la categoria de su componente: no se separan
     _, cur, _ = correr(items.trae_articulos, ARTICULOS_NORMALES, 1, 30, "Todos", None, "NORMAL")
     q = cur.ejecuciones[0][0]
     assert PREDICADO_COMBO_CATALOGO in q
-    assert "AND a.art_kit = FALSE" in q
+    assert "AND a.art_kit = FALSE" not in q
 
 
 def test_catalogo_sin_presentacion_excluye_combos_sin_filtrar_normales(correr):
@@ -207,36 +209,25 @@ def test_catalogo_sin_presentacion_excluye_combos_sin_filtrar_normales(correr):
     assert "AND a.art_kit = FALSE" not in q
 
 
-# ---------- 6. presentacion=KIT sin regresion ----------
+# ---------- 6. los kits por presentacion son articulos de la categoria de su componente ----------
 
-def test_presentacion_kit_exige_presentacion_y_conserva_exclusion(correr):
-    _, cur, _ = correr(items.trae_articulos, COMBOS, 1, 30, "BALANCEADOS", None, "KIT")
+def test_la_categoria_incluye_a_los_kits_por_el_tipo_de_su_componente(correr):
+    _, cur, _ = correr(items.trae_articulos, COMBOS, 1, 30, "BALANCEADOS", None, None)
     q, params = cur.ejecuciones[0]
-    assert "a.tipo_kit = 'PRESENTACION'" in q
+    assert normalizar(SQL_TIPO_EFECTIVO) in q and "AND t.tipoart_desc = %s" in q
     assert PREDICADO_COMBO_CATALOGO in q
     assert params == ("BALANCEADOS", 30, 0)
 
 
-# ---------- 7. validaciones de KIT ----------
+# ---------- 7. el parametro presentacion=KIT ya no filtra ni da error ----------
 
-def test_kit_con_categoria_todos_da_400_sin_consultar(monkeypatch):
-    cursor = FakeCursor([])
-    conn = FakeConn(cursor)
-    monkeypatch.setattr(items, "obtener_conexion_postgres", lambda: conn)
-    with pytest.raises(HTTPException) as info:
-        items.trae_articulos(1, 30, "Todos", None, "KIT")
-    assert info.value.status_code == 400
-    assert conn.usada is False
-
-
-def test_kit_con_unidad_da_400_sin_consultar(monkeypatch):
-    cursor = FakeCursor([])
-    conn = FakeConn(cursor)
-    monkeypatch.setattr(items, "obtener_conexion_postgres", lambda: conn)
-    with pytest.raises(HTTPException) as info:
-        items.trae_articulos(1, 30, "BALANCEADOS", "KG", "KIT")
-    assert info.value.status_code == 400
-    assert conn.usada is False
+@pytest.mark.parametrize("categoria, unidad", [("Todos", None), ("BALANCEADOS", "KG")])
+def test_presentacion_kit_se_acepta_por_compatibilidad_y_no_filtra(correr, categoria, unidad):
+    _, cur, _ = correr(items.trae_articulos, COMBOS, 1, 30, categoria, unidad, "KIT")
+    q = cur.ejecuciones[0][0]
+    # ningun filtro por kit/normal en el WHERE (el JOIN del stock y el tipo efectivo si consultan art_kit)
+    assert "AND a.art_kit = TRUE" not in q and "AND a.art_kit = FALSE" not in q
+    assert PREDICADO_COMBO_CATALOGO in q
 
 
 # ---------- 8. paginacion del catalogo ----------

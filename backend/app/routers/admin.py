@@ -10,7 +10,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from backend.app.database_postgres import obtener_conexion_postgres
 from backend.app.routers.admin_auth import verificar_admin
-from backend.app.routers.categories import SQL_TIPO_CON_ARTICULOS
+from backend.app.sql_catalogo import SQL_TIPO_COMPONENTE_LATERAL, SQL_TIPO_CON_ARTICULOS
 from backend.app.schemas import BannerActualizar, BannersReordenar, DescripcionEntrada, MostrarWebEntrada
 
 router = APIRouter(prefix="/admin", tags=["Administracion"])
@@ -176,10 +176,12 @@ def listar_tipos_admin():
             SELECT t.tipoart_cod, t.tipoart_desc, t.mostrar_web,
                    (SELECT count(*)
                     FROM articulos a
-                    WHERE a.tipoart_cod = t.tipoart_cod
+                    {SQL_TIPO_COMPONENTE_LATERAL}
+                    WHERE COALESCE(tipo_comp.tipoart_cod, a.tipoart_cod) = t.tipoart_cod
                       AND a.art_estado = 'S'
                       AND a.llevar_web = TRUE
-                      AND a.mostrar_web = TRUE) AS publicados,
+                      AND a.mostrar_web = TRUE
+                      AND a.tipo_kit IS DISTINCT FROM 'COMBO') AS publicados,
                    {SQL_TIPO_CON_ARTICULOS} AS con_articulos
             FROM tipo_articulo t
             ORDER BY t.tipoart_desc

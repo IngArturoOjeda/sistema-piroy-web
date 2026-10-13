@@ -224,6 +224,9 @@ Ya realizado (`backend/app/routers/admin.py`, protegido con usuario y contraseñ
   `scripts/crear_usuario_admin.py`; reemplaza la clave única `ADMIN_API_KEY`;
 - pool de conexiones a PostgreSQL y mejoras de velocidad al elegir una categoría (aviso "Cargando" inmediato,
   formas de compra precargadas en segundo plano); ver `ARCHITECTURE.md`, "Pool de conexiones";
+- tipo efectivo de los kits: un kit por presentación pertenece al tipo del artículo del que descuenta stock (no al tipo
+  `KIT` del sistema local), aparece en esa categoría y su unidad es una forma de compra más; el tipo `KIT` ya no es una
+  categoría de la tienda (ver `ARCHITECTURE.md`, "Tipo efectivo de un artículo");
 - estado de cada tipo de artículo (`admin-tipos.html`, `tipo_articulo.mostrar_web`): ocultar un tipo oculta el
   tipo y todos sus artículos en la tienda; el menú de categorías solo muestra tipos visibles con artículos;
 - gestión de usuarios desde el panel (`admin-usuarios.html`): roles administrador / común, crear,

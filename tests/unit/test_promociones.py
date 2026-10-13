@@ -11,6 +11,7 @@ from decimal import Decimal
 import pytest
 
 from backend.app.routers import items
+from backend.app.sql_catalogo import SQL_TIPO_VISIBLE
 
 PALABRAS_DE_ESCRITURA = ("INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER", "TRUNCATE")
 
@@ -171,8 +172,9 @@ def test_promociones_incluye_combos_y_kits(base):
     cursor = base([])
     items.trae_promociones(1, 30)
     q = cursor.ejecuciones[0][0]
-    # no filtra por tipo de kit: entran normales, PRESENTACION y COMBO
-    assert "tipo_kit" not in q and "COMBO" not in q
+    # no excluye ningun tipo de kit: entran normales, PRESENTACION y COMBO
+    assert "IS DISTINCT FROM 'COMBO'" not in q
+    assert "a.tipo_kit = 'COMBO'" not in q.replace(normalizar(SQL_TIPO_VISIBLE), "")
 
 
 @pytest.mark.parametrize("pagina, limite, esperado", [(1, 30, (30, 0)), (3, 30, (30, 60)), (2, 10, (10, 10))])

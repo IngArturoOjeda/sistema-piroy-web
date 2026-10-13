@@ -49,13 +49,14 @@ class FakeCursor:
             self.se_inserto_detalle += 1
             self.precios_insertados.append(params[3])   # (id_pedido, art_cod, cantidad, precio_unitario)
             self._resultado = None
+        elif "FROM articulos a" in sql_n and "unidad_medida" in sql_n:
+            # Metadatos de los articulos del pedido (se reconoce primero: su tipo efectivo ya consulta
+            # articulos_kit). Las filas pueden traer 6 columnas (sin promo) o 7 (con precio_promo al final)
+            self._resultado = [f + (None,) * (7 - len(f)) for f in self.escenario.get("articulos", [])]
         elif "FROM articulos_kit" in sql_n:
             self._resultado = self.escenario.get("componentes", [])
         elif "LEFT JOIN stock s" in sql_n and "FROM articulos a" in sql_n:
             self._resultado = self.escenario.get("stock_fisico", [])
-        elif "FROM articulos a" in sql_n and "unidad_medida" in sql_n:
-            # Las filas pueden traer 6 columnas (sin promo) o 7 (con precio_promo al final)
-            self._resultado = [f + (None,) * (7 - len(f)) for f in self.escenario.get("articulos", [])]
         else:
             raise AssertionError(f"Consulta SQL no reconocida por el test: {sql_n[:80]}")
 
