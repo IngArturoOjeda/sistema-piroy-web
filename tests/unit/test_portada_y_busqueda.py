@@ -64,7 +64,7 @@ def test_la_portada_usa_el_mismo_universo_que_el_catalogo(base):
     cursor = base()
     items.trae_portada()
     q, params = cursor.ejecuciones[0]
-    assert params == (8,)
+    assert params == (8, 10)                       # 8 articulos por categoria, hasta 10 categorias
     for fragmento in (sql_catalogo.SQL_TIPO_EFECTIVO, items.SQL_STOCK_KIT_LATERAL, items.SQL_PROMO_LATERAL):
         assert normalizar(fragmento) in q
     for condicion in ("a.art_estado = 'S'", "a.llevar_web = TRUE", "a.mostrar_web = TRUE",
@@ -76,9 +76,25 @@ def test_la_portada_toma_n_por_categoria_con_los_que_tienen_foto_primero(base):
     cursor = base()
     items.trae_portada(5)
     q, params = cursor.ejecuciones[0]
-    assert params == (5,)
+    assert params == (5, 10)
     assert "ROW_NUMBER() OVER ( PARTITION BY t.tipoart_cod ORDER BY (NULLIF(a.art_foto, '') IS NULL), a.art_cod )" in q
-    assert "WHERE x.posicion <= %s ORDER BY x.tipo_cod, x.posicion" in q
+    assert "WHERE x.posicion <= %s" in q
+
+
+def test_la_portada_limita_las_categorias_y_pone_primero_las_de_mas_articulos(base):
+    cursor = base()
+    items.trae_portada(8, 6)
+    q, params = cursor.ejecuciones[0]
+    assert params == (8, 6)
+    assert "COUNT(*) OVER (PARTITION BY t.tipoart_cod) AS total_tipo" in q
+    assert "DENSE_RANK() OVER (ORDER BY x.total_tipo DESC, x.tipo_cod) AS rango_tipo" in q
+    assert "WHERE y.rango_tipo <= %s ORDER BY y.rango_tipo, y.posicion" in q
+
+
+def test_el_tope_de_categorias_se_valida_en_la_ruta():
+    parametro = inspect.signature(items.trae_portada).parameters["max_categorias"]
+    limites = {type(m).__name__: m for m in parametro.annotation.__metadata__[0].metadata}
+    assert limites["Ge"].ge == 1 and limites["Le"].le == 50 and parametro.default == 10
 
 
 def test_la_portada_agrupa_por_categoria_en_orden_y_con_el_formato_del_catalogo(base):

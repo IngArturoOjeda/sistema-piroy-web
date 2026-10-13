@@ -3,6 +3,12 @@ const listaCategoriasUI = document.getElementById("lista-categorias");
 // Portada ("/"): banner, Promoción vigente y una sección por categoría
 const vistaInicioUI = document.getElementById("vista-inicio");
 const seccionesCategoriasUI = document.getElementById("secciones-categorias");
+// Desplegable "Categorías" de la barra (todas las categorías, en un panel)
+const menuCategoriasUI = document.getElementById("menu-categorias");
+const btnCategoriasUI = document.getElementById("btn-categorias");
+const textoBtnCategoriasUI = document.getElementById("texto-btn-categorias");
+const panelCategoriasUI = document.getElementById("panel-categorias");
+const listaPanelCategoriasUI = document.getElementById("lista-panel-categorias");
 
 // Lleva la vista al inicio de una sección (portada, catálogo, promos o combos)
 function irAlInicioDeLaVista(elemento) {
@@ -203,41 +209,82 @@ function urlCategoria(nombre) {
 
 // Cada categoría es un enlace real (href): sirve con clic derecho y "abrir en pestaña nueva". El clic normal
 // lo atiende la navegación interna (a[data-ruta-interna], más abajo) sin recargar la página.
-function crearChipCategoria(texto, href, clave) {
-    const li = document.createElement("li");
+function crearEnlaceCategoria(texto, href, clave, clase = "") {
     const enlace = document.createElement("a");
-    enlace.className = "btn-categoria";
+    if (clase) enlace.className = clase;
     enlace.href = href;
     enlace.dataset.rutaInterna = "";
     enlace.dataset.clave = clave;
     enlace.textContent = texto;
-    li.appendChild(enlace);
+    return enlace;
+}
+
+function envolverEnItem(elemento) {
+    const li = document.createElement("li");
+    li.appendChild(elemento);
     return li;
 }
 
+// La barra lleva solo Inicio, Todos y el desplegable; las categorías (pueden ser decenas) van dentro del panel
 function dibujarCategorias() {
     listaCategoriasUI.replaceChildren(
-        crearChipCategoria("Inicio", "/", "inicio"),
-        crearChipCategoria("Todos", urlCategoria("Todos"), "cat:Todos"),
-        ...categoriasGlobales
-            .filter(categoria => categoria.nombre !== "Todos")
-            .map(categoria => crearChipCategoria(categoria.nombre, urlCategoria(categoria.nombre), `cat:${categoria.nombre}`)),
+        envolverEnItem(crearEnlaceCategoria("Inicio", "/", "inicio", "btn-categoria")),
+        envolverEnItem(crearEnlaceCategoria("Todos", urlCategoria("Todos"), "cat:Todos", "btn-categoria")),
     );
+    const categorias = categoriasGlobales.filter(categoria => categoria.nombre !== "Todos");
+    listaPanelCategoriasUI.replaceChildren(
+        ...categorias.map(categoria => envolverEnItem(
+            crearEnlaceCategoria(categoria.nombre, urlCategoria(categoria.nombre), `cat:${categoria.nombre}`))),
+    );
+    menuCategoriasUI.hidden = categorias.length === 0; // sin categorías no hay nada que desplegar
+    cerrarPanelCategorias();
     marcarCategoriaActiva();
 }
 
-// Resalta el chip de donde está el cliente: Inicio en la portada, o la categoría del catálogo (no en una búsqueda)
+// Resalta el lugar donde está el cliente: Inicio en la portada, o la categoría del catálogo (no en una búsqueda).
+// El botón del desplegable muestra el nombre de la categoría actual, como "Alimentos Perro ▾" en la tienda de referencia.
 function marcarCategoriaActiva() {
     let claveActiva = null;
     if (vistaActual === "INICIO") claveActiva = "inicio";
     else if (vistaActual === "CATALOGO" && !textoBusqueda) claveActiva = `cat:${categoriaSeleccionadaActual}`;
-    listaCategoriasUI.querySelectorAll(".btn-categoria").forEach(chip => {
-        const activo = chip.dataset.clave === claveActiva;
-        chip.classList.toggle("activo", activo);
-        if (activo) chip.setAttribute("aria-current", "page");
-        else chip.removeAttribute("aria-current");
+    document.querySelectorAll("#lista-categorias a, #lista-panel-categorias a").forEach(enlace => {
+        const activo = enlace.dataset.clave === claveActiva;
+        enlace.classList.toggle("activo", activo);
+        if (activo) enlace.setAttribute("aria-current", "page");
+        else enlace.removeAttribute("aria-current");
     });
+    const enCategoria = claveActiva !== null && claveActiva.startsWith("cat:") && claveActiva !== "cat:Todos";
+    textoBtnCategoriasUI.textContent = enCategoria ? categoriaSeleccionadaActual : "Categorías";
+    btnCategoriasUI.classList.toggle("activo", enCategoria);
 }
+
+// Desplegable: se abre con el botón; se cierra con Esc, tocando afuera, al elegir una categoría o al salir del foco
+function abrirPanelCategorias() {
+    panelCategoriasUI.hidden = false;
+    btnCategoriasUI.setAttribute("aria-expanded", "true");
+    panelCategoriasUI.querySelector("a.activo")?.scrollIntoView({ block: "nearest" });
+}
+
+function cerrarPanelCategorias({ devolverFoco = false } = {}) {
+    if (panelCategoriasUI.hidden) return;
+    panelCategoriasUI.hidden = true;
+    btnCategoriasUI.setAttribute("aria-expanded", "false");
+    if (devolverFoco) btnCategoriasUI.focus();
+}
+
+btnCategoriasUI.addEventListener("click", () => {
+    if (panelCategoriasUI.hidden) abrirPanelCategorias();
+    else cerrarPanelCategorias();
+});
+document.addEventListener("keydown", (evento) => {
+    if (evento.key === "Escape") cerrarPanelCategorias({ devolverFoco: true });
+});
+document.addEventListener("click", (evento) => {
+    if (!evento.target.closest("#menu-categorias")) cerrarPanelCategorias();
+});
+menuCategoriasUI.addEventListener("focusout", (evento) => {
+    if (evento.relatedTarget && !menuCategoriasUI.contains(evento.relatedTarget)) cerrarPanelCategorias();
+});
 
 function actualizarTituloCatalogo() {
     if (textoBusqueda) tituloCatalogoUI.textContent = `Resultados para «${textoBusqueda}»`;
@@ -1230,6 +1277,7 @@ function mostrarVista(nombre) {
     document.title = TITULO_PAGINA_ORIGINAL; // la página del producto y la de promociones lo cambian después
     actualizarSeccionPromo();
     marcarCategoriaActiva();
+    cerrarPanelCategorias();
 }
 
 // "/producto/1000-botina" -> { vista: "PRODUCTO", id: "1000" }
@@ -1733,6 +1781,9 @@ function dibujarDetalleProducto(articulo) {
 // PORTADA: una sección por categoría (GET /api/articulos/portada), cada una con su botón VER TODOS
 // ----------------------------------------------------
 const ARTICULOS_POR_CATEGORIA_EN_PORTADA = 8;
+// Con muchas categorías la portada no crece sin límite: muestra las que tienen más artículos; el resto está en el
+// desplegable de categorías y en el catálogo
+const MAX_SECCIONES_EN_PORTADA = 10;
 
 function mostrarEstadoPortada(texto, conReintento = false) {
     const caja = document.createElement("div");
@@ -1799,7 +1850,7 @@ async function cargarPortada() {
     cargandoPortada = true;
     mostrarEstadoPortada("Cargando artículos...");
     try {
-        const respuesta = await fetch(`/api/articulos/portada?por_categoria=${ARTICULOS_POR_CATEGORIA_EN_PORTADA}`);
+        const respuesta = await fetch(`/api/articulos/portada?por_categoria=${ARTICULOS_POR_CATEGORIA_EN_PORTADA}&max_categorias=${MAX_SECCIONES_EN_PORTADA}`);
         if (!respuesta.ok) throw new Error(`Error ${respuesta.status} al cargar la portada`);
         dibujarPortada(await respuesta.json());
         portadaCargada = true;
@@ -1838,17 +1889,22 @@ function mostrarEnlacePie(idItem, visible) {
     document.getElementById(idItem).hidden = !visible;
 }
 
-// Categorías en "Nuestra tienda" del pie (cuando llegan de la API)
+// Categorías en "Nuestra tienda" del pie (cuando llegan de la API). Con muchas, solo las primeras y un enlace al catálogo.
+const MAX_CATEGORIAS_EN_PIE = 8;
+
 function llenarCategoriasDelPie() {
     const lista = document.getElementById("pie-lista-tienda");
     lista.querySelectorAll("li[data-categoria]").forEach(li => li.remove());
-    categoriasGlobales.filter(categoria => categoria.nombre !== "Todos").forEach(categoria => {
+    const categorias = categoriasGlobales.filter(categoria => categoria.nombre !== "Todos");
+    const entradas = categorias.slice(0, MAX_CATEGORIAS_EN_PIE).map(categoria => [categoria.nombre, urlCategoria(categoria.nombre)]);
+    if (categorias.length > MAX_CATEGORIAS_EN_PIE) entradas.push(["Ver todas las categorías", urlCategoria("Todos")]);
+    entradas.forEach(([texto, href]) => {
         const li = document.createElement("li");
         li.dataset.categoria = "";
         const enlace = document.createElement("a");
-        enlace.href = urlCategoria(categoria.nombre);
+        enlace.href = href;
         enlace.dataset.rutaInterna = "";
-        enlace.textContent = categoria.nombre;
+        enlace.textContent = texto;
         li.appendChild(enlace);
         lista.appendChild(li);
     });

@@ -383,6 +383,10 @@ Hoy `/` muestra todo el catálogo con scroll infinito y un menú lateral. Objeti
 3. Etapa 3 — Portada, página de catálogo, barra de categorías (reemplaza el menú lateral) y búsqueda del servidor.
    HECHA (probada en Chrome real a 320-1280 px: portada con una sección por categoría, VER TODOS, `/catalogo` con
    `?categoria=` y `?buscar=`, Atrás/Adelante, recarga directa, búsqueda sobre todo el catálogo, pie con categorías).
+   Ajuste posterior (2026-10-13): con muchos tipos de artículos las categorías van en un desplegable
+   "Categorías ▾" (en vez de una fila de botones), la portada muestra como máximo las 10 secciones con más artículos
+   (`max_categorias`) y el pie lista 8 + "Ver todas"; probado con 42 categorías simuladas de 320 a 1280 px.
+   Si el negocio quiere elegir el orden de las secciones, haría falta una columna nueva en `tipo_articulo`.
    Quedan fuera: "Novedades", "Compra por animal", formulario de contacto, medios de pago, página "Nosotros".
 
 ## Versión 2

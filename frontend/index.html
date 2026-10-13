@@ -45,8 +45,22 @@
             <!-- Barra de categorías: parte de la cabecera fija. main.js la llena con GET /api/categorias/ -->
             <nav class="barra-categorias" id="barra-categorias" aria-label="Categorías de productos">
                 <ul class="lista-barra-categorias" id="lista-categorias">
-                    <!-- JS dibuja aquí: Inicio, Todos y las categorías -->
+                    <!-- JS dibuja aquí: Inicio y Todos -->
                 </ul>
+
+                <!-- Desplegable con TODAS las categorías (pueden ser decenas): se llena desde main.js -->
+                <div class="menu-categorias" id="menu-categorias" hidden>
+                    <button type="button" class="btn-categoria btn-categorias-desplegable" id="btn-categorias"
+                            aria-expanded="false" aria-controls="panel-categorias">
+                        <span id="texto-btn-categorias">Categorías</span>
+                        <span class="flechita" aria-hidden="true">▾</span>
+                    </button>
+                    <div class="panel-categorias" id="panel-categorias" hidden>
+                        <ul class="lista-panel-categorias" id="lista-panel-categorias">
+                            <!-- JS dibuja aquí una entrada por categoría -->
+                        </ul>
+                    </div>
+                </div>
             </nav>
         </header>
 

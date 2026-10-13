@@ -305,10 +305,12 @@ unidad_venta
 fraccionable
 ```
 
-`GET /api/articulos/portada?por_categoria=8` (1 a 24) devuelve la muestra de la portada en una sola consulta:
-`[{"categoria": "BALANCEADOS", "articulos": [...]}]`, con los primeros N artículos de cada categoría (primero los que
-tienen foto), en el mismo orden y con las mismas reglas de publicación y de tipo efectivo que el menú y el catálogo
-(`ROW_NUMBER() OVER (PARTITION BY tipo)`; no incluye COMBO).
+`GET /api/articulos/portada?por_categoria=8&max_categorias=10` (`por_categoria` de 1 a 24, `max_categorias` de 1 a 50)
+devuelve la muestra de la portada en una sola consulta: `[{"categoria": "BALANCEADOS", "articulos": [...]}]`, con los
+primeros N artículos (primero los que tienen foto) de las `max_categorias` categorías **con más artículos publicados**
+(de más a menos; desempata el código del tipo), con las mismas reglas de publicación y de tipo efectivo que el menú y el
+catálogo (`ROW_NUMBER` por tipo y `DENSE_RANK` por cantidad; no incluye COMBO). El tope hace que la portada y su peso no
+crezcan con la cantidad de tipos (con 40 categorías serían ~100 KB sin tope).
 
 `GET /api/articulos/presentaciones?categoria=`, `GET /api/articulos/combos`,
 `GET /api/articulos/promociones` y `GET /api/articulos/{art_cod}` comparten el
@@ -326,7 +328,8 @@ dirección funciona al recargar y al compartirla, y el carrito (que vive en memo
 "← Volver a la tienda" hacen "Atrás" si se entró desde la tienda y llevan a la portada si se llegó directo. Una ruta
 desconocida muestra la portada; `/combos` sin combos publicados también vuelve a la portada.
 
-**Portada (`/`):** banner, "Promoción vigente" y **una sección por categoría** (hasta 8 artículos cada una, con un botón
+**Portada (`/`):** banner, "Promoción vigente" y **una sección por categoría, hasta 10** (las que tienen más artículos;
+`MAX_SECCIONES_EN_PORTADA`), de hasta 8 artículos cada una, con un botón
 **VER TODOS** hacia `/catalogo?categoria=NOMBRE`), más un botón **VER TODO EL CATÁLOGO**. Las secciones salen de una sola
 llamada a `GET /api/articulos/portada` (`cargarPortada`, `dibujarPortada`; se pide una vez y, si falla, muestra un mensaje con
 "Reintentar"); cada sección reutiliza `dibujarArticulos(lista, contenedor)`. En escritorio las secciones son una grilla de
@@ -338,10 +341,18 @@ selector de formas de compra por categoría, aviso "Cargando", precarga de prese
 `/catalogo?buscar=TEXTO`. Si la URL pide la lista que ya está cargada (por ejemplo, Atrás desde un producto) no se vuelve a
 pedir; volver a elegir lo que ya se está mirando sí la recarga (útil para regresar al selector de formas de compra).
 
-**Barra de categorías:** parte de la cabecera fija (ver más abajo): `Inicio`, `Todos` y una por categoría
-(`GET /api/categorias/`, `cargarCategorias`; si falla solo quedan Inicio y Todos). Son enlaces reales
-(`a.btn-categoria[href]`) que navegan sin recargar; marca la categoría activa (`aria-current`). Reemplaza al menú lateral.
-Todo enlace con `data-ruta-interna` (logo, barra, VER TODOS, pie) lo atiende un único escuchador que llama a `irA`.
+**Barra de categorías y desplegable:** parte de la cabecera fija (ver más abajo). Lleva siempre tres elementos, sin
+importar cuántos tipos haya: `Inicio`, `Todos` y un botón **`Categorías ▾`** que abre un panel con **todas** las
+categorías (`GET /api/categorias/`, `cargarCategorias`; si no hay categorías el botón se oculta). El panel tiene
+columnas en escritorio (`columns: 4 200px`) y es una lista que se desplaza en celular (`max-height` según la pantalla);
+con 42 categorías simuladas entra en pantalla en 320, 375, 768 y 1280 px y la cabecera no cambia de alto. Dentro de una
+categoría, el botón muestra su nombre (por ejemplo `BALANCEADOS ▾`, como en la tienda de referencia; si el nombre es
+largo se recorta con «…»). Se cierra con Esc (devolviendo el foco al botón), tocando afuera, al salir el foco o al elegir
+una categoría; el botón usa `aria-expanded` y `aria-controls`, y la categoría actual lleva `aria-current` en el panel.
+Las entradas son enlaces reales (`a[href]`) que navegan sin recargar. Reemplaza al menú lateral y a la fila de botones
+(que con decenas de tipos obligaba a desplazarse mucho y escondía las últimas). El contenedor de la barra no tiene
+`overflow` propio: un contenedor con desplazamiento recortaría el panel. Todo enlace con `data-ruta-interna` (logo, barra,
+panel, VER TODOS, pie) lo atiende un único escuchador que llama a `irA`.
 
 **Búsqueda (del servidor):** escribir en el buscador de la cabecera (espera de 350 ms; Enter inmediato) lleva a
 `/catalogo?buscar=TEXTO` (entrada nueva del historial al entrar desde otra página; reemplaza la entrada mientras se escribe
@@ -765,7 +776,7 @@ celular): *Cómo llegar* (el negocio figura en Google Maps como «Agro-Vetzo»; 
 `https://www.google.com/maps/search/?api=1&query=Agro-Vetzo`, sin dirección escrita: conviene cambiarlo por el enlace
 "Compartir" del local cuando se tenga), *Atención al cliente* (lunes a sábado de 07:00 a 19:00 hs,
 `agroranchopiroy@gmail.com` y botón de WhatsApp), *Nuestras redes* (TikTok `@enzo.duarte326`) y *Nuestra tienda*
-(enlaces internos: Inicio, Catálogo completo, Promociones y Combos si los hay, y una por categoría). El enlace de WhatsApp lo arma `main.js` con `WHATSAPP_NUMERO` (único lugar del número); el año del ©
+(enlaces internos: Inicio, Catálogo completo, Promociones y Combos si los hay, las primeras 8 categorías y, si hay más, "Ver todas las categorías"). El enlace de WhatsApp lo arma `main.js` con `WHATSAPP_NUMERO` (único lugar del número); el año del ©
 también. Los enlaces internos (`data-ruta-interna`) navegan con `irA` sin recargar, para no perder el carrito;
 "Promociones" y "Combos" solo se muestran si hay promociones vigentes o combos publicados (`mostrarEnlacePie`). Los
 datos del negocio están en `index.html` (no son secretos).

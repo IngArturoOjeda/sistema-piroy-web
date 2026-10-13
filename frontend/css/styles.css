@@ -1618,23 +1618,23 @@ body.en-inicio .contenedor-principal {
 }
 
 
-/* ===== Barra de categorias (dentro de la cabecera fija) ===== */
+/* ===== Barra de categorias (dentro de la cabecera fija) =====
+   Inicio, Todos y un desplegable "Categorias" con todas las demas (en columnas): asi cabe cualquier cantidad de tipos.
+   No tiene overflow propio: un contenedor con desplazamiento recortaria el panel desplegable. */
 .barra-categorias {
+    position: relative;
     max-width: 1400px;
     margin: 6px auto 0;
     padding: 0 10px 2px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-}
-
-.barra-categorias::-webkit-scrollbar {
-    display: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .lista-barra-categorias {
     list-style: none;
     display: flex;
+    flex: none;
     gap: 6px;
     white-space: nowrap;
 }
@@ -1664,6 +1664,120 @@ body.en-inicio .contenedor-principal {
     background-color: var(--verde-claro);
     border-color: var(--verde-claro);
     color: var(--marron);
+}
+
+/* Boton del desplegable: mismo aspecto que los demas, con una flechita que gira al abrirse. Si el nombre de la
+   categoria es largo, el texto se recorta con "..." y el boton nunca se sale de la pantalla. */
+.menu-categorias {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.btn-categorias-desplegable {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    background: none;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.btn-categorias-desplegable #texto-btn-categorias {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.btn-categorias-desplegable .flechita {
+    flex: none;
+    transition: transform 0.2s;
+}
+
+.btn-categorias-desplegable[aria-expanded="true"] .flechita {
+    transform: rotate(180deg);
+}
+
+.menu-categorias[hidden],
+.panel-categorias[hidden] {
+    display: none;
+}
+
+/* Panel con todas las categorias: columnas en escritorio, una lista en celular */
+.panel-categorias {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 10px;
+    width: min(980px, calc(100% - 20px));
+    max-height: min(70vh, 560px);
+    overflow-y: auto;
+    padding: 12px;
+    background-color: white;
+    border: 1px solid var(--gris-borde);
+    border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+    text-align: left;
+}
+
+.lista-panel-categorias {
+    list-style: none;
+    columns: 4 200px;
+    column-gap: 14px;
+}
+
+.lista-panel-categorias li {
+    break-inside: avoid;
+}
+
+.lista-panel-categorias a {
+    display: block;
+    padding: 8px 10px;
+    border-radius: 6px;
+    color: var(--texto);
+    font-size: 0.95rem;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.lista-panel-categorias a:hover,
+.lista-panel-categorias a:focus-visible {
+    background-color: var(--verde-suave);
+    color: var(--marron);
+    font-weight: 700;
+}
+
+.lista-panel-categorias a:focus-visible {
+    outline: 3px solid var(--marron);
+    outline-offset: -3px;
+}
+
+.lista-panel-categorias a.activo {
+    background-color: var(--verde-accion);
+    color: white;
+    font-weight: 700;
+}
+
+@media (max-width: 600px) {
+    .barra-categorias {
+        padding: 0 8px 2px;
+    }
+
+    .panel-categorias {
+        left: 0;
+        right: 0;
+        width: auto;
+        max-height: calc(100vh - var(--alto-cabecera, 100px) - 16px);
+        border-radius: 0 0 10px 10px;
+    }
+
+    .lista-panel-categorias {
+        columns: 1;
+    }
+
+    .lista-panel-categorias a {
+        padding: 12px 10px; /* blanco tactil comodo */
+    }
 }
 
 /* El logo es un enlace a la portada */

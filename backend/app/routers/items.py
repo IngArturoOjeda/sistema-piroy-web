@@ -394,12 +394,16 @@ def trae_promociones(
 @router.get("/portada")
 def trae_portada(
     por_categoria: Annotated[int, Query(ge=1, le=24, description="Articulos por categoria")] = 8,
+    max_categorias: Annotated[int, Query(ge=1, le=50, description="Cantidad maxima de categorias")] = 10,
 ):
-    """Muestra para la portada: los primeros `por_categoria` articulos de cada categoria, en una sola consulta.
+    """Muestra para la portada: los primeros `por_categoria` articulos de las `max_categorias` categorias con mas
+    articulos publicados, en una sola consulta.
 
     Mismas condiciones de publicacion y mismo tipo efectivo que el catalogo (los kits por presentacion cuentan en
-    la categoria de su componente; los COMBO no entran). Las categorias van en el orden del menu (tipoart_cod) y,
-    dentro de cada una, primero los articulos con foto. Debe declararse antes de "/{art_cod}".
+    la categoria de su componente; los COMBO no entran). El tope de categorias evita que la portada (y su peso)
+    crezca con la cantidad de tipos: el resto se encuentra en el menu de categorias y en el catalogo. Las categorias
+    van de mas a menos articulos (desempata el codigo del tipo) y, dentro de cada una, primero los articulos con
+    foto. Debe declararse antes de "/{art_cod}".
     """
     conn = None
     cursor = None
@@ -408,15 +412,18 @@ def trae_portada(
         cursor = conn.cursor()
 
         sql = f"""
-            SELECT x.*
+            SELECT y.*
             FROM (
+              SELECT x.*, DENSE_RANK() OVER (ORDER BY x.total_tipo DESC, x.tipo_cod) AS rango_tipo
+              FROM (
                 SELECT
                     {SQL_COLUMNAS_CATALOGO},
                     t.tipoart_cod AS tipo_cod,
                     ROW_NUMBER() OVER (
                         PARTITION BY t.tipoart_cod
                         ORDER BY (NULLIF(a.art_foto, '') IS NULL), a.art_cod
-                    ) AS posicion
+                    ) AS posicion,
+                    COUNT(*) OVER (PARTITION BY t.tipoart_cod) AS total_tipo
                 FROM articulos a
                 {SQL_TIPO_EFECTIVO}
                 LEFT JOIN stock s ON s.art_cod = a.art_cod
@@ -428,15 +435,17 @@ def trae_portada(
                   AND a.mostrar_web = TRUE
                   AND {SQL_TIPO_VISIBLE}
                   AND a.tipo_kit IS DISTINCT FROM 'COMBO'
-            ) x
-            WHERE x.posicion <= %s
-            ORDER BY x.tipo_cod, x.posicion
+              ) x
+              WHERE x.posicion <= %s
+            ) y
+            WHERE y.rango_tipo <= %s
+            ORDER BY y.rango_tipo, y.posicion
         """
-        cursor.execute(sql, (por_categoria,))
+        cursor.execute(sql, (por_categoria, max_categorias))
 
         categorias = []
         for fila in cursor.fetchall():
-            # fila: las 9 columnas del catalogo + tipo_cod + posicion
+            # fila: las 9 columnas del catalogo + tipo_cod + posicion + total_tipo + rango_tipo
             if not categorias or categorias[-1]["_tipo_cod"] != fila[9]:
                 categorias.append({"_tipo_cod": fila[9], "categoria": fila[3], "articulos": []})
             categorias[-1]["articulos"].append(formatear_articulo_catalogo(fila[:9]))
