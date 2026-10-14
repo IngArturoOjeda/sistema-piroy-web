@@ -229,6 +229,9 @@ Ya realizado (`backend/app/routers/admin.py`, protegido con usuario y contraseñ
   categoría de la tienda (ver `ARCHITECTURE.md`, "Tipo efectivo de un artículo");
 - estado de cada tipo de artículo (`admin-tipos.html`, `tipo_articulo.mostrar_web`): ocultar un tipo oculta el
   tipo y todos sus artículos en la tienda; el menú de categorías solo muestra tipos visibles con artículos;
+- panel con direcciones cortas (`/admin`, `/admin/imagenes`, `/admin/banners`, `/admin/tipos`, `/admin/usuarios`) y **app instalable**
+  (manifiesto, service worker sin caché, íconos y botón "Instalar app"; Chrome confirma que es instalable); ver `ARCHITECTURE.md`,
+  "Direcciones del panel y app instalable";
 - gestión de usuarios desde el panel (`admin-usuarios.html`): roles administrador / común, crear,
   activar y desactivar, dar o quitar el rol, restablecer contraseñas, cambiar la propia
   contraseña y "ojito" para ver lo que se escribe;

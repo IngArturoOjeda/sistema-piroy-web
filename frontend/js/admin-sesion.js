@@ -2,7 +2,7 @@
 // La sesión vive en una cookie HttpOnly que pone el servidor al iniciar sesión: este código
 // nunca ve ni guarda la contraseña ni el token.
 
-const URL_LOGIN_ADMIN = "/frontend/admin-login.html";
+const URL_LOGIN_ADMIN = "/admin/";
 
 function irAlLogin() {
     window.location.replace(URL_LOGIN_ADMIN);

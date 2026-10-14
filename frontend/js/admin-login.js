@@ -7,7 +7,7 @@ const inputPasswordUI = document.getElementById("login-password");
 const btnIngresarUI = document.getElementById("btn-ingresar");
 const errorLoginUI = document.getElementById("login-error");
 
-const PANEL_DESTINO = "/frontend/admin-imagenes.html";
+const PANEL_DESTINO = "/admin/imagenes";
 
 function mostrarErrorLogin(texto) {
     errorLoginUI.textContent = texto;

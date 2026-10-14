@@ -69,7 +69,7 @@ const detalleProductoUI = document.getElementById("detalle-producto");
 
 // Contacto por WhatsApp. Número definitivo de la tienda.
 // Va con código de país y sin "+" ni espacios (formato de https://wa.me/).
-const WHATSAPP_NUMERO = "595981100099";
+const WHATSAPP_NUMERO = "595981492482";
 const NOMBRE_TIENDA = "AGRO-VETZO";
 const TITULO_PAGINA_ORIGINAL = document.title;
 

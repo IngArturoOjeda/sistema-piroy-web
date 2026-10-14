@@ -1065,3 +1065,26 @@ body {
 .resultado-ver-mas .btn-secundario {
     width: 100%;
 }
+
+/* ---------- App instalable ---------- */
+
+.btn-salir[hidden] {
+    display: none;
+}
+
+.btn-instalar-ingreso {
+    margin-left: auto;
+}
+
+/* El encabezado del panel tiene muchos elementos (menu, usuario, Instalar app, Cerrar sesion): ninguno parte su
+   texto en dos lineas; si no entran todos, pasan enteros a otra fila. */
+.admin-header {
+    flex-wrap: wrap;
+    row-gap: 8px;
+}
+
+.admin-nav a,
+.btn-salir,
+.admin-usuario {
+    white-space: nowrap;
+}

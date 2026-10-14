@@ -1,0 +1,32 @@
+{
+  "id": "/admin/",
+  "name": "AGRO-VETZO · Administración",
+  "short_name": "AV Admin",
+  "description": "Panel de administración de la tienda AGRO-VETZO: imágenes, banners, tipos de artículos y usuarios.",
+  "lang": "es-PY",
+  "start_url": "/admin/",
+  "scope": "/admin/",
+  "display": "standalone",
+  "background_color": "#FAF7F2",
+  "theme_color": "#603000",
+  "icons": [
+    {
+      "src": "/frontend/assets/images/admin/icono-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/frontend/assets/images/admin/icono-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/frontend/assets/images/admin/icono-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

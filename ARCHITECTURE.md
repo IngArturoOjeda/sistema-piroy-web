@@ -612,9 +612,45 @@ Reglas (`backend/app/seguridad_admin.py`):
 
 Usuarios: no hay registro público. El primer administrador se crea con `scripts/crear_usuario_admin.py USUARIO --admin` (pide la contraseña por teclado sin mostrarla; sobre un usuario existente cambia su contraseña, cierra sus sesiones y levanta el bloqueo; `--desactivar` da de baja). Los demás se gestionan desde `frontend/admin-usuarios.html`. Dos roles: **administrador** (gestiona usuarios) y **común** (usa el panel de imágenes y banners y puede cambiar su propia contraseña).
 
-Interfaz: `frontend/admin-login.html` + `js/admin-login.js`; `frontend/admin-usuarios.html` + `js/admin-usuarios.js` (cambiar mi contraseña para todos; crear, activar/desactivar, rol y nueva contraseña solo para administradores); `js/admin-sesion.js` (compartido por todas las pantallas) manda al login si no hay sesión o si vence (401), muestra el usuario y el botón "Cerrar sesión"; `js/admin-ojo.js` es el botón "ojito" que muestra u oculta la contraseña mientras se escribe. Los paneles no guardan contraseña ni token en el navegador (la cookie no es legible desde JavaScript).
+Interfaz (direcciones en "Direcciones del panel y app instalable"): `frontend/admin-login.html` + `js/admin-login.js`; `frontend/admin-usuarios.html` + `js/admin-usuarios.js` (cambiar mi contraseña para todos; crear, activar/desactivar, rol y nueva contraseña solo para administradores); `js/admin-sesion.js` (compartido por todas las pantallas) manda al login si no hay sesión o si vence (401), muestra el usuario y el botón "Cerrar sesión"; `js/admin-ojo.js` es el botón "ojito" que muestra u oculta la contraseña mientras se escribe. Los paneles no guardan contraseña ni token en el navegador (la cookie no es legible desde JavaScript).
 
 Límite conocido: el bloqueo es por usuario, no por dirección IP.
+
+### Direcciones del panel y app instalable
+
+El panel se abre en **`/admin`** (en producción, `https://www.agrovetzo.com.py/admin`). Cada pantalla tiene una dirección
+corta bajo `/admin/`, servida por `main.py` con las mismas páginas de `frontend/`:
+
+| Dirección | Página |
+|---|---|
+| `/admin` y `/admin/` | ingreso (`admin-login.html`); con sesión iniciada lleva directo a `/admin/imagenes` |
+| `/admin/imagenes` | `admin-imagenes.html` |
+| `/admin/banners` | `admin-banners.html` |
+| `/admin/tipos` | `admin-tipos.html` |
+| `/admin/usuarios` | `admin-usuarios.html` |
+| `/admin/manifest.webmanifest` | manifiesto de la app (`application/manifest+json`) |
+| `/admin/sw.js` | service worker (`text/javascript`, `Service-Worker-Allowed: /admin/`, sin caché del navegador) |
+
+Las direcciones viejas `/frontend/admin-*.html` siguen existiendo, pero ya nadie enlaza a ellas. La API del panel no cambia
+(`/api/admin/...`). `/admin` y `/admin/` responden las dos porque el alcance de la app es `/admin/`: si `/admin/` redirigiera
+a `/admin`, saldría del alcance.
+
+**App instalable (PWA):** el panel se puede instalar como aplicación (en Edge aparece "Abrir en aplicación"; en Chrome, el
+icono de instalar). Piezas:
+- `frontend/admin-app/manifest.webmanifest`: `start_url` y `scope` en `/admin/` (todas las pantallas del panel están dentro, y
+  los enlaces entre ellas también: lo que sale del alcance se abre en el navegador), `display: standalone`, colores de la marca
+  e íconos `frontend/assets/images/admin/icono-192.png` y `icono-512.png` (el 512 también como `maskable`; el contenido queda
+  en la zona segura). Los íconos se generaron con el emblema del logo y el texto "AGRO-VETZO ADMIN".
+- `frontend/admin-app/sw.js`: service worker mínimo. **No guarda nada en caché** (los datos del panel van siempre a la red y no
+  queda nada del administrador en el dispositivo); solo atiende las navegaciones y, si no hay internet, muestra una página
+  "Sin conexión" con "Reintentar".
+- `frontend/js/admin-pwa.js` (incluido en las cinco pantallas): registra el service worker y muestra el botón **"Instalar app"**
+  de la cabecera cuando el navegador ofrece instalar (`beforeinstallprompt`); se oculta al instalarse o al usar la app.
+- Las cinco páginas llevan `<link rel="manifest">`, `theme-color` y `apple-touch-icon`, y un enlace "Ver la tienda" que se abre
+  en otra pestaña.
+
+La sesión es una cookie por dominio: al cambiar de dirección (por ejemplo de `onrender.com` a `www.agrovetzo.com.py`) hay que
+iniciar sesión de nuevo.
 
 ### Despliegue en Render
 

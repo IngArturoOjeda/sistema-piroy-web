@@ -22,6 +22,7 @@ app = FastAPI(
 
 RUTA_PROYECTO = Path(__file__).resolve().parents[2]  # Ruta del proyecto
 RUTA_FRONTEND = RUTA_PROYECTO / "frontend"  # Ruta del frontend
+RUTA_ADMIN_APP = RUTA_FRONTEND / "admin-app"  # manifiesto y service worker de la app del panel
 
 # 1. PUENTE DE ARCHIVOS ESTÁTICOS (CSS, JS, IMÁGENES)
 app.mount("/frontend", StaticFiles(directory=RUTA_FRONTEND), name="frontend")
@@ -73,3 +74,58 @@ async def read_combos():
 @app.get("/catalogo")
 async def read_catalogo():
     return pagina_principal()
+
+
+# 4. PANEL DE ADMINISTRACION (app instalable)
+# Direcciones cortas bajo /admin/. Todas las paginas del panel viven dentro de ese prefijo porque es el ALCANCE de la
+# app instalada (manifest "scope": "/admin/"): lo que queda dentro se abre en la ventana de la app y el navegador
+# ofrece "Abrir en aplicacion". Las paginas siguen siendo las mismas (frontend/admin-*.html), y la API es /api/admin.
+def pagina_admin(archivo: str):
+    return FileResponse(f"{RUTA_FRONTEND}/{archivo}", headers={"Cache-Control": "no-cache"})
+
+
+# "/admin" y "/admin/" responden las dos (el alcance de la app es "/admin/"): entrada y pantalla de ingreso
+@app.get("/admin")
+async def read_admin():
+    return pagina_admin("admin-login.html")
+
+
+@app.get("/admin/")
+async def read_admin_inicio():
+    return pagina_admin("admin-login.html")
+
+
+@app.get("/admin/imagenes")
+async def read_admin_imagenes():
+    return pagina_admin("admin-imagenes.html")
+
+
+@app.get("/admin/banners")
+async def read_admin_banners():
+    return pagina_admin("admin-banners.html")
+
+
+@app.get("/admin/tipos")
+async def read_admin_tipos():
+    return pagina_admin("admin-tipos.html")
+
+
+@app.get("/admin/usuarios")
+async def read_admin_usuarios():
+    return pagina_admin("admin-usuarios.html")
+
+
+@app.get("/admin/manifest.webmanifest")
+async def read_admin_manifiesto():
+    return FileResponse(RUTA_ADMIN_APP / "manifest.webmanifest", media_type="application/manifest+json")
+
+
+# El service worker se sirve desde /admin/ para que su alcance sea /admin/; sin caché del navegador, así una
+# versión nueva se aplica enseguida.
+@app.get("/admin/sw.js")
+async def read_admin_service_worker():
+    return FileResponse(
+        RUTA_ADMIN_APP / "sw.js",
+        media_type="text/javascript",
+        headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/admin/"},
+    )

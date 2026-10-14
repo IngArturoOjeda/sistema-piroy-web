@@ -428,7 +428,7 @@ No basta con afirmar "0 pendientes" o "hay pendientes" sin distinguir estos dos 
 
 - `GET /api/categorias` y `GET /api/articulos` devuelven datos coherentes con lo recién sincronizado.
 - Las imágenes se ven correctamente (Cloudinary o el placeholder `sin-imagen.svg` cuando corresponde).
-- El panel administrativo (`/frontend/admin-imagenes.html`) permite buscar un artículo, ver su imagen actual, subir una nueva, y cambiar el switch "Mostrar en web".
+- El panel administrativo (`/admin`, que lleva a `/admin/imagenes`) permite buscar un artículo, ver su imagen actual, subir una nueva, y cambiar el switch "Mostrar en web".
 - Cambiar `mostrar_web` desde el panel se refleja correctamente en el catálogo público (`GET /api/articulos`).
 - SQL Server sigue funcionando de forma completamente local: las ventas y la facturación no dependen de que el sincronizador ni Internet estén disponibles.
 - SQL Server no está expuesto públicamente; el puerto 1433 no está abierto hacia Internet.

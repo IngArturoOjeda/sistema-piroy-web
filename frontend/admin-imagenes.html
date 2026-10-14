@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AgroVetzo - Panel de Imágenes</title>
   <link rel="icon" type="image/png" href="/frontend/assets/images/favicon.png">
+  <link rel="manifest" href="/admin/manifest.webmanifest">
+  <meta name="theme-color" content="#603000">
+  <link rel="apple-touch-icon" href="/frontend/assets/images/admin/icono-192.png">
   <link rel="stylesheet" href="/frontend/css/admin-imagenes.css">
 </head>
 <body>
@@ -12,12 +15,14 @@
     <img src="/frontend/assets/images/logo-vete.jpg" alt="AgroVetzo" class="admin-logo">
     <h1>Panel de Imágenes</h1>
     <nav class="admin-nav">
-      <a href="/frontend/admin-banners.html">Banners del carrusel</a>
-      <a href="/frontend/admin-tipos.html">Tipos de artículos</a>
-      <a href="/frontend/admin-usuarios.html">Usuarios</a>
+      <a href="/admin/banners">Banners del carrusel</a>
+      <a href="/admin/tipos">Tipos de artículos</a>
+      <a href="/admin/usuarios">Usuarios</a>
+      <a href="/" target="_blank" rel="noopener">Ver la tienda</a>
     </nav>
     <div class="admin-sesion">
       <span id="admin-usuario" class="admin-usuario"></span>
+      <button type="button" id="btn-instalar" class="btn-salir" hidden>Instalar app</button>
       <button type="button" id="btn-salir" class="btn-salir">Cerrar sesión</button>
     </div>
   </header>
@@ -46,6 +51,7 @@
     </section>
   </main>
 
+  <script src="/frontend/js/admin-pwa.js"></script>
   <script src="/frontend/js/admin-sesion.js"></script>
   <script src="/frontend/js/admin-imagenes.js"></script>
 </body>
