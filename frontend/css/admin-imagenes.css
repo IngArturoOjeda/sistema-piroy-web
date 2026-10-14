@@ -485,23 +485,6 @@ body {
     color: #dc2626;
 }
 
-/* ---------- Navegación entre paneles ---------- */
-
-.admin-nav {
-    margin-left: auto;
-}
-
-.admin-nav a {
-    color: #1e3a8a;
-    font-weight: 600;
-    text-decoration: none;
-}
-
-.admin-nav a:hover,
-.admin-nav a:focus-visible {
-    text-decoration: underline;
-}
-
 /* ---------- Panel de banners ---------- */
 
 .banners-contenido {
@@ -730,10 +713,6 @@ body {
         flex-wrap: wrap;
     }
 
-    .admin-nav {
-        margin-left: 0;
-    }
-
     .admin-usuario {
         display: none;
     }
@@ -860,12 +839,6 @@ body {
 }
 
 /* ---------- Pantalla de usuarios ---------- */
-
-.admin-nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 18px;
-}
 
 .campo-casilla {
     display: flex;
@@ -1083,8 +1056,213 @@ body {
     row-gap: 8px;
 }
 
-.admin-nav a,
 .btn-salir,
 .admin-usuario {
     white-space: nowrap;
+}
+
+/* ---------- Menu del panel (hamburguesa + cajon lateral; igual en celular, app y PC) ---------- */
+
+.btn-menu {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+}
+
+.btn-menu:hover,
+.btn-menu:focus-visible {
+    background: #eef2fb;
+}
+
+.btn-menu-barras,
+.btn-menu-barras::before,
+.btn-menu-barras::after {
+    display: block;
+    width: 22px;
+    height: 3px;
+    border-radius: 2px;
+    background: #1f2937;
+    content: "";
+}
+
+.btn-menu-barras {
+    position: relative;
+}
+
+.btn-menu-barras::before {
+    position: absolute;
+    top: -7px;
+}
+
+.btn-menu-barras::after {
+    position: absolute;
+    top: 7px;
+}
+
+.menu-fondo {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+    z-index: 900;
+}
+
+.menu-admin {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(320px, 85vw);
+    display: flex;
+    flex-direction: column;
+    background: white;
+    box-shadow: 4px 0 24px rgba(15, 23, 42, 0.2);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 0.22s ease, visibility 0.22s;
+    z-index: 901;
+}
+
+body.menu-abierto {
+    overflow: hidden;
+}
+
+body.menu-abierto .menu-fondo {
+    opacity: 1;
+    visibility: visible;
+}
+
+body.menu-abierto .menu-admin {
+    transform: none;
+    visibility: visible;
+}
+
+.menu-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 14px 24px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.menu-marca {
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: #603000;
+}
+
+.btn-menu-cerrar {
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    font-size: 1.9rem;
+    line-height: 1;
+    color: #475569;
+    cursor: pointer;
+}
+
+.btn-menu-cerrar:hover,
+.btn-menu-cerrar:focus-visible {
+    background: #eef2fb;
+}
+
+.menu-lista {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 10px;
+}
+
+.menu-grupo summary,
+.menu-enlace {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 48px;
+    padding: 0 16px;
+    border-radius: 24px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #1f2937;
+    text-decoration: none;
+    cursor: pointer;
+    list-style: none;
+}
+
+.menu-grupo summary::-webkit-details-marker {
+    display: none;
+}
+
+.menu-grupo summary::after {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid #94a3b8;
+    border-bottom: 2px solid #94a3b8;
+    transform: rotate(45deg);
+    transition: transform 0.15s;
+    margin-right: 4px;
+}
+
+.menu-grupo[open] summary::after {
+    transform: rotate(-135deg);
+}
+
+.menu-grupo summary:hover,
+.menu-grupo summary:focus-visible,
+.menu-enlace:hover,
+.menu-enlace:focus-visible,
+.menu-grupo-items a:hover,
+.menu-grupo-items a:focus-visible {
+    background: #f1f5f9;
+}
+
+.menu-grupo-items {
+    padding: 2px 0 6px 12px;
+}
+
+.menu-grupo-items a {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 22px;
+    font-weight: 500;
+    color: #334155;
+    text-decoration: none;
+}
+
+.menu-grupo-items a[aria-current="page"] {
+    background: #e8effd;
+    color: #1d4ed8;
+    font-weight: 700;
+}
+
+.menu-admin .admin-sesion {
+    flex-wrap: wrap;
+    padding: 14px 18px 18px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.menu-admin .admin-usuario {
+    display: block;
+    flex-basis: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .menu-fondo,
+    .menu-admin,
+    .menu-grupo summary::after {
+        transition: none;
+    }
 }

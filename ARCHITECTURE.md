@@ -645,9 +645,17 @@ icono de instalar). Piezas:
   queda nada del administrador en el dispositivo); solo atiende las navegaciones y, si no hay internet, muestra una página
   "Sin conexión" con "Reintentar".
 - `frontend/js/admin-pwa.js` (incluido en las cinco pantallas): registra el service worker y muestra el botón **"Instalar app"**
-  de la cabecera cuando el navegador ofrece instalar (`beforeinstallprompt`); se oculta al instalarse o al usar la app.
-- Las cinco páginas llevan `<link rel="manifest">`, `theme-color` y `apple-touch-icon`, y un enlace "Ver la tienda" que se abre
+  del menú cuando el navegador ofrece instalar (`beforeinstallprompt`); se oculta al instalarse o al usar la app.
+- Las cinco páginas llevan `<link rel="manifest">`, `theme-color` y `apple-touch-icon`; "Ver la tienda" (en el menú) se abre
   en otra pestaña.
+
+**Nombre y menú:** la app se llama **AGRO-VETZO** (`name` y `short_name` del manifiesto, títulos de las páginas y
+`apple-mobile-web-app-title`). Las cuatro pantallas de trabajo (imágenes, banners, tipos, usuarios) comparten el mismo menú
+en celular, app y PC: cabecera con botón ☰, logo y título de la pantalla; el menú es un cajón lateral (`#menu-admin`, máx. 320 px)
+con grupos desplegables (Catálogo: imágenes y tipos; Portada: banners; Administración: usuarios), "Ver la tienda" y, abajo,
+usuario, "Instalar app" y "Cerrar sesión". Marca la pantalla actual con `aria-current="page"` y abre su grupo; se cierra con ✕,
+tocando afuera o con Esc. El contenido del menú está repetido en el HTML de cada pantalla (hay que editar las cuatro al agregar
+una opción); `frontend/js/admin-menu.js` solo lo abre y cierra. El ingreso (`admin-login.html`) no lleva menú.
 
 La sesión es una cookie por dominio: al cambiar de dirección (por ejemplo de `onrender.com` a `www.agrovetzo.com.py`) hay que
 iniciar sesión de nuevo.

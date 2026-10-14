@@ -1338,6 +1338,10 @@ body.en-inicio .contenedor-principal {
     border-left: 6px solid var(--verde-claro);
     padding-left: 12px;
     margin-bottom: 16px;
+    /* "Resultados para «texto»" lleva lo que el cliente escribio: una palabra larga sin espacios se parte en
+       varias lineas en vez de salirse de la pantalla */
+    overflow-wrap: anywhere;
+    min-width: 0;
 }
 
 /* 🔥 ESTILOS PARA EL BOTÓN DE PROMOCIONES ANIMADO */

@@ -1,7 +1,7 @@
 {
   "id": "/admin/",
-  "name": "AGRO-VETZO · Administración",
-  "short_name": "AV Admin",
+  "name": "AGRO-VETZO",
+  "short_name": "AGRO-VETZO",
   "description": "Panel de administración de la tienda AGRO-VETZO: imágenes, banners, tipos de artículos y usuarios.",
   "lang": "es-PY",
   "start_url": "/admin/",

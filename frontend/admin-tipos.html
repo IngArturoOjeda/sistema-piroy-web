@@ -4,29 +4,56 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
-  <title>AgroVetzo - Tipos de artículos</title>
+  <title>AGRO-VETZO - Tipos de artículos</title>
   <link rel="icon" type="image/png" href="/frontend/assets/images/favicon.png">
   <link rel="manifest" href="/admin/manifest.webmanifest">
   <meta name="theme-color" content="#603000">
+  <meta name="apple-mobile-web-app-title" content="AGRO-VETZO">
   <link rel="apple-touch-icon" href="/frontend/assets/images/admin/icono-192.png">
   <link rel="stylesheet" href="/frontend/css/admin-imagenes.css">
 </head>
 <body>
   <header class="admin-header">
-    <img src="/frontend/assets/images/logo-vete.jpg" alt="AgroVetzo" class="admin-logo">
+    <button type="button" id="btn-menu" class="btn-menu" aria-label="Abrir menú" aria-expanded="false" aria-controls="menu-admin">
+      <span class="btn-menu-barras"></span>
+    </button>
+    <img src="/frontend/assets/images/logo-vete.jpg" alt="AGRO-VETZO" class="admin-logo">
     <h1>Tipos de artículos</h1>
-    <nav class="admin-nav">
-      <a href="/admin/imagenes">Imágenes de productos</a>
-      <a href="/admin/banners">Banners del carrusel</a>
-      <a href="/admin/usuarios">Usuarios</a>
-      <a href="/" target="_blank" rel="noopener">Ver la tienda</a>
-    </nav>
+  </header>
+  <div id="menu-fondo" class="menu-fondo"></div>
+  <nav id="menu-admin" class="menu-admin" aria-label="Menú del panel">
+    <div class="menu-cabecera">
+      <span class="menu-marca">AGRO-VETZO</span>
+      <button type="button" id="btn-menu-cerrar" class="btn-menu-cerrar" aria-label="Cerrar menú">&times;</button>
+    </div>
+    <div class="menu-lista">
+      <details class="menu-grupo" open>
+        <summary>Catálogo</summary>
+        <div class="menu-grupo-items">
+          <a href="/admin/imagenes">Imágenes de productos</a>
+          <a href="/admin/tipos" aria-current="page">Tipos de artículos</a>
+        </div>
+      </details>
+      <details class="menu-grupo">
+        <summary>Portada</summary>
+        <div class="menu-grupo-items">
+          <a href="/admin/banners">Banners del carrusel</a>
+        </div>
+      </details>
+      <details class="menu-grupo">
+        <summary>Administración</summary>
+        <div class="menu-grupo-items">
+          <a href="/admin/usuarios">Usuarios</a>
+        </div>
+      </details>
+      <a href="/" target="_blank" rel="noopener" class="menu-enlace">Ver la tienda</a>
+    </div>
     <div class="admin-sesion">
       <span id="admin-usuario" class="admin-usuario"></span>
       <button type="button" id="btn-instalar" class="btn-salir" hidden>Instalar app</button>
       <button type="button" id="btn-salir" class="btn-salir">Cerrar sesión</button>
     </div>
-  </header>
+  </nav>
 
   <main class="banners-contenido">
     <section class="banners-tarjeta">
@@ -57,6 +84,7 @@
     </section>
   </main>
 
+  <script src="/frontend/js/admin-menu.js"></script>
   <script src="/frontend/js/admin-pwa.js"></script>
   <script src="/frontend/js/admin-sesion.js"></script>
   <script src="/frontend/js/admin-tipos.js"></script>

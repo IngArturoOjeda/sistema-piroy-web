@@ -140,7 +140,7 @@ def test_los_enlaces_del_panel_usan_las_direcciones_dentro_del_alcance(archivo):
 
 def test_la_tienda_se_abre_en_otra_pestana_desde_el_panel():
     html = (FRONTEND / "admin-imagenes.html").read_text(encoding="utf-8")
-    assert '<a href="/" target="_blank" rel="noopener">Ver la tienda</a>' in html
+    assert '<a href="/" target="_blank" rel="noopener" class="menu-enlace">Ver la tienda</a>' in html
 
 
 def test_las_pantallas_redirigen_a_las_direcciones_nuevas():
@@ -152,3 +152,30 @@ def test_el_script_de_la_app_registra_el_service_worker_en_su_alcance():
     codigo = (FRONTEND / "js" / "admin-pwa.js").read_text(encoding="utf-8")
     assert 'register("/admin/sw.js", { scope: "/admin/" })' in codigo
     assert "beforeinstallprompt" in codigo and "appinstalled" in codigo
+
+
+# ---------- nombre y menu del panel ----------
+
+PANTALLAS_CON_MENU = ["admin-imagenes.html", "admin-banners.html", "admin-tipos.html", "admin-usuarios.html"]
+
+
+def test_la_app_se_llama_agro_vetzo():
+    m = manifiesto()
+    assert m["name"] == "AGRO-VETZO" and m["short_name"] == "AGRO-VETZO"
+    for archivo in HTML_DEL_PANEL:
+        html = (FRONTEND / archivo).read_text(encoding="utf-8")
+        assert "<title>AGRO-VETZO - " in html and "AgroVetzo" not in html
+        assert '<meta name="apple-mobile-web-app-title" content="AGRO-VETZO">' in html
+
+
+@pytest.mark.parametrize("archivo", PANTALLAS_CON_MENU)
+def test_cada_pantalla_tiene_el_menu_de_hamburguesa(archivo):
+    html = (FRONTEND / archivo).read_text(encoding="utf-8")
+    for pieza in ('id="btn-menu"', 'id="menu-admin"', 'id="menu-fondo"', 'id="btn-menu-cerrar"',
+                  'id="admin-usuario"', 'id="btn-salir"', 'id="btn-instalar"', '<script src="/frontend/js/admin-menu.js"></script>'):
+        assert pieza in html, pieza
+    # el menu lleva a las cuatro pantallas y marca solo la actual
+    for destino in ("/admin/imagenes", "/admin/banners", "/admin/tipos", "/admin/usuarios"):
+        assert f'href="{destino}"' in html
+    assert html.count('aria-current="page"') == 1
+    assert html.index("admin-menu.js") < html.index("admin-pwa.js") < html.index("admin-sesion.js")
