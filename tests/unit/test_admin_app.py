@@ -179,3 +179,20 @@ def test_cada_pantalla_tiene_el_menu_de_hamburguesa(archivo):
         assert f'href="{destino}"' in html
     assert html.count('aria-current="page"') == 1
     assert html.index("admin-menu.js") < html.index("admin-pwa.js") < html.index("admin-sesion.js")
+
+
+# ---------- ajustes de pantallas del panel (celular) ----------
+
+def test_tipos_se_elige_de_una_lista_en_vez_de_escribir():
+    html = (FRONTEND / "admin-tipos.html").read_text(encoding="utf-8")
+    assert '<select id="filtro-tipo-lista">' in html and "Todos los tipos" in html
+    assert "buscar-tipo" not in html
+    codigo = (FRONTEND / "js" / "admin-tipos.js").read_text(encoding="utf-8")
+    assert "buscar-tipo" not in codigo and "filtro-tipo-lista" in codigo
+
+
+def test_la_pantalla_de_imagenes_no_se_estira_con_nombres_largos():
+    css = (FRONTEND / "css" / "admin-imagenes.css").read_text(encoding="utf-8")
+    assert "grid-template-columns: 340px minmax(0, 1fr);" in css
+    assert "grid-template-columns: minmax(0, 1fr);" in css          # celular: una columna que puede achicarse
+    assert "overflow-wrap: anywhere;" in css

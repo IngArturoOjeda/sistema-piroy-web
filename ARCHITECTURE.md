@@ -501,6 +501,7 @@ e-commerce, no viene de SQL Server: **si el sincronizador llegara a cargar tipos
 pisar esta columna**. El administrador la cambia desde `frontend/admin-tipos.html`
 (`GET /api/admin/tipos`, con la cantidad de artículos publicados y si el tipo aparece en el menú, y
 `PATCH /api/admin/tipos/{tipoart_cod}` con `{"mostrar_web": bool}`).
+La pantalla filtra con una lista desplegable de tipos ("Todos los tipos" + cada tipo), sin escribir el nombre.
 
 Un tipo oculto lo oculta todo: ni el tipo ni sus artículos aparecen en el menú, el listado, las
 promociones, los combos, la página del producto ni las formas de compra (`AND t.mostrar_web = TRUE` en
@@ -656,6 +657,8 @@ con grupos desplegables (Catálogo: imágenes y tipos; Portada: banners; Adminis
 usuario, "Instalar app" y "Cerrar sesión". Marca la pantalla actual con `aria-current="page"` y abre su grupo; se cierra con ✕,
 tocando afuera o con Esc. El contenido del menú está repetido en el HTML de cada pantalla (hay que editar las cuatro al agregar
 una opción); `frontend/js/admin-menu.js` solo lo abre y cierra. El ingreso (`admin-login.html`) no lleva menú.
+En `admin-imagenes.css` la grilla de la pantalla de imágenes usa `minmax(0, 1fr)` y los textos largos se parten
+(`overflow-wrap: anywhere`): un nombre sin espacios no debe estirar la página en el celular.
 
 La sesión es una cookie por dominio: al cambiar de dirección (por ejemplo de `onrender.com` a `www.agrovetzo.com.py`) hay que
 iniciar sesión de nuevo.

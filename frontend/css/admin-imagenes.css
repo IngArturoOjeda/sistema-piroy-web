@@ -34,7 +34,7 @@ body {
 
 .admin-contenido {
     display: grid;
-    grid-template-columns: 340px 1fr;
+    grid-template-columns: 340px minmax(0, 1fr);
     gap: 20px;
     align-items: start;
     max-width: 1300px;
@@ -658,7 +658,7 @@ body {
 
 @media (max-width: 900px) {
     .admin-contenido {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
         padding: 15px;
     }
 
@@ -1265,4 +1265,46 @@ body.menu-abierto .menu-admin {
     .menu-grupo summary::after {
         transition: none;
     }
+}
+
+/* Lista desplegable de la pantalla de tipos (mismo aspecto que los campos de texto) */
+.campo-banner select {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background-color: white;
+    font-size: 1rem;
+    font-weight: normal;
+    color: #333;
+}
+
+/* ---------- Pantalla de imagenes: nada se sale del ancho del celular ---------- */
+
+/* Una columna de grilla "1fr" no baja del ancho de su contenido: un nombre largo sin espacios la estiraba y la
+   pagina se movia de lado. minmax(0, 1fr) y min-width: 0 dejan que la columna se achique, y los textos largos
+   se parten. */
+.admin-resultados,
+.admin-detalle,
+.buscador-lateral,
+.caja-buscar-wrapper {
+    min-width: 0;
+}
+
+.resultado-textos,
+.detalle-texto,
+.detalle-texto p {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.filtro-tipo select,
+.form-descripcion textarea,
+#input-archivo,
+.form-imagen {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
 }

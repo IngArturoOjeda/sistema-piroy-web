@@ -4,7 +4,7 @@
 
 const listaTiposUI = document.getElementById("lista-tipos");
 const estadoTiposUI = document.getElementById("estado-tipos");
-const buscarTipoUI = document.getElementById("buscar-tipo");
+const filtroTipoUI = document.getElementById("filtro-tipo-lista");
 
 let tipos = [];
 
@@ -26,10 +26,6 @@ async function mensajeDeError(respuesta, porDefecto) {
     return porDefecto;
 }
 
-function sinTildes(texto) {
-    return texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-}
-
 function crearCelda(etiqueta) {
     const celda = document.createElement("td");
     celda.dataset.etiqueta = etiqueta;
@@ -43,10 +39,23 @@ function estadoDelTipo(tipo) {
     return { texto: "Visible, pero sin artículos (no aparece en el menú)", clase: "etiqueta-vacio" };
 }
 
+// Rellena la lista desplegable con todos los tipos (así no hay que escribir el nombre) y conserva el elegido
+function llenarFiltro() {
+    const elegido = filtroTipoUI.value;
+    filtroTipoUI.replaceChildren(filtroTipoUI.options[0]);
+    for (const tipo of tipos) {
+        const opcion = document.createElement("option");
+        opcion.value = String(tipo.tipoart_cod);
+        opcion.textContent = tipo.tipoart_desc;
+        filtroTipoUI.append(opcion);
+    }
+    filtroTipoUI.value = tipos.some((t) => String(t.tipoart_cod) === elegido) ? elegido : "";
+}
+
 function dibujarTipos() {
-    const filtro = sinTildes(buscarTipoUI.value.trim());
+    const elegido = filtroTipoUI.value;
     listaTiposUI.replaceChildren();
-    const visibles = tipos.filter((t) => sinTildes(t.tipoart_desc).includes(filtro));
+    const visibles = tipos.filter((t) => !elegido || String(t.tipoart_cod) === elegido);
 
     for (const tipo of visibles) {
         const fila = document.createElement("tr");
@@ -78,9 +87,9 @@ function dibujarTipos() {
         listaTiposUI.append(fila);
     }
 
-    if (visibles.length === 0) {
-        mostrarEstado(estadoTiposUI, "estado-subiendo", "Ningún tipo coincide con la búsqueda.");
-    } else if (estadoTiposUI.textContent === "Ningún tipo coincide con la búsqueda.") {
+    if (tipos.length === 0) {
+        mostrarEstado(estadoTiposUI, "estado-subiendo", "No hay tipos de artículos.");
+    } else if (estadoTiposUI.textContent === "No hay tipos de artículos.") {
         ocultarEstado(estadoTiposUI);
     }
 }
@@ -95,6 +104,7 @@ async function cargarTipos() {
         }
         tipos = await respuesta.json();
         ocultarEstado(estadoTiposUI);
+        llenarFiltro();
         dibujarTipos();
         return true;
     } catch (error) {
@@ -134,7 +144,7 @@ async function cambiarTipo(tipo, boton) {
     }
 }
 
-buscarTipoUI.addEventListener("input", dibujarTipos);
+filtroTipoUI.addEventListener("change", dibujarTipos);
 document.getElementById("btn-recargar-tipos").addEventListener("click", cargarTipos);
 
 promesaSesionAdmin.then((sesion) => {
