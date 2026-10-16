@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, status
 from psycopg.errors import ForeignKeyViolation
 
 from backend.app.database_postgres import obtener_conexion_postgres
-from backend.app.schemas import ArticuloSync, ArticulosKitSync, StockSync
+from backend.app.schemas import ArticuloSync, ArticulosKitSync, CatalogosSync, StockSync
 
 router = APIRouter(prefix="/sync", tags=["Sincronizacion"])
 
@@ -239,6 +239,59 @@ def sincronizar_stock(datos: StockSync):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No se pudo sincronizar el stock",
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+# Tipos y unidades: el sistema local manda la lista completa; aca solo se crean los que faltan y se
+# actualiza el nombre. NO se tocan tipo_articulo.mostrar_web ni unidad_medida.fraccionable (se deciden
+# en el panel) y nunca se borra nada. Una unidad nueva empieza como no fraccionable.
+SQL_UPSERT_TIPO = """
+    INSERT INTO tipo_articulo (tipoart_cod, tipoart_desc)
+    VALUES (%s, %s)
+    ON CONFLICT (tipoart_cod) DO UPDATE SET
+        tipoart_desc = EXCLUDED.tipoart_desc
+"""
+
+SQL_UPSERT_UNIDAD = """
+    INSERT INTO unidad_medida (uni_cod, uni_nombre, fraccionable)
+    VALUES (%s, %s, FALSE)
+    ON CONFLICT (uni_cod) DO UPDATE SET
+        uni_nombre = EXCLUDED.uni_nombre
+"""
+
+
+@router.post("/catalogos", dependencies=[Depends(verificar_sincronizador)])
+def sincronizar_catalogos(datos: CatalogosSync):
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        for tipo in datos.tipos:
+            cursor.execute(SQL_UPSERT_TIPO, (tipo.tipoart_cod, tipo.tipoart_desc))
+        for unidad in datos.unidades:
+            cursor.execute(SQL_UPSERT_UNIDAD, (unidad.uni_cod, unidad.uni_nombre))
+        conn.commit()
+
+        return {
+            "status": "ok",
+            "tipos": len(datos.tipos),
+            "unidades": len(datos.unidades),
+        }
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("Error sincronizando catalogos:", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudieron sincronizar los tipos y unidades",
         )
     finally:
         if cursor:

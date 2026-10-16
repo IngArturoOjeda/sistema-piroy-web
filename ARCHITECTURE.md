@@ -258,6 +258,17 @@ sincronizador/
 -> SQL Server
 ```
 
+### Sincronización de tipos y unidades, y servidor del negocio
+
+`POST /api/sync/catalogos` (`sync.py`, con `X-API-Key`) recibe la lista completa de `TIPOARTICULO` y `UNIDADMEDIDA` de SQL
+Server y hace upsert en `tipo_articulo` y `unidad_medida`: crea lo que falta y actualiza el nombre, sin tocar
+`tipo_articulo.mostrar_web` ni `unidad_medida.fraccionable` (decisiones del panel) y sin borrar. El sincronizador lo llama
+antes de los artículos (cada artículo exige que su tipo y unidad existan). Variable: `SYNC_API_URL_CATALOGOS`.
+
+La base real del negocio es `Piroy` (SQL Server 2012). Sus tablas `CAMBIOS_*`, triggers y las columnas `llevar_web` y
+`TIPO_KIT` se crean con los scripts numerados de `scripts/sqlserver/` (ver `ROADMAP.md`, Fase 14). El trigger de
+`ARTICULOS` vigila nombre, precio, tipo, foto, estado, `llevar_web`, `art_kit`, `TIPO_KIT` y las unidades.
+
 ### Pool de conexiones a PostgreSQL
 
 `obtener_conexion_postgres()` (`database_postgres.py`) ya no abre una conexión nueva en cada pedido

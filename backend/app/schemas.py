@@ -126,6 +126,43 @@ class StockSync(BaseModel):
     cantidad: Decimal = Field(ge=0, max_digits=9, decimal_places=3)
     version_actual: int = Field(gt=0)
 
+# 7. Tipos de articulo y unidades de medida (SQL Server -> PostgreSQL): lista completa en cada envio
+class TipoSync(BaseModel):
+    tipoart_cod: int = Field(gt=0, lt=2**31)
+    tipoart_desc: str = Field(min_length=1, max_length=100)
+
+    @field_validator("tipoart_desc")
+    @classmethod
+    def sin_espacios_en_los_bordes(cls, valor):
+        valor = valor.strip()
+        if not valor:
+            raise ValueError("tipoart_desc no puede estar vacio")
+        return valor
+
+class UnidadSync(BaseModel):
+    uni_cod: int = Field(gt=0, lt=2**31)
+    uni_nombre: str = Field(min_length=1, max_length=100)
+
+    @field_validator("uni_nombre")
+    @classmethod
+    def sin_espacios_en_los_bordes(cls, valor):
+        valor = valor.strip()
+        if not valor:
+            raise ValueError("uni_nombre no puede estar vacio")
+        return valor
+
+class CatalogosSync(BaseModel):
+    tipos: List[TipoSync] = Field(max_length=1000)
+    unidades: List[UnidadSync] = Field(max_length=200)
+
+    @model_validator(mode="after")
+    def sin_codigos_repetidos(self):
+        for lista, campo in ((self.tipos, "tipoart_cod"), (self.unidades, "uni_cod")):
+            codigos = [getattr(x, campo) for x in lista]
+            if len(codigos) != len(set(codigos)):
+                raise ValueError(f"{campo} repetido en la lista")
+        return self
+
 
 class LoginEntrada(BaseModel):
     model_config = ConfigDict(extra="forbid")

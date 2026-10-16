@@ -156,10 +156,13 @@ CREATE TABLE articulos_kit (
   Las tres condiciones deben cumplirse a la vez.
 - El panel administrativo **nunca** modifica `llevar_web` ni `art_estado` — esos siguen siendo controlados desde SQL Server/VFP.
 
-## 8. Orden de sincronización: artículos → kits → stock
+## 8. Orden de sincronización: tipos y unidades → artículos → kits → stock
 
 El sincronizador (`sincronizador/sincronizador.py`, función `main()`) sigue este orden estricto en cada ejecución:
 
+0. **Tipos y unidades** (`TIPOARTICULO` y `UNIDADMEDIDA` de SQL Server → `POST /api/sync/catalogos`), solo si hay artículos pendientes.
+   - Se envía la lista completa (son pocas filas). La web crea los que faltan y actualiza el nombre; **no toca** `tipo_articulo.mostrar_web` ni `unidad_medida.fraccionable` (se deciden en el panel) y no borra nada. Una unidad nueva empieza con `fraccionable = FALSE`.
+   - Si falla, no se envían artículos (cada artículo exige que su tipo y su unidad existan) y el proceso termina con código `1`.
 1. **Artículos** (`CAMBIOS_ARTICULOS` → `POST /api/sync/articulos`).
    - Si terminó con errores o se abortó, **no se procesan ni kits ni stock**, y el proceso termina con código de salida `1`. Motivo: tanto kits como stock dependen de que los artículos ya existan en PostgreSQL.
 2. **Kits** (`CAMBIOS_ARTICULOS_KIT` → `POST /api/sync/articulos-kit`), solo si el paso 1 no tuvo errores.
@@ -298,9 +301,10 @@ Si la fila de `STOCK` fue eliminada (el sistema local normalmente nunca borra fi
 | `SYNC_API_URL` | URL del endpoint de artículos (`.../api/sync/articulos`) | Obligatoria en cada ejecución |
 | `SYNC_API_URL_KITS` | URL del endpoint de kits (`.../api/sync/articulos-kit`) | Se lee de forma diferida, solo si hay kits pendientes |
 | `SYNC_API_URL_STOCK` | URL del endpoint de stock (`.../api/sync/stock`) | Se lee de forma diferida, solo si hay stock pendiente |
-| `SYNC_API_KEY` | Clave compartida, enviada como header `X-API-Key` en los tres endpoints | Misma clave para artículos, kits y stock |
+| `SYNC_API_URL_CATALOGOS` | URL del endpoint de tipos y unidades (`.../api/sync/catalogos`) | Se lee de forma diferida, solo si hay artículos pendientes |
+| `SYNC_API_KEY` | Clave compartida, enviada como header `X-API-Key` en los cuatro endpoints | Misma clave para catálogos, artículos, kits y stock |
 
-Sin `SYNC_API_KEY` configurada en el backend, los tres endpoints responden `503`. Con una clave incorrecta, responden `401`.
+Sin `SYNC_API_KEY` configurada en el backend, los endpoints responden `503`. Con una clave incorrecta, responden `401`.
 
 Estas variables se agregan al `.env` local del sincronizador y a las variables de entorno de Render (para el backend). También son necesarias, previamente: `DB_DRIVER`, `DB_SERVER`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` (SQL Server, lado sincronizador) y `DATABASE_URL` (PostgreSQL, lado backend) — ya documentadas en `.env.example`.
 
@@ -363,9 +367,9 @@ Receta repetible, en este orden:
 
 ### Configuración común (artículos, kits y stock)
 
-- Confirmar que `tipo_articulo` (42 registros) y `unidad_medida` (7 registros, tabla de la sección 4) ya están cargados manualmente en PostgreSQL — ambos ya se hicieron.
+- `tipo_articulo` y `unidad_medida` se cargaron a mano la primera vez; desde la migración al servidor del negocio las mantiene el propio sincronizador (`POST /api/sync/catalogos`, sección 8).
 - Configurar en Render (backend): `DATABASE_URL`, `SYNC_API_KEY`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
-- Configurar en la máquina del sincronizador (local, SQL Server): `DB_DRIVER`, `DB_SERVER`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `SYNC_API_KEY` (mismo valor que en Render), `SYNC_API_URL`, `SYNC_API_URL_KITS`, `SYNC_API_URL_STOCK`.
+- Configurar en la máquina del sincronizador (local, SQL Server): `DB_DRIVER`, `DB_SERVER`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `SYNC_API_KEY` (mismo valor que en Render), `SYNC_API_URL`, `SYNC_API_URL_KITS`, `SYNC_API_URL_STOCK`, `SYNC_API_URL_CATALOGOS`.
 - Hacer `git pull` en esa máquina para tener la última versión de `sincronizador/`.
 - Ejecutar `python -m sincronizador.sincronizador` desde la raíz del proyecto.
 - Antes de dejarlo correr sobre todo el catálogo, acotar temporalmente la consulta de pendientes (por ejemplo, a un solo `art_codkit` o `art_cod` de prueba) y confirmar el resultado antes de quitar el límite — así se hizo para artículos (`TOP 5`), kits y stock (ver sección 21).

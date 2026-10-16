@@ -273,6 +273,20 @@ Estado: PENDIENTE
 
 Ejecutar sincronizador automáticamente en el servidor local.
 
+### Migración al servidor del negocio (en curso desde 2026-10-14)
+El SQL Server que se usó hasta ahora era una copia de pruebas; la base real es `Piroy` (SQL Server 2012, instancia
+`DESKTOP-8TG4CTH`, sin `llevar_web`, `TIPO_KIT`, tablas `CAMBIOS_*` ni triggers). Los scripts, para correr en SSMS con
+respaldo previo, están en `scripts/sqlserver/`:
+- `00_diagnostico_solo_lectura.sql` y `99_verificacion_solo_lectura.sql` (no modifican nada);
+- `01_estructura.sql` (columnas y tablas), `02_datos_llevar_web_y_tipo_kit.sql` (`llevar_web` copiado de la web; todos los kits como PRESENTACION),
+  `03_triggers.sql` (ahora vigila también `art_kit`, `TIPO_KIT` y las unidades) y `04_carga_inicial.sql`
+  (deja todo pendiente para la primera sincronización) y `05_usuario_sincronizador.sql` (usuario SQL de permisos mínimos).
+Pasos de instalación en el servidor: `docs/GUIA_INSTALACION_SERVIDOR_NEGOCIO.md`.
+Nuevo en el código: el sincronizador envía `TIPOARTICULO` y `UNIDADMEDIDA` a `POST /api/sync/catalogos` antes de los
+artículos. Las tablas de la web se conservan (no se vacían): el sincronizador las corrige. Falta: ejecutar los
+scripts en el negocio, instalar el sincronizador allí (Python, driver ODBC, usuario SQL con permisos mínimos, `.env`
+propio), primera sincronización y tarea programada.
+
 ## Fase 15 — Producción en Render
 Estado: EN PROGRESO
 

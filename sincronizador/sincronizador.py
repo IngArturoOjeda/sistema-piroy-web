@@ -58,6 +58,52 @@ class ErrorConfirmacionLocal(Exception):
     Aborta de inmediato."""
 
 
+SQL_TIPOS = """
+    SELECT TIPOART_COD, TIPOART_DESC
+    FROM TIPOARTICULO
+    ORDER BY TIPOART_COD
+"""
+
+SQL_UNIDADES = """
+    SELECT UNI_COD, UNI_NOMBRE
+    FROM UNIDADMEDIDA
+    ORDER BY UNI_COD
+"""
+
+
+def construir_payload_catalogos(cursor):
+    """Lista completa de tipos y unidades del sistema local (son pocos). FastAPI crea los que faltan
+    y actualiza el nombre; no borra nada ni toca lo que se decide en el panel."""
+    cursor.execute(SQL_TIPOS)
+    tipos = [
+        {"tipoart_cod": int(fila.TIPOART_COD), "tipoart_desc": str(fila.TIPOART_DESC).strip()}
+        for fila in cursor.fetchall()
+        if fila.TIPOART_COD is not None and fila.TIPOART_DESC is not None and str(fila.TIPOART_DESC).strip()
+    ]
+    cursor.execute(SQL_UNIDADES)
+    unidades = [
+        {"uni_cod": int(fila.UNI_COD), "uni_nombre": str(fila.UNI_NOMBRE).strip()}
+        for fila in cursor.fetchall()
+        if fila.UNI_COD is not None and fila.UNI_NOMBRE is not None and str(fila.UNI_NOMBRE).strip()
+    ]
+    return {"tipos": tipos, "unidades": unidades}
+
+
+def sincronizar_catalogos(cursor, url, api_key):
+    """Envia tipos y unidades ANTES de los articulos: cada articulo exige que su tipo y su unidad existan.
+    Cualquier error se propaga (los articulos no se envian si esto falla)."""
+    payload = construir_payload_catalogos(cursor)
+    respuesta = enviar_articulo(url, api_key, payload)
+    if (
+        not isinstance(respuesta, dict)
+        or respuesta.get("status") != "ok"
+        or respuesta.get("tipos") != len(payload["tipos"])
+        or respuesta.get("unidades") != len(payload["unidades"])
+    ):
+        raise ErrorSincronizacion(f"FastAPI no confirmó los tipos y unidades: {respuesta}")
+    print(f"Tipos y unidades al día: {len(payload['tipos'])} tipos, {len(payload['unidades'])} unidades")
+
+
 def leer_pendientes(cursor):
     cursor.execute(SQL_PENDIENTES)
     return cursor.fetchall()
@@ -531,6 +577,7 @@ def main():
 
         pendientes = leer_pendientes(cursor)
         if pendientes:
+            sincronizar_catalogos(cursor, obtener_variable("SYNC_API_URL_CATALOGOS"), api_key)
             resumen = procesar_pendientes(conn, cursor, pendientes, url, api_key)
             imprimir_resumen(resumen)
             error_articulos = bool(resumen["errores"] or resumen["motivo_aborto"])
