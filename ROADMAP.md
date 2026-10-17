@@ -283,9 +283,10 @@ respaldo previo, están en `scripts/sqlserver/`:
   (deja todo pendiente para la primera sincronización) y `05_usuario_sincronizador.sql` (usuario SQL de permisos mínimos).
 Pasos de instalación en el servidor: `docs/GUIA_INSTALACION_SERVIDOR_NEGOCIO.md`.
 Nuevo en el código: el sincronizador envía `TIPOARTICULO` y `UNIDADMEDIDA` a `POST /api/sync/catalogos` antes de los
-artículos. Las tablas de la web se conservan (no se vacían): el sincronizador las corrige. Falta: ejecutar los
-scripts en el negocio, instalar el sincronizador allí (Python, driver ODBC, usuario SQL con permisos mínimos, `.env`
-propio), primera sincronización y tarea programada.
+artículos. Las tablas de la web se conservan (no se vacían): el sincronizador las corrige. Hecho el 2026-10-16: scripts ejecutados en `Piroy`, sincronizador instalado en el servidor del negocio
+(`C:grovetzo-sync`), primera sincronización real completa (1625 artículos, 61 kits y el stock de los artículos de la web;
+los artículos sin nombre y fuera de la web se omiten) y cambios de stock de ventas reales verificados en la web. Falta: tarea
+programada (cada 5 minutos) y probar un cambio de precio.
 
 ## Fase 15 — Producción en Render
 Estado: EN PROGRESO

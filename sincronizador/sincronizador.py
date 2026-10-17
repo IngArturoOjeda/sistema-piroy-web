@@ -199,6 +199,19 @@ def confirmar_version(conn, cursor, payload):
     return filas_actualizadas
 
 
+def sin_nombre_y_fuera_de_la_web(fila):
+    """Articulo sin nombre que NO va a la web (llevar_web = 0): no hay nada que publicar, y la web rechazaria el
+    nombre vacio. Se omite sin tratarlo como error para que no frene kits ni stock. Si llevar_web = 1 si es un
+    error real (se quiere publicar algo sin nombre) y se envia para que el servidor lo rechace."""
+    return not (fila.art_nombre or "").strip() and not bool(fila.llevar_web)
+
+
+def omitir_articulo(conn, cursor, fila):
+    """Confirma la version localmente sin enviar nada. Si mas adelante le ponen nombre (o llevar_web = 1), el
+    trigger vuelve a anotarlo y se envia."""
+    return confirmar_version(conn, cursor, {"art_cod": int(fila.art_cod), "version_actual": int(fila.version_actual)})
+
+
 def sincronizar_un_articulo(conn, cursor, fila, url, api_key):
     payload = construir_payload(fila)
     respuesta = enviar_articulo(url, api_key, payload)
@@ -221,12 +234,18 @@ def procesar_pendientes(conn, cursor, pendientes, url, api_key):
         "errores": [],
         "sin_procesar": 0,
         "motivo_aborto": None,
+        "omitidos": [],
     }
     fallos_conexion_seguidos = 0
 
     for indice, fila in enumerate(pendientes, start=1):
         etiqueta = f"[{indice}/{total}] art_cod={fila.art_cod} version={fila.version_actual}"
         try:
+            if sin_nombre_y_fuera_de_la_web(fila):
+                omitir_articulo(conn, cursor, fila)
+                resumen["omitidos"].append(int(fila.art_cod))
+                print(f"{etiqueta} OMITIDO (sin nombre y fuera de la web)")
+                continue
             filas_actualizadas = sincronizar_un_articulo(conn, cursor, fila, url, api_key)
             resumen["ok"] += 1
             fallos_conexion_seguidos = 0
@@ -276,6 +295,8 @@ def imprimir_resumen(resumen):
     print()
     print(f"Pendientes encontrados: {resumen['encontrados']}")
     print(f"Sincronizados OK: {resumen['ok']}")
+    if resumen.get("omitidos"):
+        print(f"Omitidos (sin nombre y fuera de la web): {len(resumen['omitidos'])}")
     print(f"Con error: {len(resumen['errores'])}")
     if resumen["motivo_aborto"]:
         print(f"Ejecución abortada: {resumen['motivo_aborto']}")

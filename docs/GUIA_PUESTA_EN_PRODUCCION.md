@@ -164,6 +164,7 @@ El sincronizador (`sincronizador/sincronizador.py`, función `main()`) sigue est
    - Se envía la lista completa (son pocas filas). La web crea los que faltan y actualiza el nombre; **no toca** `tipo_articulo.mostrar_web` ni `unidad_medida.fraccionable` (se deciden en el panel) y no borra nada. Una unidad nueva empieza con `fraccionable = FALSE`.
    - Si falla, no se envían artículos (cada artículo exige que su tipo y su unidad existan) y el proceso termina con código `1`.
 1. **Artículos** (`CAMBIOS_ARTICULOS` → `POST /api/sync/articulos`).
+   - Un artículo **sin nombre y con `llevar_web = 0`** no se envía (la web rechaza nombres vacíos y no hay nada que publicar): se informa como *omitido*, su versión se confirma localmente y no cuenta como error ni frena kits y stock. Si le ponen nombre o `llevar_web = 1`, el trigger lo vuelve a anotar. Sin nombre y con `llevar_web = 1` sí es un error real.
    - Si terminó con errores o se abortó, **no se procesan ni kits ni stock**, y el proceso termina con código de salida `1`. Motivo: tanto kits como stock dependen de que los artículos ya existan en PostgreSQL.
 2. **Kits** (`CAMBIOS_ARTICULOS_KIT` → `POST /api/sync/articulos-kit`), solo si el paso 1 no tuvo errores.
 3. **Stock** (`CAMBIOS_STOCK` → `POST /api/sync/stock`), también solo si el paso 1 no tuvo errores.
