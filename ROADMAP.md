@@ -269,9 +269,12 @@ Pendiente:
   el sistema local con el sincronizador, Fase 19 etapa 5; ver "Promociones" en `ARCHITECTURE.md`).
 
 ## Fase 14 — Servicio Windows
-Estado: PENDIENTE
+Estado: HECHA (2026-10-20), como tarea programada de Windows
 
-Ejecutar sincronizador automáticamente en el servidor local.
+El sincronizador corre solo en el servidor del negocio: tarea «AGRO-VETZO Sincronizador» (Programador de tareas, cuenta
+`SYSTEM`, cada 5 minutos, sin instancias superpuestas) que ejecuta `C:\agrovetzo-sync\ejecutar_sincronizador.bat` y guarda
+el resultado en `sincronizador.log`. Verificado: una venta real llega a la web sola en menos de 5 minutos. No hace falta un
+servicio de Windows propio. Pasos de instalación: `docs/GUIA_INSTALACION_SERVIDOR_NEGOCIO.md`.
 
 ### Migración al servidor del negocio (en curso desde 2026-10-14)
 El SQL Server que se usó hasta ahora era una copia de pruebas; la base real es `Piroy` (SQL Server 2012, instancia
@@ -284,9 +287,9 @@ respaldo previo, están en `scripts/sqlserver/`:
 Pasos de instalación en el servidor: `docs/GUIA_INSTALACION_SERVIDOR_NEGOCIO.md`.
 Nuevo en el código: el sincronizador envía `TIPOARTICULO` y `UNIDADMEDIDA` a `POST /api/sync/catalogos` antes de los
 artículos. Las tablas de la web se conservan (no se vacían): el sincronizador las corrige. Hecho el 2026-10-16: scripts ejecutados en `Piroy`, sincronizador instalado en el servidor del negocio
-(`C:grovetzo-sync`), primera sincronización real completa (1625 artículos, 61 kits y el stock de los artículos de la web;
-los artículos sin nombre y fuera de la web se omiten) y cambios de stock de ventas reales verificados en la web. Falta: tarea
-programada (cada 5 minutos) y probar un cambio de precio.
+(`C:\agrovetzo-sync`), primera sincronización real completa (1625 artículos, 61 kits y el stock de los artículos de la web;
+los artículos sin nombre y fuera de la web se omiten) y cambios de stock de ventas reales verificados en la web. Tarea
+programada (cada 5 minutos) y cambio de precio verificados el 2026-10-20.
 
 ## Fase 15 — Producción en Render
 Estado: EN PROGRESO
@@ -310,8 +313,8 @@ Ya realizado:
 
 Pendiente:
 - confirmar que FastAPI y PostgreSQL estén en la misma región de Render;
-- apuntar el sincronizador local (`SYNC_API_URL*`) a la URL de producción y repetir
-  la prueba real de sincronización contra el servicio desplegado;
+- (hecho el 2026-10-16) el sincronizador del servidor del negocio apunta a la URL de producción y la sincronización real
+  se probó contra el servicio desplegado;
 - logs y monitoreo;
 - backups y plan de pago/persistente para producción: en el plan free el servicio
   se duerme tras un tiempo sin visitas y la primera carga tarda;

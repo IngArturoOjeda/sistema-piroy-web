@@ -374,7 +374,7 @@ Receta repetible, en este orden:
 - Hacer `git pull` en esa máquina para tener la última versión de `sincronizador/`.
 - Ejecutar `python -m sincronizador.sincronizador` desde la raíz del proyecto.
 - Antes de dejarlo correr sobre todo el catálogo, acotar temporalmente la consulta de pendientes (por ejemplo, a un solo `art_codkit` o `art_cod` de prueba) y confirmar el resultado antes de quitar el límite — así se hizo para artículos (`TOP 5`), kits y stock (ver sección 21).
-- Repetir la ejecución del sincronizador de forma periódica. **Todavía no existe un servicio de Windows** que lo automatice (queda pendiente, `ROADMAP.md` Fase 14); por ahora se ejecuta manualmente.
+- Repetir la ejecución del sincronizador de forma periódica. En el servidor del negocio lo ejecuta una tarea programada de Windows cada 5 minutos (`ROADMAP.md` Fase 14 y `docs/GUIA_INSTALACION_SERVIDOR_NEGOCIO.md`, paso 6).
 
 ### Carga inicial de artículos
 
