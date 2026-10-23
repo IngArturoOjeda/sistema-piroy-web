@@ -1,6 +1,7 @@
 import json
 import urllib.error
 import urllib.request
+from datetime import datetime
 from decimal import Decimal
 
 import pyodbc
@@ -9,6 +10,8 @@ from sincronizador.database import obtener_conexion, obtener_variable
 
 TIMEOUT_SEGUNDOS = 15
 MAX_FALLOS_CONEXION_SEGUIDOS = 3
+PEDIDOS_POR_PAGINA = 50
+MAX_PAGINAS_PEDIDOS = 20
 
 SQL_PENDIENTES = """
     SELECT
@@ -138,11 +141,11 @@ def construir_payload(fila):
     }
 
 
-def enviar_articulo(url, api_key, payload):
+def enviar_articulo(url, api_key, payload, metodo="POST"):
     solicitud = urllib.request.Request(
         url,
-        data=json.dumps(payload).encode("utf-8"),
-        method="POST",
+        data=None if payload is None else json.dumps(payload).encode("utf-8"),
+        method=metodo,
         headers={
             "Content-Type": "application/json",
             "X-API-Key": api_key,
@@ -586,6 +589,165 @@ def procesar_pendientes_stock(conn, cursor, pendientes, url, api_key):
     return resumen
 
 
+# Pedidos de la web (PostgreSQL en Render -> PEDIDOS_WEB y PEDIDOS_WEB_DETALLE en SQL Server).
+# Se guarda cabecera y detalle en UNA transaccion y solo despues se avisa a la web que el pedido fue recibido.
+# Si se corta entre una cosa y la otra, la proxima corrida ve que el pedido ya esta guardado y solo lo marca: no se duplica.
+# No toca stock: el pedido web solo queda registrado para que lo atienda el asesor.
+SQL_PEDIDO_EXISTE = "SELECT 1 FROM PEDIDOS_WEB WHERE id_pedido_web = ?"
+
+SQL_INSERTAR_PEDIDO = """
+    INSERT INTO PEDIDOS_WEB (id_pedido_web, cliente_nombre, cliente_direccion, cliente_telefono, fecha_pedido)
+    VALUES (?, ?, ?, ?, ?)
+"""
+
+SQL_INSERTAR_PEDIDO_DETALLE = """
+    INSERT INTO PEDIDOS_WEB_DETALLE (id_pedido_web, art_cod, cantidad, precio_unitario, valor_descuento, valor_pagar)
+    VALUES (?, ?, ?, ?, 0, ?)
+"""
+
+
+def fecha_local(texto):
+    """La web entrega la fecha con zona horaria (UTC); el negocio la guarda en la hora de este servidor."""
+    return datetime.fromisoformat(texto).astimezone().replace(tzinfo=None)
+
+
+def recortar(texto, largo):
+    """Los textos del cliente se ajustan al largo de la columna: un pedido real no debe quedar trabado por eso."""
+    return None if texto is None else str(texto).strip()[:largo]
+
+
+def construir_filas_pedido(pedido):
+    """Valida el pedido que llega de la web y arma lo que se inserta. Cualquier dato raro es un error del pedido
+    (no se guarda nada y no se marca recibido)."""
+    try:
+        id_pedido = int(pedido["id_pedido"])
+        detalle = pedido["detalle"]
+        if id_pedido <= 0 or not detalle:
+            raise ValueError("pedido sin numero valido o sin articulos")
+        cabecera = (
+            id_pedido,
+            (str(pedido["cliente_nombre"]).strip() or "SIN NOMBRE")[:150],
+            recortar(pedido.get("cliente_direccion"), 300),
+            recortar(pedido.get("cliente_telefono"), 50),
+            fecha_local(pedido["fecha_pedido"]),
+        )
+        filas = []
+        for linea in detalle:
+            art_cod = int(linea["art_cod"])
+            cantidad = Decimal(str(linea["cantidad"]))
+            precio = Decimal(str(linea["precio_unitario"]))
+            if cantidad <= 0 or precio < 0:
+                raise ValueError(f"cantidad o precio invalido en art_cod={art_cod}")
+            filas.append((id_pedido, art_cod, cantidad, precio, (cantidad * precio).quantize(Decimal("0.01"))))
+    except (KeyError, TypeError, ValueError, ArithmeticError) as e:
+        raise ErrorSincronizacion(f"Pedido con datos invalidos: {e}")
+    return cabecera, filas
+
+
+def guardar_pedido(conn, cursor, cabecera, filas):
+    """Devuelve True si lo guardo ahora, False si ya estaba guardado (reintento)."""
+    try:
+        cursor.execute(SQL_PEDIDO_EXISTE, (cabecera[0],))
+        if cursor.fetchone() is not None:
+            return False
+        cursor.execute(SQL_INSERTAR_PEDIDO, cabecera)
+        for fila in filas:
+            cursor.execute(SQL_INSERTAR_PEDIDO_DETALLE, fila)
+        conn.commit()
+    except pyodbc.Error as e:
+        rollback_seguro(conn)
+        raise ErrorSincronizacion(f"SQL Server no pudo guardar el pedido {cabecera[0]}: {e}")
+    return True
+
+
+def marcar_pedido_recibido(url_base, api_key, id_pedido):
+    respuesta = enviar_articulo(f"{url_base}/{id_pedido}/recibido", api_key, None)
+    if not isinstance(respuesta, dict) or respuesta.get("status") != "ok" or respuesta.get("id_pedido") != id_pedido:
+        raise ErrorSincronizacion(f"FastAPI no confirmó el pedido {id_pedido}: {respuesta}")
+
+
+def leer_pedidos_pendientes_web(url, api_key, despues_de=0):
+    separador = "&" if "?" in url else "?"
+    respuesta = enviar_articulo(f"{url}{separador}limite={PEDIDOS_POR_PAGINA}&despues_de={despues_de}", api_key, None, metodo="GET")
+    if not isinstance(respuesta, dict) or respuesta.get("status") != "ok" or not isinstance(respuesta.get("pedidos"), list):
+        raise ErrorSincronizacion(f"Respuesta inesperada al pedir los pedidos: {respuesta}")
+    return respuesta["pedidos"]
+
+
+def procesar_pedidos(conn, cursor, pedidos, url_recibido, api_key):
+    total = len(pedidos)
+    resumen = {"encontrados": total, "ok": 0, "ya_estaban": 0, "errores": [], "sin_procesar": 0, "motivo_aborto": None}
+    fallos_conexion_seguidos = 0
+
+    for indice, pedido in enumerate(pedidos, start=1):
+        id_pedido = pedido.get("id_pedido") if isinstance(pedido, dict) else None
+        etiqueta = f"[{indice}/{total}] pedido={id_pedido}"
+        try:
+            cabecera, filas = construir_filas_pedido(pedido)
+            guardado = guardar_pedido(conn, cursor, cabecera, filas)
+            marcar_pedido_recibido(url_recibido, api_key, cabecera[0])
+            resumen["ok"] += 1
+            if not guardado:
+                resumen["ya_estaban"] += 1
+            fallos_conexion_seguidos = 0
+            print(f"{etiqueta} OK" + ("" if guardado else " (ya estaba guardado en SQL Server)"))
+        except ErrorConfiguracion as e:
+            resumen["motivo_aborto"] = str(e)
+            resumen["sin_procesar"] = total - indice + 1
+            print(f"{etiqueta} ERROR FATAL: {e}")
+            break
+        except ErrorConexion as e:
+            # El pedido ya quedo guardado en SQL Server; la proxima corrida solo lo marca como recibido.
+            resumen["errores"].append(id_pedido)
+            fallos_conexion_seguidos += 1
+            print(f"{etiqueta} ERROR: {e}")
+            if fallos_conexion_seguidos >= MAX_FALLOS_CONEXION_SEGUIDOS:
+                resumen["motivo_aborto"] = f"{MAX_FALLOS_CONEXION_SEGUIDOS} fallos de conexión seguidos con FastAPI"
+                resumen["sin_procesar"] = total - indice
+                break
+        except ErrorSincronizacion as e:
+            resumen["errores"].append(id_pedido)
+            fallos_conexion_seguidos = 0
+            print(f"{etiqueta} ERROR: {e}")
+        except Exception as e:
+            rollback_seguro(conn)
+            resumen["errores"].append(id_pedido)
+            print(f"{etiqueta} ERROR inesperado: {e}")
+
+    return resumen
+
+
+def sincronizar_pedidos(conn, cursor, api_key):
+    """Paso aparte: un error aqui no frena articulos, kits ni stock (y al reves). Devuelve True si hubo error."""
+    try:
+        url = obtener_variable("SYNC_API_URL_PEDIDOS")
+        url_recibido = obtener_variable("SYNC_API_URL_PEDIDOS_RECIBIDO")
+        hubo_error = False
+        hubo_pedidos = False
+        despues_de = 0
+        # Se pide por paginas: un pedido que falla sigue pendiente, pero no traba a los mas nuevos.
+        for _ in range(MAX_PAGINAS_PEDIDOS):
+            pedidos = leer_pedidos_pendientes_web(url, api_key, despues_de)
+            if not pedidos:
+                break
+            hubo_pedidos = True
+            resumen = procesar_pedidos(conn, cursor, pedidos, url_recibido.rstrip("/"), api_key)
+            print(f"Pedidos web: {resumen['ok']} guardados ({resumen['ya_estaban']} ya estaban), "
+                  f"{len(resumen['errores'])} con error, {resumen['sin_procesar']} sin procesar")
+            if resumen["motivo_aborto"]:
+                print(f"Pedidos web detenidos: {resumen['motivo_aborto']}")
+            hubo_error = hubo_error or bool(resumen["errores"] or resumen["motivo_aborto"])
+            if resumen["motivo_aborto"] or len(pedidos) < PEDIDOS_POR_PAGINA:
+                break
+            despues_de = max(int(p["id_pedido"]) for p in pedidos)
+        if not hubo_pedidos:
+            print("No hay pedidos web pendientes")
+        return hubo_error
+    except Exception as e:
+        print(f"Error en los pedidos web: {e}")
+        return True
+
+
 def main():
     conn = None
     cursor = None
@@ -595,6 +757,9 @@ def main():
 
         conn = obtener_conexion()
         cursor = conn.cursor()
+
+        # Los pedidos de clientes van primero: son lo mas urgente para el negocio y no dependen del catalogo.
+        error_pedidos = sincronizar_pedidos(conn, cursor, api_key)
 
         pendientes = leer_pendientes(cursor)
         if pendientes:
@@ -632,7 +797,7 @@ def main():
             print("No hay stock pendiente")
             error_stock = False
 
-        if error_kits or error_stock:
+        if error_kits or error_stock or error_pedidos:
             raise SystemExit(1)
     except Exception as e:
         print(f"Error en el sincronizador: {e}")

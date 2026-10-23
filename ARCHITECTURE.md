@@ -415,14 +415,19 @@ una única transacción (rollback si cualquier fase falla):
    `pedido_detalle_componentes`, y hace commit.
 
 Ya no inserta nada en SQL Server directamente. El flujo hacia SQL Server
-(sincronizador descargando pedidos desde PostgreSQL) sigue pendiente —
-Fase 11 del `ROADMAP.md`:
+(sincronizador descargando pedidos desde PostgreSQL) está en curso — Fase 11 del
+`ROADMAP.md`. Hecho en la web: `GET /api/sync/pedidos-pendientes` (cabecera + detalle de los
+`PENDIENTE`, máx. 200 por llamada; `despues_de` pagina para que un pedido con error no trabe a los nuevos) y `POST /api/sync/pedidos/{id}/recibido` (idempotente), ambos con `X-API-Key`.
+El sincronizador (`sincronizar_pedidos`, primer paso de cada corrida; sus errores no frenan artículos, kits ni stock)
+guarda cada pedido en `PEDIDOS_WEB` + `PEDIDOS_WEB_DETALLE` (script `06_pedidos_web.sql`) en una transacción y
+solo después lo marca `RECIBIDO`; si ya estaba guardado solo lo marca. No descuenta stock. Variables de entorno:
+`SYNC_API_URL_PEDIDOS` y `SYNC_API_URL_PEDIDOS_RECIBIDO`.
 
 ```text
 Cliente
   -> FastAPI en Render
   -> PostgreSQL (pedido_cabecera con estado_sync='PENDIENTE')
-  -> sincronizador  [PENDIENTE: todavía no descarga pedidos]
+  -> sincronizador
   -> SQL Server
 ```
 

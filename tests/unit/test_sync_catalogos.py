@@ -177,6 +177,7 @@ def preparar_main(monkeypatch, orden, catalogos):
     monkeypatch.setattr(sincronizador, "obtener_conexion", lambda: Conn(Cursor()))
     monkeypatch.setattr(sincronizador, "leer_pendientes", lambda c: ["fila"])
     monkeypatch.setattr(sincronizador, "sincronizar_catalogos", catalogos)
+    monkeypatch.setattr(sincronizador, "sincronizar_pedidos", lambda c, cur, k: False)
     monkeypatch.setattr(sincronizador, "procesar_pendientes",
                         lambda *a: orden.append("articulos") or {"errores": [], "motivo_aborto": None})
     monkeypatch.setattr(sincronizador, "imprimir_resumen", lambda r: None)

@@ -58,8 +58,12 @@ SYNC_API_URL=https://www.agrovetzo.com.py/api/sync/articulos
 SYNC_API_URL_KITS=https://www.agrovetzo.com.py/api/sync/articulos-kit
 SYNC_API_URL_STOCK=https://www.agrovetzo.com.py/api/sync/stock
 SYNC_API_URL_CATALOGOS=https://www.agrovetzo.com.py/api/sync/catalogos
+SYNC_API_URL_PEDIDOS=https://www.agrovetzo.com.py/api/sync/pedidos-pendientes
+SYNC_API_URL_PEDIDOS_RECIBIDO=https://www.agrovetzo.com.py/api/sync/pedidos
 ```
 
+- Las dos variables `..._PEDIDOS...` son para bajar los pedidos de la web (requieren el script `06_pedidos_web.sql`).
+  Sin ellas el sincronizador avisa del error en los pedidos pero sigue con artículos, kits y stock.
 - `DB_SERVER=localhost` sirve si el sincronizador corre en la misma máquina que SQL Server. Si la instancia es con nombre,
   usar `localhost\NOMBREINSTANCIA`.
 - `SYNC_API_KEY` es la misma que está en el panel de Render (servicio `agrovetzo-web` > Environment). Cópiala de allí
@@ -129,4 +133,4 @@ volver a encenderse la tarea retoma lo pendiente: nada se pierde.
 - Quitar la copia de pruebas: **no** correr más el sincronizador desde la PC de desarrollo contra Render.
 - Cuando el servicio de Render sea de pago (o se duerma menos), conviene subir `TIMEOUT_SEGUNDOS` solo si aparecen
   errores de conexión.
-- Borrar `ADMIN_API_KEY` de Render (ya no se usa).
+- `ADMIN_API_KEY` ya se borró de Render y del `.env` de desarrollo (2026-10-20).

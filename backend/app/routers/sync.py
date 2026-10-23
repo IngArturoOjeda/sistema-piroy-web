@@ -1,7 +1,7 @@
 import os
 import secrets
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, status
 from psycopg.errors import ForeignKeyViolation
 
 from backend.app.database_postgres import obtener_conexion_postgres
@@ -292,6 +292,116 @@ def sincronizar_catalogos(datos: CatalogosSync):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No se pudieron sincronizar los tipos y unidades",
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+# Pedidos de la web que el sincronizador baja al sistema local. Render solo entrega los PENDIENTE y los marca
+# RECIBIDO cuando el sincronizador confirma que ya los guardo en SQL Server. Marcar dos veces no hace dano.
+SQL_PEDIDOS_PENDIENTES = """
+    SELECT id_pedido, cliente_nombre, cliente_direccion, cliente_telefono, fecha_pedido
+    FROM pedido_cabecera
+    WHERE estado_sync = 'PENDIENTE' AND id_pedido > %s
+    ORDER BY id_pedido
+    LIMIT %s
+"""
+
+SQL_DETALLE_PEDIDOS = """
+    SELECT id_pedido, art_cod, cantidad, precio_unitario
+    FROM pedido_detalle
+    WHERE id_pedido = ANY(%s)
+    ORDER BY id_pedido, id_detalle
+"""
+
+SQL_MARCAR_PEDIDO_RECIBIDO = """
+    UPDATE pedido_cabecera
+    SET estado_sync = 'RECIBIDO',
+        fecha_sincronizacion = COALESCE(fecha_sincronizacion, now())
+    WHERE id_pedido = %s
+    RETURNING id_pedido
+"""
+
+
+@router.get("/pedidos-pendientes", dependencies=[Depends(verificar_sincronizador)])
+def listar_pedidos_pendientes(
+    limite: int = Query(default=50, ge=1, le=200),
+    despues_de: int = Query(default=0, ge=0, lt=2**63),
+):
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        cursor.execute(SQL_PEDIDOS_PENDIENTES, (despues_de, limite))
+        cabeceras = cursor.fetchall()
+        pedidos = {}
+        for id_pedido, nombre, direccion, telefono, fecha in cabeceras:
+            pedidos[id_pedido] = {
+                "id_pedido": id_pedido,
+                "cliente_nombre": nombre,
+                "cliente_direccion": direccion,
+                "cliente_telefono": telefono,
+                "fecha_pedido": fecha.isoformat(),
+                "detalle": [],
+            }
+
+        if pedidos:
+            cursor.execute(SQL_DETALLE_PEDIDOS, (list(pedidos),))
+            for id_pedido, art_cod, cantidad, precio in cursor.fetchall():
+                pedidos[id_pedido]["detalle"].append({
+                    "art_cod": art_cod,
+                    "cantidad": float(cantidad),
+                    "precio_unitario": float(precio),
+                })
+
+        return {"status": "ok", "pedidos": list(pedidos.values())}
+
+    except Exception as e:
+        print("Error listando pedidos pendientes:", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudieron leer los pedidos pendientes",
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@router.post("/pedidos/{id_pedido}/recibido", dependencies=[Depends(verificar_sincronizador)])
+def marcar_pedido_recibido(id_pedido: int = Path(gt=0, lt=2**63)):
+    conn = None
+    cursor = None
+    try:
+        conn = obtener_conexion_postgres()
+        cursor = conn.cursor()
+
+        cursor.execute(SQL_MARCAR_PEDIDO_RECIBIDO, (id_pedido,))
+        if cursor.fetchone() is None:
+            conn.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"El pedido {id_pedido} no existe",
+            )
+        conn.commit()
+
+        return {"status": "ok", "id_pedido": id_pedido}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("Error marcando pedido recibido:", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo marcar el pedido como recibido",
         )
     finally:
         if cursor:

@@ -85,6 +85,7 @@ def test_los_omitidos_no_frenan_kits_ni_stock(monkeypatch):
     monkeypatch.setattr(sincronizador, "obtener_variable", lambda n: "v")
     monkeypatch.setattr(sincronizador, "obtener_conexion", lambda: type("C", (), {"cursor": lambda s: None, "close": lambda s: None})())
     monkeypatch.setattr(sincronizador, "sincronizar_catalogos", lambda c, u, k: None)
+    monkeypatch.setattr(sincronizador, "sincronizar_pedidos", lambda c, cur, k: False)
     monkeypatch.setattr(sincronizador, "leer_pendientes", lambda c: [fila(11, "", 0)])
     monkeypatch.setattr(sincronizador, "leer_pendientes_kits", lambda c: etapas.append("kits") or [])
     monkeypatch.setattr(sincronizador, "leer_pendientes_stock", lambda c: etapas.append("stock") or [])
