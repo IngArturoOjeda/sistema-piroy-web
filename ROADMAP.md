@@ -197,13 +197,13 @@ Pendiente:
 - automatizar la sincronización futura de tipos desde SQL Server hacia PostgreSQL.
 
 ## Fase 11 — Pedidos web hacia SQL Server
-Estado: EN CURSO (etapas 1, 2 y 3 de 4 hechas; falta la prueba real con un pedido)
+Estado: HECHA (2026-10-23; verificada con un pedido real: llegó a `PEDIDOS_WEB` y `PEDIDOS_WEB_DETALLE` en `Piroy` en menos de 5 minutos)
 
 Decisiones (2026-10-23): tablas nuevas `PEDIDOS_WEB` y `PEDIDOS_WEB_DETALLE` en `Piroy` (su número es el `id_pedido`
 de Render y el detalle repite las columnas de `detalllepresupuesto`, para que el formulario VFP lo consulte como un
 presupuesto); el pedido web NO descuenta stock; `valor_descuento` = 0 (la web solo guarda el precio cobrado).
 Etapas: 1) rutas `GET /api/sync/pedidos-pendientes` y `POST /api/sync/pedidos/{id}/recibido` (hecha);
-2) script de tablas `scripts/sqlserver/06_pedidos_web.sql` (hecha y corrida en `Piroy` el 2026-10-23); 3) el sincronizador baja y guarda; 4) prueba real con un pedido.
+2) script de tablas `scripts/sqlserver/06_pedidos_web.sql` (hecha y corrida en `Piroy` el 2026-10-23); 3) el sincronizador baja y guarda; 4) prueba real con un pedido (hecha). Sigue la Fase 12 (formulario VFP).
 
 Implementar:
 - consulta de pedidos `PENDIENTE`;
